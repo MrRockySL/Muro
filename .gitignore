@@ -17,3 +17,8 @@ CLAUDE.md
 PLAN.md
 
 .DS_Store
+
+# The wallpaper library is its own public repo (MrRockySL/Muro-Wallpapers);
+# catalog.json is generated into that clone, not kept here.
+Muro-Wallpapers/
+catalog.json

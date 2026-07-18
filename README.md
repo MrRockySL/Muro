@@ -88,11 +88,12 @@ account. Every wallpaper and every feature is unlocked.
 
 You never have to update the app to get new wallpapers.
 
-The library is indexed by [`catalog.json`](catalog.json) in this repo, and the
-videos are hosted as release assets. Muro re-reads that catalog every time it
-launches or comes to the front — so when new wallpapers are published here, they
-appear in the **Explore** tab of **every install that already exists**, whether
-it was downloaded today or six months ago.
+The library lives in its own repo,
+**[Muro-Wallpapers](https://github.com/MrRockySL/Muro-Wallpapers)** — a
+`catalog.json` index plus the videos as release assets. Muro re-reads that
+catalog every time it launches or comes to the front, so when new wallpapers are
+published there they appear in the **Explore** tab of **every install that
+already exists**, whether it was downloaded today or six months ago.
 
 Videos download only when you pick one, and can be removed again from the
 Library tab whenever you want the space back.
@@ -158,8 +159,7 @@ send a **pull request** — let's make it better together.
 
 ## Credits
 
-Wallpaper videos by **[Wallspace](https://wallspace.app)** — they made the
-artwork, Muro just plays it. If you like these wallpapers, go support them.
+Wallpaper videos by **[Wallspace](https://wallspace.app)**
 
 ---
 

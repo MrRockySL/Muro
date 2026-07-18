@@ -28,7 +28,7 @@ func die(_ message: String) -> Never {
 
 struct Options {
     var upload = false
-    var repo = "MrRockySL/Muro"
+    var repo = "MrRockySL/Muro-Wallpapers"
     var tag = "wallpapers"
     var catalogPath = "catalog.json"
     var titles: [String] = []

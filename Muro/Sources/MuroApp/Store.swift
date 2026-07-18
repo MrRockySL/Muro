@@ -97,7 +97,11 @@ final class AppStore: ObservableObject {
         recomputeSize()
         // Seed the default so the Settings field shows the real URL instead
         // of an empty placeholder (getter also falls back when cleared).
-        if (defaults.string(forKey: "catalogURL") ?? "").isEmpty {
+        // Existing installs have an older default *stored*, which would keep
+        // winning over the new one and silently leave Explore empty, so retire
+        // superseded defaults on launch.
+        let storedCatalogURL = defaults.string(forKey: "catalogURL") ?? ""
+        if storedCatalogURL.isEmpty || AppStore.retiredCatalogURLs.contains(storedCatalogURL) {
             defaults.set(AppStore.defaultCatalogURL, forKey: "catalogURL")
         }
         Task { await refreshCatalog() }
@@ -194,9 +198,22 @@ final class AppStore: ObservableObject {
     // MARK: - Remote catalog
 
     /// Baked-in default (PLAN §Distribution): catalog.json in the public
-    /// repo, served raw. Overridable in Settings; empty falls back here.
+    /// wallpaper repo, served raw. Overridable in Settings; empty falls back
+    /// here.
+    ///
+    /// This is deliberately a *different* repo from the app source. The app
+    /// repo is private, and the app fetches this anonymously — it carries no
+    /// credentials, so a private URL would 404 for every user. Splitting them
+    /// keeps the source closed while the wallpaper library stays reachable.
     static let defaultCatalogURL =
-        "https://raw.githubusercontent.com/MrRockySL/Muro/main/catalog.json"
+        "https://raw.githubusercontent.com/MrRockySL/Muro-Wallpapers/main/catalog.json"
+
+    /// Former defaults. An install that still has one of these stored gets
+    /// migrated to `defaultCatalogURL`; anything else is treated as a
+    /// deliberate user override and left alone.
+    static let retiredCatalogURLs = [
+        "https://raw.githubusercontent.com/MrRockySL/Muro/main/catalog.json",
+    ]
 
     var catalogURLString: String {
         get {
@@ -226,7 +243,13 @@ final class AppStore: ObservableObject {
     func checkForUpdates() async {
         // GitHub API latest release vs our version; silent until the repo
         // exists and stays silent offline or on any parse failure.
-        guard let url = URL(string: "https://api.github.com/repos/MrRockySL/Muro/releases/latest"),
+        //
+        // Points at the public wallpaper repo, not the private app repo, for
+        // the same reason as defaultCatalogURL. `/releases/latest` ignores
+        // prereleases, so the wallpaper-storage release is never mistaken for
+        // an app update — publish a normal `vX.Y` release there when installs
+        // should be told to update.
+        guard let url = URL(string: "https://api.github.com/repos/MrRockySL/Muro-Wallpapers/releases/latest"),
               let (data, response) = try? await URLSession.shared.data(from: url),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
