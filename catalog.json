@@ -1,0 +1,148 @@
+{
+  "wallpapers" : [
+    {
+      "category" : "Nature",
+      "duration" : 11.766666666666667,
+      "fps" : 30,
+      "height" : 2160,
+      "id" : "d5bc42f5-e7d9-4d62-8062-b8da44c7898c",
+      "sizeBytes" : 14530427,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/d5bc42f5-e7d9-4d62-8062-b8da44c7898c.jpg",
+      "title" : "Misty Mountains at Night",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/d5bc42f5-e7d9-4d62-8062-b8da44c7898c.mov",
+      "width" : 3840
+    },
+    {
+      "category" : "Nature",
+      "duration" : 59.51779166666667,
+      "fps" : 23.976024627685547,
+      "height" : 2160,
+      "id" : "f490ccf3-ae44-4081-807c-a61c6f4f2c5f",
+      "sizeBytes" : 66237357,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/f490ccf3-ae44-4081-807c-a61c6f4f2c5f.jpg",
+      "title" : "Misty Forest Aerial View",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/f490ccf3-ae44-4081-807c-a61c6f4f2c5f.mov",
+      "width" : 3840
+    },
+    {
+      "category" : "Video Games",
+      "duration" : 15.733333333333333,
+      "fps" : 60,
+      "height" : 2160,
+      "id" : "d910df5a-da19-45c8-8ccc-74cd978f8364",
+      "sizeBytes" : 43706094,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/d910df5a-da19-45c8-8ccc-74cd978f8364.jpg",
+      "title" : "Moonlit Torii Gate",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/d910df5a-da19-45c8-8ccc-74cd978f8364.mov",
+      "width" : 3840
+    },
+    {
+      "category" : "Video Games",
+      "duration" : 13.781,
+      "fps" : 29.970029830932617,
+      "height" : 2160,
+      "id" : "41e5f4db-ea08-4741-8641-466bb07e4f4d",
+      "sizeBytes" : 8688312,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/41e5f4db-ea08-4741-8641-466bb07e4f4d.jpg",
+      "title" : "Firewatch Tower Noir",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/41e5f4db-ea08-4741-8641-466bb07e4f4d.mov",
+      "width" : 3840
+    },
+    {
+      "category" : "Nature",
+      "duration" : 33.09973333333333,
+      "fps" : 29.970029830932617,
+      "height" : 2160,
+      "id" : "941dae53-c0ae-4e29-b97b-033aa312483d",
+      "sizeBytes" : 46828035,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/941dae53-c0ae-4e29-b97b-033aa312483d.jpg",
+      "title" : "Ocean Waves From Above",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/941dae53-c0ae-4e29-b97b-033aa312483d.mov",
+      "width" : 3840
+    },
+    {
+      "category" : "Nature",
+      "duration" : 23.690333333333335,
+      "fps" : 29.970029830932617,
+      "height" : 1440,
+      "id" : "5288a086-7316-419e-a5c7-c2620ad2dd76",
+      "sizeBytes" : 14894839,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/5288a086-7316-419e-a5c7-c2620ad2dd76.jpg",
+      "title" : "Turquoise Shoreline",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/5288a086-7316-419e-a5c7-c2620ad2dd76.mov",
+      "width" : 2560
+    },
+    {
+      "category" : "Nature",
+      "duration" : 25.859166666666667,
+      "fps" : 29.970029830932617,
+      "height" : 1440,
+      "id" : "0c2a97ee-8b19-43c4-8116-77780361099e",
+      "sizeBytes" : 10995335,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/0c2a97ee-8b19-43c4-8116-77780361099e.jpg",
+      "title" : "Monochrome Storm Peaks",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/0c2a97ee-8b19-43c4-8116-77780361099e.mov",
+      "width" : 2560
+    },
+    {
+      "category" : "Sci-fi",
+      "duration" : 34.767,
+      "fps" : 30,
+      "height" : 2160,
+      "id" : "c0e3cc79-3788-459b-becd-126dbb341c27",
+      "sizeBytes" : 45727821,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/c0e3cc79-3788-459b-becd-126dbb341c27.jpg",
+      "title" : "White Hover Car On Display",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/c0e3cc79-3788-459b-becd-126dbb341c27.mov",
+      "width" : 3840
+    },
+    {
+      "category" : "Cars",
+      "duration" : 10.243566666666666,
+      "fps" : 59.940059661865234,
+      "height" : 2160,
+      "id" : "08466d78-5bfe-49e9-b858-4000c66d8e0a",
+      "sizeBytes" : 27896417,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/08466d78-5bfe-49e9-b858-4000c66d8e0a.jpg",
+      "title" : "Ken Block Hoonicorn Mustang",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/08466d78-5bfe-49e9-b858-4000c66d8e0a.mov",
+      "width" : 3840
+    },
+    {
+      "category" : "Nature",
+      "duration" : 14.7,
+      "fps" : 60,
+      "height" : 2160,
+      "id" : "d166e781-9bb6-4714-ad4a-7506cc2ac989",
+      "sizeBytes" : 29474143,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/d166e781-9bb6-4714-ad4a-7506cc2ac989.jpg",
+      "title" : "Rain Over Dark Hills",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/d166e781-9bb6-4714-ad4a-7506cc2ac989.mov",
+      "width" : 3840
+    },
+    {
+      "category" : "Nature",
+      "duration" : 29.966666666666665,
+      "fps" : 30,
+      "height" : 2160,
+      "id" : "c0b0484f-80b9-40f3-bf02-03cd0886ba82",
+      "sizeBytes" : 41792484,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/c0b0484f-80b9-40f3-bf02-03cd0886ba82.jpg",
+      "title" : "Snowfall in Forest",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/c0b0484f-80b9-40f3-bf02-03cd0886ba82.mov",
+      "width" : 3840
+    },
+    {
+      "category" : "Abstract",
+      "duration" : 41.666666666666664,
+      "fps" : 23.994197845458984,
+      "height" : 1080,
+      "id" : "582563ef-80e8-4289-bee8-4a35eac21851",
+      "sizeBytes" : 15424057,
+      "thumbnail" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/582563ef-80e8-4289-bee8-4a35eac21851.jpg",
+      "title" : "Molten Sunset Waves",
+      "video" : "https:\/\/github.com\/MrRockySL\/Muro\/releases\/download\/wallpapers\/582563ef-80e8-4289-bee8-4a35eac21851.mov",
+      "width" : 1920
+    }
+  ]
+}

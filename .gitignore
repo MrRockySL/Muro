@@ -1,0 +1,19 @@
+# Build output
+Muro/.build/
+Muro/dist/
+Muro/Icon/out/
+Muro/Icon/icongen
+
+# Test media and source videos — never in git. Wallpapers ship as GitHub
+# release assets and reach the app through catalog.json.
+Muro/TestAssets/
+Wallpapers/
+Wallpapers*/
+*.mov
+*.mp4
+
+# Internal working notes, not part of the public project
+CLAUDE.md
+PLAN.md
+
+.DS_Store
