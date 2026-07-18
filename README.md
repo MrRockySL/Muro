@@ -6,7 +6,8 @@
 
 ### Live wallpapers for your Mac — without the battery bill. For free.
 
-![macOS](https://img.shields.io/badge/macOS-26%2B-black?logo=apple)
+![macOS](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)
+![Apple Silicon](https://img.shields.io/badge/Apple_Silicon-required-black?logo=apple)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Price](https://img.shields.io/badge/Price-Free-brightgreen)
 [![Download](https://img.shields.io/badge/⬇_Download-Muro-A9C4FF)](../../releases/latest)
@@ -51,8 +52,11 @@ account. Every wallpaper and every feature is unlocked.
 - 💾 **Space control** — see what each wallpaper costs on disk and remove downloads you're done with.
 - 🆓 **Free & open source** (MIT).
 
-> Requires **macOS 26 or newer** on **Apple Silicon** — it's built on SwiftUI's
-> native liquid glass and the Apple Silicon media engine.
+> Requires **macOS 14 (Sonoma) or newer** on an **Apple Silicon** Mac — the
+> build is arm64-only and leans on the Apple Silicon media engine for hardware
+> HEVC decoding. On **macOS 26+** the interface uses SwiftUI's native liquid
+> glass; on older versions it falls back to translucent materials, which looks
+> slightly different but works identically.
 
 ---
 
