@@ -18,10 +18,6 @@ struct WallpaperItem: Identifiable, Equatable {
     var sizeBytes: Int64 { local?.sizeBytes ?? remote?.sizeBytes ?? 0 }
     var liked: Bool { local?.liked ?? false }
     var isDownloaded: Bool { local != nil }
-    var isNew: Bool {
-        guard let local else { return true }   // remote-only = not fetched yet
-        return Date().timeIntervalSince(local.dateAdded) < 14 * 86_400
-    }
     var resolutionLabel: String {
         width >= 3200 ? "4K" : (width >= 2200 ? "1440p" : "1080p")
     }
@@ -274,8 +270,54 @@ final class AppStore: ObservableObject {
         guard let url = URL(string: catalogURLString) else { return }
         if let fetched = try? await RemoteCatalog.fetch(from: url) {
             catalog = fetched.wallpapers
+            noteCatalogArrivals()
         }
     }
+
+    // MARK: - "NEW" badges
+
+    /// Catalog ids this install has already displayed at least once.
+    /// Persisted, because the whole point is to survive relaunches.
+    private var seenCatalogIDs: Set<String> {
+        get { Set(defaults.stringArray(forKey: "seenCatalogIDs") ?? []) }
+        set { defaults.set(Array(newValue), forKey: "seenCatalogIDs") }
+    }
+
+    /// Ids that showed up in the catalog during *this* launch. Deliberately
+    /// not persisted: a badge marks "this arrived since you last looked", so
+    /// it lasts the session and is gone next time the app opens.
+    @Published private(set) var newlyArrivedIDs: Set<String> = []
+
+    /// A wallpaper is NEW when it has appeared in the catalog since this
+    /// install last saw it. The old rule — "not downloaded means new" — badged
+    /// the entire catalog on every fresh install, and for downloaded ones it
+    /// measured the local `dateAdded`, i.e. when *this user* downloaded it
+    /// rather than when it was published.
+    ///
+    /// A first run seeds the seen-set instead of badging: everything is new to
+    /// a new user, so badging all of it says nothing.
+    private func noteCatalogArrivals() {
+        let ids = Set(catalog.map(\.id))
+        guard defaults.object(forKey: "seenCatalogIDs") != nil else {
+            seenCatalogIDs = ids
+            return
+        }
+        let arrivals = ids.subtracting(seenCatalogIDs)
+        // A long-absent user shouldn't return to a wall of badges, so only
+        // recent publishes count. Entries with no publishedAt (catalogs from
+        // before the field existed) are treated as not recent.
+        let cutoff = Date().addingTimeInterval(-AppStore.newBadgeWindow)
+        let recent = arrivals.filter { id in
+            guard let at = catalog.first(where: { $0.id == id })?.publishedAt else { return false }
+            return at > cutoff
+        }
+        newlyArrivedIDs.formUnion(recent)
+        seenCatalogIDs = seenCatalogIDs.union(ids)
+    }
+
+    static let newBadgeWindow: TimeInterval = 30 * 86_400
+
+    func isNew(_ item: WallpaperItem) -> Bool { newlyArrivedIDs.contains(item.id) }
 
     // MARK: - App update check
 
@@ -285,23 +327,44 @@ final class AppStore: ObservableObject {
     static let appVersion =
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
 
-    func checkForUpdates() async {
-        // GitHub API latest release vs our version; silent until the repo
-        // exists and stays silent offline or on any parse failure.
-        //
-        // Points at the app repo, which holds the DMG on its Releases once
-        // public (open-source decision 2026-07-19). 404s silently while it is
-        // still private. `/releases/latest` ignores prereleases.
+    /// What the Settings "Check for Updates" button is showing right now.
+    /// The launch check stays silent (`.idle`) so nothing flashes on startup;
+    /// only a check the user asked for reports "up to date" or a failure.
+    enum UpdateCheck: Equatable {
+        case idle
+        case checking
+        case upToDate
+        case available(version: String, page: URL)
+        case failed
+    }
+
+    @Published var updateCheck: UpdateCheck = .idle
+
+    func checkForUpdates(userInitiated: Bool = false) async {
+        // GitHub API latest release vs our version. `/releases/latest` ignores
+        // prereleases, so a wallpaper-storage release is never mistaken for an
+        // app update. The automatic launch check stays silent on every failure
+        // (offline, rate-limited, no release yet); only a user-initiated check
+        // surfaces the outcome, because someone who pressed a button deserves
+        // an answer rather than a button that does nothing.
+        if userInitiated { updateCheck = .checking }
         guard let url = URL(string: "https://api.github.com/repos/MrRockySL/Muro/releases/latest"),
               let (data, response) = try? await URLSession.shared.data(from: url),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tag = json["tag_name"] as? String,
               let page = (json["html_url"] as? String).flatMap(URL.init)
-        else { return }
+        else {
+            if userInitiated { updateCheck = .failed }
+            return
+        }
         let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
         if AppStore.isVersion(latest, newerThan: AppStore.appVersion) {
             updateAvailable = page
+            if userInitiated { updateCheck = .available(version: latest, page: page) }
+        } else {
+            updateAvailable = nil
+            if userInitiated { updateCheck = .upToDate }
         }
     }
 

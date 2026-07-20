@@ -475,7 +475,7 @@ struct WallpaperCard: View {
         if let first = applied.first {
             AppliedChip(label: applied.count > 1 ? "ALL DISPLAYS" : first.chipLabel)
                 .padding(12)
-        } else if item.isNew {
+        } else if store.isNew(item) {
             NewBadge().padding(12)
         }
     }

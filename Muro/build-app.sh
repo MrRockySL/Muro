@@ -27,7 +27,11 @@ fi
 # over DMG size). Sourced from the local library; the id must match
 # BundledWallpaper.id in Sources/MuroApp/BundledWallpaper.swift.
 BUNDLED_ID="c0b0484f-80b9-40f3-bf02-03cd0886ba82"
-MURO_LIB="$HOME/Library/Application Support/Muro"
+# Overridable, because tying the build to the developer's personal library
+# means the DMG cannot be built whenever that library is wiped or partial —
+# e.g. right after a fresh-install test. Point MURO_LIB at any folder holding
+# Masters/<id>.mov + Thumbnails/<id>.jpg.
+MURO_LIB="${MURO_LIB:-$HOME/Library/Application Support/Muro}"
 if [[ -f "$MURO_LIB/Masters/$BUNDLED_ID.mov" && -f "$MURO_LIB/Thumbnails/$BUNDLED_ID.jpg" ]]; then
     cp "$MURO_LIB/Masters/$BUNDLED_ID.mov"    "$APP/Contents/Resources/BundledWallpaper.mov"
     cp "$MURO_LIB/Thumbnails/$BUNDLED_ID.jpg" "$APP/Contents/Resources/BundledWallpaper.jpg"
@@ -49,8 +53,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIconFile</key>        <string>AppIcon</string>
     <key>CFBundleIconName</key>        <string>AppIcon</string>
     <key>CFBundleIdentifier</key>      <string>com.mrrockysl.muro</string>
-    <key>CFBundleVersion</key>         <string>3</string>
-    <key>CFBundleShortVersionString</key> <string>1.0</string>
+    <key>CFBundleVersion</key>         <string>4</string>
+    <key>CFBundleShortVersionString</key> <string>1.1</string>
     <key>CFBundlePackageType</key>     <string>APPL</string>
     <key>CFBundleInfoDictionaryVersion</key> <string>6.0</string>
     <key>LSMinimumSystemVersion</key>  <string>14.0</string>

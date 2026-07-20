@@ -49,6 +49,7 @@ struct Options {
     var repo = "MrRockySL/Muro-Wallpapers"
     var tag = "wallpapers"
     var catalogPath = "catalog.json"
+    var libraryRoot = LibraryManifest.defaultRoot()
     var titles: [String] = []
 }
 
@@ -70,13 +71,19 @@ func parseOptions() -> Options {
         case "--repo":    opts.repo = value(for: "--repo")
         case "--tag":     opts.tag = value(for: "--tag")
         case "--catalog": opts.catalogPath = value(for: "--catalog")
+        case "--library":
+            opts.libraryRoot = URL(fileURLWithPath: value(for: "--library"), isDirectory: true)
         case "--help", "-h":
             print("""
                 usage: muro-publish [--upload] [--replace] [--reupload] [--github]
-                                    [--repo OWNER/NAME] [--tag TAG] [--catalog PATH] [title ...]
+                                    [--library DIR] [--repo OWNER/NAME] [--tag TAG]
+                                    [--catalog PATH] [title ...]
 
                   (no titles)  publish every wallpaper in the local library
                   --upload     actually upload (default: dry run)
+                  --library    publish from this library instead of the app's own
+                               (~/Library/Application Support/Muro). Use a staging
+                               folder so publishing never fills your own library.
                   --replace    publish ONLY the selected wallpapers, dropping anything
                                else that is currently live (destructive — rarely wanted)
                   --reupload   re-upload assets for wallpapers already live
@@ -112,7 +119,7 @@ func ghPath() -> String {
 // MARK: - Select wallpapers
 
 let opts = parseOptions()
-let root = LibraryManifest.defaultRoot()
+let root = opts.libraryRoot
 let manifest = LibraryManifest.load(root: root)
 guard !manifest.wallpapers.isEmpty else { die("library is empty — nothing to publish") }
 
@@ -256,7 +263,7 @@ func fetchLiveCatalog(_ url: URL) throws -> RemoteCatalog? {
             NSLocalizedDescriptionKey: "HTTP \(status) reading \(url.absoluteString)"
         ])
     }
-    return try JSONDecoder().decode(RemoteCatalog.self, from: payload)
+    return try RemoteCatalog.makeDecoder().decode(RemoteCatalog.self, from: payload)
 }
 
 var liveEntries: [CatalogEntry] = []
@@ -294,6 +301,11 @@ let publishedByID = Dictionary(uniqueKeysWithValues: publishedEntries.map { ($0.
 func merging(live: CatalogEntry, with published: CatalogEntry) -> CatalogEntry {
     var result = published
     if result.preview720 == nil { result.preview720 = live.preview720 }
+    // The publish date belongs to the wallpaper's first appearance, so the
+    // live value always wins. Re-stamping it on every republish would make
+    // the whole library look brand new to every install at once — exactly
+    // the bug this field exists to fix.
+    result.publishedAt = live.publishedAt ?? published.publishedAt
     return result
 }
 
@@ -303,7 +315,16 @@ var mergedEntries = liveEntries.map { live in
     publishedByID[live.id].map { merging(live: live, with: $0) } ?? live
 }
 let liveIDs = Set(liveEntries.map(\.id))
-mergedEntries.append(contentsOf: publishedEntries.filter { !liveIDs.contains($0.id) })
+// Anything the live catalog has never seen is being published now, so now is
+// its publish date.
+let publishDate = Date()
+mergedEntries.append(contentsOf: publishedEntries
+    .filter { !liveIDs.contains($0.id) }
+    .map { entry in
+        var stamped = entry
+        stamped.publishedAt = publishDate
+        return stamped
+    })
 
 let newCount = publishedEntries.filter { !liveIDs.contains($0.id) }.count
 let updatedCount = publishedEntries.count - newCount
@@ -311,8 +332,7 @@ let carriedCount = mergedEntries.count - publishedEntries.count
 
 let catalog = RemoteCatalog(wallpapers: mergedEntries)
 
-let encoder = JSONEncoder()
-encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+let encoder = RemoteCatalog.makeEncoder()
 let catalogData: Data
 do {
     catalogData = try encoder.encode(catalog)

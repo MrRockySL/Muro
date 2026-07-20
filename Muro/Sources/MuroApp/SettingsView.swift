@@ -196,6 +196,14 @@ struct SettingsView: View {
                 // Explore. Still overridable via `defaults write … catalogURL`
                 // for the owner's own testing.
 
+                section("ABOUT") {
+                    row(icon: "arrow.down.circle", tint: .green,
+                        title: "Software Update",
+                        subtitle: updateSubtitle) {
+                        updateControl
+                    }
+                }
+
                 Spacer(minLength: 24)
             }
             .padding(.horizontal, 28)
@@ -272,6 +280,48 @@ struct SettingsView: View {
             .fill(Color.white.opacity(0.06))
             .frame(height: 1)
             .padding(.leading, 58)
+    }
+
+    // MARK: - Software update
+
+    private var updateSubtitle: String {
+        switch store.updateCheck {
+        case .idle:      return "Muro \(AppStore.appVersion)"
+        case .checking:  return "Checking GitHub…"
+        case .upToDate:  return "Muro \(AppStore.appVersion) — you're up to date"
+        case .available(let version, _):
+            return "Version \(version) is available on GitHub"
+        case .failed:    return "Couldn't check — check your connection"
+        }
+    }
+
+    @ViewBuilder private var updateControl: some View {
+        switch store.updateCheck {
+        case .checking:
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 96)
+        case .available(_, let page):
+            // Muro is distributed as a DMG, not self-updating, so the honest
+            // action is to hand the user the release page they installed from.
+            Button("Download ↗") { NSWorkspace.shared.open(page) }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 5.5)
+                .background(Capsule().fill(Color.muroAccent))
+        default:
+            Button("Check Now") {
+                Task { await store.checkForUpdates(userInitiated: true) }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 5.5)
+            .glassCapsule(fill: 0.09, stroke: 0.15)
+        }
     }
 
     private func row(
