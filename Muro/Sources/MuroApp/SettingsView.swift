@@ -129,7 +129,7 @@ struct SettingsView: View {
 
                 section("LOCK SCREEN") {
                     row(icon: "lock", tint: .indigo, title: "Lock Screen Live Wallpapers",
-                        subtitle: "Coming in a later update — lock screen uses system default") {
+                        subtitle: "Coming in a later update. Lock screen uses the system default.") {
                         Toggle("", isOn: .constant(false))
                             .toggleStyle(.switch).labelsHidden().disabled(true)
                     }
@@ -288,10 +288,10 @@ struct SettingsView: View {
         switch store.updateCheck {
         case .idle:      return "Muro \(AppStore.appVersion)"
         case .checking:  return "Checking GitHub…"
-        case .upToDate:  return "Muro \(AppStore.appVersion) — you're up to date"
+        case .upToDate:  return "Muro \(AppStore.appVersion) is the latest version"
         case .available(let version, _):
             return "Version \(version) is available on GitHub"
-        case .failed:    return "Couldn't check — check your connection"
+        case .failed:    return "Couldn't check. Check your connection."
         }
     }
 

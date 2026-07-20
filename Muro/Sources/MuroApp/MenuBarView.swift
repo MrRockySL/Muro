@@ -221,7 +221,7 @@ struct MenuBarView: View {
 
     private func playlistOptions() -> [MenuOption] {
         guard !store.playlists.isEmpty else {
-            return [MenuOption(title: "No playlists yet — create one in Library")]
+            return [MenuOption(title: "No playlists yet. Create one in Library.")]
         }
         return store.playlists.map { playlist in
             MenuOption(title: playlist.name, checked: store.activePlaylistID == playlist.id) {

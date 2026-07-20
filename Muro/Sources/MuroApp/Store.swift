@@ -565,7 +565,7 @@ final class AppStore: ObservableObject {
             for (index, url) in videos.enumerated() {
                 await MainActor.run {
                     AppStore.shared.importStatus =
-                        "Importing \(url.lastPathComponent) (\(index + 1)/\(videos.count)) — transcoding to HEVC…"
+                        "Importing \(url.lastPathComponent) (\(index + 1)/\(videos.count)), transcoding to HEVC…"
                 }
                 _ = try? importVideo(source: url, root: root)
                 await MainActor.run { AppStore.shared.reloadFromDisk() }
