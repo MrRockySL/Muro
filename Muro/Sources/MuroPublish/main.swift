@@ -2,9 +2,16 @@ import Foundation
 import MuroKit
 
 // muro-publish — one command to publish wallpapers (PLAN §Distribution):
-// regenerates catalog.json from the local library and (only with --upload)
-// pushes each wallpaper's master + thumbnail + p720 preview. The DEFAULT is
-// a dry run: nothing leaves this Mac without --upload.
+// merges the local library into the live catalog.json and (only with
+// --upload) pushes each new wallpaper's master + thumbnail + p720 preview.
+// The DEFAULT is a dry run: nothing leaves this Mac without --upload.
+//
+// The catalog is the app's ENTIRE library list, so it is always merged, never
+// replaced: wallpapers this Mac does not have are carried through from what
+// is already live, and assets already published are not re-sent. That makes
+// adding wallpapers additive — import the new ones, publish, done — and means
+// a partial local library can no longer wipe wallpapers out of every install.
+// --replace opts back into the old destructive behaviour.
 //
 // Where it publishes:
 //   • If ~/.config/muro/r2.json exists (it does since 2026-07-19): Cloudflare
@@ -21,6 +28,9 @@ import MuroKit
 //
 //   (no titles)     publish every wallpaper in the library
 //   --upload        actually upload (default: dry run)
+//   --replace       publish ONLY the selected wallpapers, dropping everything
+//                   else that is live (destructive — rarely what you want)
+//   --reupload      re-send assets for wallpapers already published
 //   --github        use GitHub Releases instead of R2
 //   --repo          GitHub repo               (default: MrRockySL/Muro-Wallpapers)
 //   --tag           release tag for assets    (default: wallpapers)
@@ -34,6 +44,8 @@ func die(_ message: String) -> Never {
 struct Options {
     var upload = false
     var forceGitHub = false
+    var replace = false
+    var reupload = false
     var repo = "MrRockySL/Muro-Wallpapers"
     var tag = "wallpapers"
     var catalogPath = "catalog.json"
@@ -53,11 +65,22 @@ func parseOptions() -> Options {
         case "--upload":  opts.upload = true
         case "--dry-run": opts.upload = false
         case "--github":  opts.forceGitHub = true
+        case "--replace": opts.replace = true
+        case "--reupload": opts.reupload = true
         case "--repo":    opts.repo = value(for: "--repo")
         case "--tag":     opts.tag = value(for: "--tag")
         case "--catalog": opts.catalogPath = value(for: "--catalog")
         case "--help", "-h":
-            print("usage: muro-publish [--upload] [--github] [--repo OWNER/NAME] [--tag TAG] [--catalog PATH] [title ...]")
+            print("""
+                usage: muro-publish [--upload] [--replace] [--reupload] [--github]
+                                    [--repo OWNER/NAME] [--tag TAG] [--catalog PATH] [title ...]
+
+                  (no titles)  publish every wallpaper in the local library
+                  --upload     actually upload (default: dry run)
+                  --replace    publish ONLY the selected wallpapers, dropping anything
+                               else that is currently live (destructive — rarely wanted)
+                  --reupload   re-upload assets for wallpapers already live
+                """)
             exit(0)
         default:
             if arg.hasPrefix("--") { die("unknown option \(arg)") }
@@ -159,10 +182,10 @@ func r2Key(for relative: String, entry: WallpaperEntry) -> String {
 let immutableCache = "public, max-age=31536000, immutable"
 let catalogCache = "public, max-age=60"
 
-let catalog: RemoteCatalog
+let publishedEntries: [CatalogEntry]
 if let r2 {
     let base = r2.publicBaseURL.hasSuffix("/") ? String(r2.publicBaseURL.dropLast()) : r2.publicBaseURL
-    catalog = RemoteCatalog(wallpapers: selected.map { entry in
+    publishedEntries = selected.map { entry in
         CatalogEntry(
             id: entry.id, title: entry.title, category: entry.category,
             width: entry.width, height: entry.height, fps: entry.fps,
@@ -172,12 +195,12 @@ if let r2 {
             preview720: entry.previewFile != nil
                 ? URL(string: "\(base)/p720/\(entry.id).mov") : nil
         )
-    })
+    }
 } else {
     // Asset URLs use the flat basenames (<id>.mov / <id>.jpg / <id>-p720.mov)
     // that `gh release upload` derives from the file paths.
     let base = "https://github.com/\(opts.repo)/releases/download/\(opts.tag)/"
-    catalog = RemoteCatalog(wallpapers: selected.map { entry in
+    publishedEntries = selected.map { entry in
         CatalogEntry(
             id: entry.id, title: entry.title, category: entry.category,
             width: entry.width, height: entry.height, fps: entry.fps,
@@ -188,8 +211,105 @@ if let r2 {
                 URL(string: base + ($0 as NSString).lastPathComponent)!
             }
         )
-    })
+    }
 }
+
+// MARK: - Merge with what is already live
+
+// catalog.json is the app's ENTIRE library list, not a changelog. Writing it
+// as just the wallpapers this run selected makes the live catalog a mirror of
+// whichever Mac happened to publish — so a partial local library (a fresh
+// install, a wiped Mac, or simply `muro-publish "One Title"`) would delete
+// every other wallpaper from every installed app. So we merge: what we
+// publish wins by id, and anything only the live catalog knows about is
+// carried through untouched.
+let liveCatalogURL: URL = {
+    if let r2 {
+        let base = r2.publicBaseURL.hasSuffix("/") ? String(r2.publicBaseURL.dropLast()) : r2.publicBaseURL
+        return URL(string: "\(base)/catalog.json")!
+    }
+    return URL(string: "https://raw.githubusercontent.com/\(opts.repo)/main/catalog.json")!
+}()
+
+/// Reads the published catalog. `nil` means "there is no catalog yet" (404);
+/// a thrown error means we could not tell, which must never be treated as
+/// an empty catalog.
+func fetchLiveCatalog(_ url: URL) throws -> RemoteCatalog? {
+    var request = URLRequest(url: url)
+    request.cachePolicy = .reloadIgnoringLocalCacheData
+    request.timeoutInterval = 20
+    var payload: Data?
+    var status = 0
+    var transportError: Error?
+    let finished = DispatchSemaphore(value: 0)
+    URLSession.shared.dataTask(with: request) { data, response, error in
+        transportError = error
+        status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        payload = data
+        finished.signal()
+    }.resume()
+    finished.wait()
+    if let transportError { throw transportError }
+    if status == 404 { return nil }
+    guard status == 200, let payload else {
+        throw NSError(domain: "muro-publish", code: status, userInfo: [
+            NSLocalizedDescriptionKey: "HTTP \(status) reading \(url.absoluteString)"
+        ])
+    }
+    return try JSONDecoder().decode(RemoteCatalog.self, from: payload)
+}
+
+var liveEntries: [CatalogEntry] = []
+if opts.replace {
+    print("--replace: writing ONLY the \(publishedEntries.count) selected wallpaper(s); "
+        + "anything else currently live will be removed from every install.")
+} else {
+    do {
+        if let live = try fetchLiveCatalog(liveCatalogURL) {
+            liveEntries = live.wallpapers
+            print("live catalog: \(liveEntries.count) wallpapers — merging.")
+        } else {
+            print("live catalog: none yet — publishing a fresh one.")
+        }
+    } catch {
+        // Publishing a replacing catalog because the network hiccuped is the
+        // one failure that damages every installed app, so refuse instead.
+        die("""
+            could not read the live catalog at \(liveCatalogURL.absoluteString): \
+            \(error.localizedDescription)
+            Refusing to publish, because overwriting it blind would delete any \
+            wallpaper missing from this Mac. Fix connectivity and retry, or pass \
+            --replace if you really do mean to publish only these \
+            \(publishedEntries.count) wallpaper(s).
+            """)
+    }
+}
+
+let publishedByID = Dictionary(uniqueKeysWithValues: publishedEntries.map { ($0.id, $0) })
+
+/// Re-publishing a wallpaper must never make its catalog entry *poorer* than
+/// the one already live. A library that downloaded a wallpaper through the app
+/// has no local p720 file, so it would otherwise strip a perfectly good
+/// published preview URL — the file is on the CDN either way.
+func merging(live: CatalogEntry, with published: CatalogEntry) -> CatalogEntry {
+    var result = published
+    if result.preview720 == nil { result.preview720 = live.preview720 }
+    return result
+}
+
+// Live order is preserved so existing installs keep a stable library; new
+// wallpapers land at the end in the order they were selected.
+var mergedEntries = liveEntries.map { live in
+    publishedByID[live.id].map { merging(live: live, with: $0) } ?? live
+}
+let liveIDs = Set(liveEntries.map(\.id))
+mergedEntries.append(contentsOf: publishedEntries.filter { !liveIDs.contains($0.id) })
+
+let newCount = publishedEntries.filter { !liveIDs.contains($0.id) }.count
+let updatedCount = publishedEntries.count - newCount
+let carriedCount = mergedEntries.count - publishedEntries.count
+
+let catalog = RemoteCatalog(wallpapers: mergedEntries)
 
 let encoder = JSONEncoder()
 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -200,28 +320,44 @@ do {
 } catch {
     die("could not write \(opts.catalogPath): \(error.localizedDescription)")
 }
-print("wrote \(opts.catalogPath) (\(catalog.wallpapers.count) wallpapers)")
+print("wrote \(opts.catalogPath) — \(catalog.wallpapers.count) wallpapers "
+    + "(\(newCount) new, \(updatedCount) updated, \(carriedCount) carried over)")
 
 // MARK: - Upload
 
-let totalBytes = selected.reduce(Int64(0)) { $0 + $1.sizeBytes }
+// Assets are named by id and served immutable, so a wallpaper already in the
+// live catalog already has its files on the CDN — re-sending them costs
+// bandwidth and, worse, would overwrite the published copies with whatever
+// this Mac happens to hold (an older, non-faststart master, say). Skip them
+// unless --reupload asks for it.
+let alreadyLive = opts.reupload ? [] : liveIDs
+let pendingAssets = assetFiles.filter { !alreadyLive.contains($0.entry.id) }
+let skippedCount = assetFiles.count - pendingAssets.count
+if skippedCount > 0 {
+    print("skipping \(skippedCount) wallpaper(s) already published "
+        + "(pass --reupload to send them again).")
+}
+
+let totalBytes = pendingAssets.reduce(Int64(0)) { $0 + $1.entry.sizeBytes }
 let totalMB = String(format: "%.0f MB", Double(totalBytes) / 1_048_576)
-let assetCount = assetFiles.reduce(0) { $0 + $1.paths.count }
+let assetCount = pendingAssets.reduce(0) { $0 + $1.paths.count }
 
 if !opts.upload {
     print("\nDRY RUN — nothing uploaded. Would publish:")
     if let r2 {
-        for (entry, _) in assetFiles {
+        for (entry, _) in pendingAssets {
             var keys = ["masters/\(entry.id).mov", "thumbs/\(entry.id).jpg"]
             if entry.previewFile != nil { keys.append("p720/\(entry.id).mov") }
             print("  → \(r2.bucket)/{\(keys.joined(separator: ", "))}   # \(entry.title)")
         }
         print("  → \(r2.bucket)/catalog.json")
     } else {
-        for (entry, paths) in assetFiles {
+        for (entry, paths) in pendingAssets {
             print("  gh release upload \(opts.tag) \(paths.map { ($0 as NSString).lastPathComponent }.joined(separator: " ")) --repo \(opts.repo) --clobber   # \(entry.title)")
         }
     }
+    print("catalog.json would list \(catalog.wallpapers.count) wallpapers "
+        + "(\(newCount) new, \(updatedCount) updated, \(carriedCount) carried over)")
     print("total upload: \(totalMB) in \(assetCount) assets")
     print("\nRe-run with --upload to publish.")
     exit(0)
@@ -230,7 +366,7 @@ if !opts.upload {
 if let r2 {
     print("uploading \(assetCount) assets (\(totalMB)) to R2 bucket \(r2.bucket)…")
     var uploaded = 0
-    for (entry, paths) in assetFiles {
+    for (entry, paths) in pendingAssets {
         for path in paths {
             let url = URL(fileURLWithPath: path)
             let relative = path.hasPrefix(root.path)
@@ -278,10 +414,14 @@ if let r2 {
         ]) == 0 else { die("could not create release \(opts.tag)") }
     }
 
-    let allPaths = assetFiles.flatMap(\.paths)
-    print("uploading \(allPaths.count) assets (\(totalMB))…")
-    guard run(gh, ["release", "upload", opts.tag, "--repo", opts.repo, "--clobber"] + allPaths) == 0 else {
-        die("upload failed")
+    let allPaths = pendingAssets.flatMap(\.paths)
+    if allPaths.isEmpty {
+        print("no new assets to upload — catalog.json only.")
+    } else {
+        print("uploading \(allPaths.count) assets (\(totalMB))…")
+        guard run(gh, ["release", "upload", opts.tag, "--repo", opts.repo, "--clobber"] + allPaths) == 0 else {
+            die("upload failed")
+        }
     }
     print("done. Now commit \(opts.catalogPath) to the repo root on main as catalog.json —")
     print("every installed app picks up the new wallpapers at next launch.")
