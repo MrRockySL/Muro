@@ -152,8 +152,7 @@ send a **pull request** — let's make it better together.
 
 **[Wallspace](https://wallspace.app)** — the inspiration. Wallspace showed
 what a live wallpaper app for the Mac should look and feel like, and Muro's
-design takes its idea from there. No Wallspace assets, code, or wallpapers are
-used in Muro.
+design takes its idea from there.
 
 ---
 
