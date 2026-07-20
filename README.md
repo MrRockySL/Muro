@@ -92,18 +92,13 @@ account. Every wallpaper and every feature is unlocked.
 
 You never have to update the app to get new wallpapers.
 
-The library lives in its own repo,
-**[Muro-Wallpapers](https://github.com/MrRockySL/Muro-Wallpapers)** — a
-`catalog.json` index plus the videos as release assets. Muro re-reads that
-catalog every time it launches or comes to the front, so when new wallpapers are
-published there they appear in the **Explore** tab of **every install that
-already exists**, whether it was downloaded today or six months ago.
+Muro re-reads its online catalog every time it launches or comes to the front,
+so newly published wallpapers appear in the **Explore** tab of **every install
+that already exists** — even older versions — within about a minute of being
+published.
 
 Videos download only when you pick one, and can be removed again from the
 Library tab whenever you want the space back.
-
-> Give it up to ~5 minutes after a new batch is published — GitHub's CDN caches
-> the catalog for a few minutes before it reaches everyone.
 
 ---
 
@@ -126,27 +121,19 @@ the app.
 
 ## How it works
 
-Muro is built on **AVFoundation** and **AppKit** — no Electron, no web views, no
-private APIs.
+Muro is native through and through — **Swift**, **SwiftUI** and
+**AVFoundation**. No Electron, no web views.
 
-- **The wallpaper window** is a borderless, click-through, non-activating
-  `NSWindow` sitting just below the desktop icons, joined to every Space and
-  hidden from Mission Control. Your desktop behaves exactly as it did before.
-- **Playback** uses `AVQueuePlayer` with `AVPlayerLooper`, so loops are seamless
-  and never seek. Videos are transcoded once to **HEVC** at import and decoded by
-  the Apple Silicon media engine — the CPU barely participates.
-- **Pausing** is the real trick. Muro watches window occlusion, display sleep,
-  screen lock, Low Power Mode and battery level, and stops the player whenever
-  the wallpaper can't be seen. A paused player is genuinely 0% CPU.
-- **Frame rate, not resolution, drives power.** 4K at 30 fps costs roughly half
-  what 4K at 60 fps does, while resolution barely moves the needle — which is why
-  the Smooth/Efficient switch exists instead of a resolution setting.
+The wallpaper is a video playing in a window that sits just below your desktop
+icons, decoded in hardware by the Apple Silicon media engine — the CPU barely
+participates. The moment the wallpaper can't be seen, Muro pauses it, and a
+paused wallpaper costs nothing.
 
 ---
 
 ## Roadmap
 
-Planned for a future update:
+Coming in a future update:
 
 - 🔒 **Lock screen live wallpapers** — the same video playing behind your login
   and lock screen, not just the desktop.
@@ -163,15 +150,20 @@ send a **pull request** — let's make it better together.
 
 ## Credits
 
-Wallpaper videos by **[Wallspace](https://wallspace.app)**
+**[Wallspace](https://wallspace.app)** — the inspiration. Wallspace showed
+what a live wallpaper app for the Mac should look and feel like, and Muro's
+design takes its idea from there. No Wallspace assets, code, or wallpapers are
+used in Muro.
 
 ---
 
 ## License
 
-[MIT](LICENSE) — free to use, change, and share.
+[MIT](LICENSE) — free to use and share. This covers the **code only**. Want
+something changed? [Open an issue](../../issues).
 
-The wallpaper videos are not covered by that license; they belong to their
-creators.
+The wallpaper videos are **not** covered by the MIT license. Each one remains
+the property of its original creator and is redistributed here under its own
+terms.
 
 Made by **[MrRockySL](https://github.com/MrRockySL)**.

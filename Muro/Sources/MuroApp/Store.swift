@@ -104,6 +104,17 @@ final class AppStore: ObservableObject {
         if storedCatalogURL.isEmpty || AppStore.retiredCatalogURLs.contains(storedCatalogURL) {
             defaults.set(AppStore.defaultCatalogURL, forKey: "catalogURL")
         }
+        // The power toggles used to be @AppStorage-only (and did nothing).
+        // They now live in config.json where the engine reads them — migrate
+        // a value the user had set, once.
+        if config.autoPauseLowPower == nil, defaults.object(forKey: "autoPauseLowPower") != nil {
+            config.autoPauseLowPower = defaults.bool(forKey: "autoPauseLowPower")
+            try? config.save(root: root)
+        }
+        if config.autoPauseBattery == nil, defaults.object(forKey: "autoPauseBattery") != nil {
+            config.autoPauseBattery = defaults.bool(forKey: "autoPauseBattery")
+            try? config.save(root: root)
+        }
         Task { await refreshCatalog() }
         Task { await checkForUpdates() }
         // Newly published wallpapers should show up without quitting the app,
@@ -155,10 +166,42 @@ final class AppStore: ObservableObject {
         items.first { $0.id == id }
     }
 
+    /// The hero only ever plays LOCAL files (owner, 2026-07-19): a fresh
+    /// install always shows exactly one wallpaper — the bundled 4K — and once
+    /// the user has downloads, the hero moves among those. It never streams.
     var heroItem: WallpaperItem? {
-        if let heroID, let item = item(id: heroID) { return item }
-        if let applied = currentAppliedID, let item = item(id: applied) { return item }
-        return items.first
+        if let heroID, let item = item(id: heroID), heroPlayable(item) { return item }
+        if let applied = currentAppliedID, let item = item(id: applied), item.isDownloaded {
+            return item
+        }
+        if let firstLocal = localItems.first { return firstLocal }
+        if let bundled = item(id: BundledWallpaper.id) { return bundled }
+        return BundledWallpaper.fallbackEntry.map { WallpaperItem(local: nil, remote: $0) }
+    }
+
+    func heroPlayable(_ item: WallpaperItem) -> Bool {
+        item.isDownloaded
+            || (item.id == BundledWallpaper.id && BundledWallpaper.videoURL != nil)
+    }
+
+    /// Selector strip under the hero: everything the hero can actually play.
+    var heroSelectorItems: [WallpaperItem] {
+        var out = localItems
+        if BundledWallpaper.videoURL != nil,
+           !out.contains(where: { $0.id == BundledWallpaper.id }) {
+            if let bundled = item(id: BundledWallpaper.id) {
+                out.insert(bundled, at: 0)
+            } else if let entry = BundledWallpaper.fallbackEntry {
+                out.insert(WallpaperItem(local: nil, remote: entry), at: 0)
+            }
+        }
+        return out
+    }
+
+    /// Local file for the hero: a downloaded master, or the bundled 4K.
+    func heroVideoURL(for item: WallpaperItem) -> URL? {
+        videoURL(for: item, mode: "smooth")
+            ?? (item.id == BundledWallpaper.id ? BundledWallpaper.videoURL : nil)
     }
 
     var recentItems: [WallpaperItem] {
@@ -197,22 +240,24 @@ final class AppStore: ObservableObject {
 
     // MARK: - Remote catalog
 
-    /// Baked-in default (PLAN §Distribution): catalog.json in the public
-    /// wallpaper repo, served raw. Overridable in Settings; empty falls back
-    /// here.
+    /// Baked-in default (PLAN §2.7): catalog.json on Cloudflare R2, served
+    /// from the bucket's public URL. The app fetches it anonymously — it
+    /// carries no credentials; only muro-publish (owner's machine) can write.
+    /// Overridable via `defaults write com.mrrockysl.muro catalogURL …`;
+    /// empty falls back here.
     ///
-    /// This is deliberately a *different* repo from the app source. The app
-    /// repo is private, and the app fetches this anonymously — it carries no
-    /// credentials, so a private URL would 404 for every user. Splitting them
-    /// keeps the source closed while the wallpaper library stays reachable.
+    /// This is the free r2.dev development URL (rate-limited by Cloudflare).
+    /// When the app gets real user volume, attach a custom domain to the
+    /// bucket and add THIS url to `retiredCatalogURLs`.
     static let defaultCatalogURL =
-        "https://raw.githubusercontent.com/MrRockySL/Muro-Wallpapers/main/catalog.json"
+        "https://pub-e910bedfcb17480a8067dba142403816.r2.dev/catalog.json"
 
     /// Former defaults. An install that still has one of these stored gets
     /// migrated to `defaultCatalogURL`; anything else is treated as a
     /// deliberate user override and left alone.
     static let retiredCatalogURLs = [
         "https://raw.githubusercontent.com/MrRockySL/Muro/main/catalog.json",
+        "https://raw.githubusercontent.com/MrRockySL/Muro-Wallpapers/main/catalog.json",
     ]
 
     var catalogURLString: String {
@@ -244,12 +289,10 @@ final class AppStore: ObservableObject {
         // GitHub API latest release vs our version; silent until the repo
         // exists and stays silent offline or on any parse failure.
         //
-        // Points at the public wallpaper repo, not the private app repo, for
-        // the same reason as defaultCatalogURL. `/releases/latest` ignores
-        // prereleases, so the wallpaper-storage release is never mistaken for
-        // an app update — publish a normal `vX.Y` release there when installs
-        // should be told to update.
-        guard let url = URL(string: "https://api.github.com/repos/MrRockySL/Muro-Wallpapers/releases/latest"),
+        // Points at the app repo, which holds the DMG on its Releases once
+        // public (open-source decision 2026-07-19). 404s silently while it is
+        // still private. `/releases/latest` ignores prereleases.
+        guard let url = URL(string: "https://api.github.com/repos/MrRockySL/Muro/releases/latest"),
               let (data, response) = try? await URLSession.shared.data(from: url),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -361,6 +404,22 @@ final class AppStore: ObservableObject {
         saveConfig()
     }
 
+    // Power auto-pause lives in config.json (not @AppStorage) because the
+    // ENGINE is what acts on it — the same config hot-reload path as pause
+    // and playback speed, and the muro-engine CLI honors it too.
+    var autoPauseLowPower: Bool { config.autoPauseLowPower ?? false }
+    var autoPauseBattery: Bool { config.autoPauseBattery ?? false }
+
+    func setAutoPauseLowPower(_ on: Bool) {
+        config.autoPauseLowPower = on
+        saveConfig()
+    }
+
+    func setAutoPauseBattery(_ on: Bool) {
+        config.autoPauseBattery = on
+        saveConfig()
+    }
+
     func reapply() {
         config.paused = false
         saveConfig()
@@ -407,7 +466,13 @@ final class AppStore: ObservableObject {
     // MARK: - Download (remote catalog → local library)
 
     func download(_ item: WallpaperItem) {
-        guard let remote = item.remote, item.local == nil, downloads[item.id] == nil else { return }
+        var remoteEntry = item.remote
+        // The bundled wallpaper's master is already inside the app — "download"
+        // it from there (file:// URL) instead of pulling 40 MB it already has.
+        if item.id == BundledWallpaper.id, let fallback = BundledWallpaper.fallbackEntry {
+            remoteEntry = fallback
+        }
+        guard let remote = remoteEntry, item.local == nil, downloads[item.id] == nil else { return }
         downloads[item.id] = 0
         let root = self.root
         let id = item.id
@@ -566,7 +631,7 @@ final class AppStore: ObservableObject {
             remoteIDs.contains($0.id) && !keep.contains($0.id)
         }
         for entry in manifest.wallpapers where removable(entry) {
-            for relative in [entry.file, entry.efficientFile, entry.thumbnail].compactMap({ $0 }) {
+            for relative in [entry.file, entry.efficientFile, entry.previewFile, entry.thumbnail].compactMap({ $0 }) {
                 try? FileManager.default.removeItem(at: root.appendingPathComponent(relative))
             }
         }
@@ -581,7 +646,7 @@ final class AppStore: ObservableObject {
     func removeDownload(_ item: WallpaperItem) {
         guard item.remote != nil, let entry = item.local,
               !protectedWallpaperIDs.contains(entry.id) else { return }
-        for relative in [entry.file, entry.efficientFile, entry.thumbnail].compactMap({ $0 }) {
+        for relative in [entry.file, entry.efficientFile, entry.previewFile, entry.thumbnail].compactMap({ $0 }) {
             try? FileManager.default.removeItem(at: root.appendingPathComponent(relative))
         }
         manifest.wallpapers.removeAll { $0.id == entry.id }
@@ -598,9 +663,16 @@ final class AppStore: ObservableObject {
     }
 
     func thumbnailPath(for item: WallpaperItem) -> String? {
-        guard let entry = item.local else { return nil }
-        let path = root.appendingPathComponent(entry.thumbnail).path
-        return FileManager.default.fileExists(atPath: path) ? path : nil
+        if let entry = item.local {
+            let path = root.appendingPathComponent(entry.thumbnail).path
+            return FileManager.default.fileExists(atPath: path) ? path : nil
+        }
+        // Not downloaded, but the bundled wallpaper's thumb ships in the app —
+        // no reason to fetch it over the network.
+        if item.id == BundledWallpaper.id, let url = BundledWallpaper.thumbnailURL {
+            return url.path
+        }
+        return nil
     }
 }
 

@@ -8,6 +8,7 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
     public var category: String
     public var file: String        // e.g. "Masters/<id>.mov"
     public var efficientFile: String?  // lazy 30 fps variant, once generated
+    public var previewFile: String?    // short 720p loop, e.g. "Previews/<id>-p720.mov"
     public var thumbnail: String   // e.g. "Thumbnails/<id>.jpg"
     public var width: Int
     public var height: Int
@@ -19,7 +20,8 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
 
     public init(
         id: String, title: String, category: String, file: String,
-        efficientFile: String? = nil, thumbnail: String, width: Int,
+        efficientFile: String? = nil, previewFile: String? = nil,
+        thumbnail: String, width: Int,
         height: Int, fps: Double, duration: Double, sizeBytes: Int64,
         liked: Bool = false, dateAdded: Date = Date()
     ) {
@@ -28,6 +30,7 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
         self.category = category
         self.file = file
         self.efficientFile = efficientFile
+        self.previewFile = previewFile
         self.thumbnail = thumbnail
         self.width = width
         self.height = height

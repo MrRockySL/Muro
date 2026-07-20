@@ -1,5 +1,36 @@
 import SwiftUI
 
+/// Fetches the p720 preview loop for the detail view (cache-first). Tiny
+/// files, so a full download-then-play beats progressive streaming: simpler,
+/// loops seamlessly, and lands in the LRU cache for next time.
+@MainActor
+final class PreviewLoader: ObservableObject {
+    enum State: Equatable { case idle, loading, ready(URL), failed }
+    @Published var state: State = .idle
+    private var currentID: String?
+
+    func load(id: String, from remote: URL?) {
+        guard currentID != id else { return }
+        currentID = id
+        guard let remote else { state = .idle; return }
+        if let hit = PreviewCache.cachedURL(id: id) {
+            state = .ready(hit)
+            return
+        }
+        state = .loading
+        Task { [weak self] in
+            do {
+                let url = try await PreviewCache.fetch(id: id, from: remote)
+                guard let self, self.currentID == id else { return }
+                self.state = .ready(url)
+            } catch {
+                guard let self, self.currentID == id else { return }
+                self.state = .failed
+            }
+        }
+    }
+}
+
 /// Full-window wallpaper preview with the floating glass pill bar and the
 /// choose-display popover. Covers everything including the top bar.
 struct PreviewView: View {
@@ -7,6 +38,7 @@ struct PreviewView: View {
     let itemID: String
 
     @State private var showDisplayPopover = false
+    @StateObject private var loader = PreviewLoader()
 
     /// Live item — refreshes as downloads/likes/manifest change.
     private var item: WallpaperItem? { store.item(id: itemID) }
@@ -33,13 +65,42 @@ struct PreviewView: View {
             Group {
                 if let url = store.videoURL(for: item, mode: store.previewMode) ??
                              store.videoURL(for: item, mode: "smooth") {
+                    // Downloaded → the real master, full quality.
+                    LoopingPlayerView(url: url)
+                } else if item.id == BundledWallpaper.id,
+                          let url = BundledWallpaper.videoURL {
+                    // The bundled 4K is already on disk — never show it soft.
                     LoopingPlayerView(url: url)
                 } else {
-                    ThumbImage(item: item)
+                    // Not downloaded → thumbnail immediately, p720 loop once
+                    // fetched. Deliberately soft: it shows the motion while
+                    // leaving a reason to pull the 4K master.
+                    remotePreview(item)
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
+        }
+    }
+
+    @ViewBuilder private func remotePreview(_ item: WallpaperItem) -> some View {
+        ZStack {
+            ThumbImage(item: item)
+            if case .ready(let url) = loader.state {
+                LoopingPlayerView(url: url)
+                    .transition(.opacity)
+            } else if loader.state == .loading {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+                    .padding(10)
+                    .background(Circle().fill(Color.black.opacity(0.35)))
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: loader.state)
+        .onAppear { loader.load(id: item.id, from: item.remote?.preview720) }
+        .onChange(of: item.id) { _, _ in
+            loader.load(id: item.id, from: item.remote?.preview720)
         }
     }
 
@@ -62,7 +123,9 @@ struct PreviewView: View {
 
             if let url = store.videoURL(for: item, mode: "smooth") {
                 ShareLink(item: url) {
-                    barIcon("square.and.arrow.up", opticalYOffset: 1)
+                    // Measured 2026-07-20 (offscreen ink-bounds render): the
+                    // glyph is optically centered at 0; the old +1 sat 1pt low.
+                    barIcon("square.and.arrow.up")
                 }
                 .buttonStyle(.plain)
             }
@@ -153,16 +216,28 @@ struct PreviewView: View {
                     .progressViewStyle(.linear)
                     .tint(.white)
                     .frame(width: 70)
-                Text("\(Int(progress * 100))%")
+                Text("\(Int(progress * 100))% of \(formatSize(item.sizeBytes))")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.8))
+                    .monospacedDigit()
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .background(Capsule().fill(Color.white.opacity(0.14)))
         } else if !item.isDownloaded {
-            capsuleButton("Download", systemName: "arrow.down") {
-                store.download(item)
+            // Preview and Download are ONE action wearing two words — both
+            // pull the master. "Preview" is the smaller ask, and once someone
+            // has seen the 4K they apply it; the deliberately soft p720
+            // behind these buttons is what creates that appetite. Labels stay
+            // plain (owner, 2026-07-19): the size already sits in the
+            // subtitle, and the progress capsule shows "% of NN MB".
+            HStack(spacing: 10) {
+                glassButton("Download", systemName: "arrow.down") {
+                    store.download(item)
+                }
+                capsuleButton("Preview", systemName: "play.fill") {
+                    store.download(item)
+                }
             }
         } else if store.generating.contains(item.id) {
             Text("Preparing 30 fps…")
@@ -212,6 +287,27 @@ struct PreviewView: View {
         }
         .buttonStyle(.plain)
     }
+
+    /// Secondary capsule, same shape as the primary but glass instead of
+    /// solid white — for the quieter twin of a two-button pair.
+    private func glassButton(_ title: String, systemName: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                if let systemName {
+                    Image(systemName: systemName)
+                        .font(.system(size: 11, weight: .bold))
+                }
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 12)
+            .background(Capsule().fill(Color.white.opacity(0.12)))
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 // MARK: - Choose display popover
@@ -252,6 +348,9 @@ struct ChooseDisplayPopover: View {
         .padding(16)
         .frame(width: 330)
         .background(Color(hex: 0x14171D))
+        // Colors the popover chrome itself (arrow + any filler drawn during
+        // resize) — without this the system paints those white.
+        .presentationBackground(Color(hex: 0x14171D))
     }
 
     /// Applies without dismissing — people with several displays apply to
@@ -262,7 +361,7 @@ struct ChooseDisplayPopover: View {
 
     private func surfacePill(_ surface: ApplySurface) -> some View {
         let selected = store.applySurface == surface
-        let enabled = surface != .lockscreen   // lock screen arrives in Phase 4
+        let enabled = surface != .lockscreen   // lock screen is a later update
         // Constant font weight: weight changes used to resize the labels and
         // make "Lockscreen" jump sideways when switching Both → Desktop.
         return Text(surface.rawValue)

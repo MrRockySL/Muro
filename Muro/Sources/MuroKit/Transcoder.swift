@@ -68,6 +68,10 @@ public func transcodeToHEVC(
 
     try? FileManager.default.removeItem(at: destination)
     let writer = try AVAssetWriter(outputURL: destination, fileType: .mov)
+    // Put the moov atom at the FRONT of the file. A player needs that index
+    // before it can decode anything, so without this a streamed wallpaper has
+    // to pull the whole file before the first frame appears.
+    writer.shouldOptimizeForNetworkUse = true
     let compression: [String: Any] = [
         AVVideoAverageBitRateKey: recommendedBitrate(width: width, height: height, fps: outputFPS),
         AVVideoExpectedSourceFrameRateKey: Int(outputFPS.rounded()),
@@ -135,8 +139,22 @@ public func transcodeToHEVC(
     guard writer.status == .completed else {
         throw TranscodeError.writerFailed(writer.error.map { "\($0)" } ?? "status \(writer.status.rawValue)")
     }
+    removeSafeSaveLeftovers(for: destination)
 
     return TranscodeResult(width: width, height: height, fps: outputFPS, duration: duration)
+}
+
+/// With `shouldOptimizeForNetworkUse`, AVAssetWriter produces the faststart
+/// file via a safe-save sibling (`<name>.sb-…`) that macOS 27 sometimes fails
+/// to delete — one stray temp per encode, silently doubling disk use. Sweep
+/// them after every successful write.
+func removeSafeSaveLeftovers(for destination: URL) {
+    let dir = destination.deletingLastPathComponent()
+    let prefix = destination.lastPathComponent + ".sb-"
+    guard let names = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return }
+    for name in names where name.hasPrefix(prefix) {
+        try? FileManager.default.removeItem(at: dir.appendingPathComponent(name))
+    }
 }
 
 /// Bitrate heuristic for HEVC wallpaper loops: ~0.045 bits/pixel/frame,

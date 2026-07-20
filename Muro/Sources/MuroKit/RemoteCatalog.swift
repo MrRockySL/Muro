@@ -14,10 +14,15 @@ public struct CatalogEntry: Codable, Identifiable, Equatable {
     public var sizeBytes: Int64
     public var video: URL
     public var thumbnail: URL
+    /// Short 720p loop for the detail view. Optional so catalogs published
+    /// before previews existed keep decoding — absent means the detail view
+    /// falls back to the static thumbnail.
+    public var preview720: URL?
 
     public init(
         id: String, title: String, category: String, width: Int, height: Int,
-        fps: Double, duration: Double, sizeBytes: Int64, video: URL, thumbnail: URL
+        fps: Double, duration: Double, sizeBytes: Int64, video: URL, thumbnail: URL,
+        preview720: URL? = nil
     ) {
         self.id = id
         self.title = title
@@ -29,6 +34,7 @@ public struct CatalogEntry: Codable, Identifiable, Equatable {
         self.sizeBytes = sizeBytes
         self.video = video
         self.thumbnail = thumbnail
+        self.preview720 = preview720
     }
 }
 

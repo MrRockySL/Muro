@@ -22,6 +22,22 @@ if [[ -f "$DIR/Icon/AppIcon.icns" ]]; then
     cp "$DIR/Icon/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 fi
 
+# Bundled wallpaper: "Snowfall in Forest" full 4K master + thumb, so a fresh
+# install always has one wallpaper playing in the hero (owner decision — 4K
+# over DMG size). Sourced from the local library; the id must match
+# BundledWallpaper.id in Sources/MuroApp/BundledWallpaper.swift.
+BUNDLED_ID="c0b0484f-80b9-40f3-bf02-03cd0886ba82"
+MURO_LIB="$HOME/Library/Application Support/Muro"
+if [[ -f "$MURO_LIB/Masters/$BUNDLED_ID.mov" && -f "$MURO_LIB/Thumbnails/$BUNDLED_ID.jpg" ]]; then
+    cp "$MURO_LIB/Masters/$BUNDLED_ID.mov"    "$APP/Contents/Resources/BundledWallpaper.mov"
+    cp "$MURO_LIB/Thumbnails/$BUNDLED_ID.jpg" "$APP/Contents/Resources/BundledWallpaper.jpg"
+else
+    echo "ERROR: bundled wallpaper $BUNDLED_ID not found in $MURO_LIB" >&2
+    echo "       (Snowfall in Forest must be in the local library — a DMG without" >&2
+    echo "       it ships a blank hero on fresh installs)" >&2
+    exit 1
+fi
+
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -33,7 +49,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIconFile</key>        <string>AppIcon</string>
     <key>CFBundleIconName</key>        <string>AppIcon</string>
     <key>CFBundleIdentifier</key>      <string>com.mrrockysl.muro</string>
-    <key>CFBundleVersion</key>         <string>1</string>
+    <key>CFBundleVersion</key>         <string>3</string>
     <key>CFBundleShortVersionString</key> <string>1.0</string>
     <key>CFBundlePackageType</key>     <string>APPL</string>
     <key>CFBundleInfoDictionaryVersion</key> <string>6.0</string>

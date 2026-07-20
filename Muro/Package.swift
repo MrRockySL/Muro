@@ -33,6 +33,11 @@ let package = Package(
             name: "muro-publish",
             dependencies: ["MuroKit"],
             path: "Sources/MuroPublish"
+        ),
+        .executableTarget(
+            name: "muro-prepare",
+            dependencies: ["MuroKit"],
+            path: "Sources/MuroPrepare"
         )
     ]
 )

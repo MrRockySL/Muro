@@ -7,13 +7,14 @@ struct SettingsView: View {
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("defaultMode") private var defaultMode = "smooth"
-    @AppStorage("autoPauseLowPower") private var autoPauseLowPower = false
-    @AppStorage("autoPauseBattery") private var autoPauseBattery = false
     @AppStorage("autoPauseFullScreen") private var autoPauseFullScreen = true
     @AppStorage("autoClear") private var autoClear = "Manual"
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var confirmClear = false
+    /// The window keeps this view alive across close/reopen, which used to
+    /// preserve the scroll position — reopening must always show the header.
+    @State private var scrollToTopOnNextOpen = false
 
     var body: some View {
         ZStack {
@@ -24,11 +25,13 @@ struct SettingsView: View {
                 .overlay(Color.black.opacity(0.22))
                 .ignoresSafeArea()
 
+            ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
                 header
                     .frame(maxWidth: .infinity)
                     .padding(.top, 30)
+                    .id("settings-top")
 
                 section("GENERAL") {
                     row(icon: "power", tint: .blue, title: "Launch at Login",
@@ -101,14 +104,20 @@ struct SettingsView: View {
                     divider
                     row(icon: "battery.25percent", tint: .yellow, title: "Auto-pause in Low Power Mode",
                         subtitle: "Freeze wallpapers while saving energy") {
-                        Toggle("", isOn: $autoPauseLowPower)
-                            .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                        Toggle("", isOn: Binding(
+                            get: { store.autoPauseLowPower },
+                            set: { store.setAutoPauseLowPower($0) }
+                        ))
+                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
                     }
                     divider
                     row(icon: "bolt.slash", tint: .red, title: "Auto-pause below 20% battery",
                         subtitle: "Resumes automatically on power") {
-                        Toggle("", isOn: $autoPauseBattery)
-                            .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                        Toggle("", isOn: Binding(
+                            get: { store.autoPauseBattery },
+                            set: { store.setAutoPauseBattery($0) }
+                        ))
+                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
                     }
                     divider
                     row(icon: "macwindow.on.rectangle", tint: .teal, title: "Auto-pause on full screens",
@@ -190,6 +199,22 @@ struct SettingsView: View {
                 Spacer(minLength: 24)
             }
             .padding(.horizontal, 28)
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSWindow.willCloseNotification
+            )) { note in
+                if (note.object as? NSWindow)?.title == "Muro Settings" {
+                    scrollToTopOnNextOpen = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSWindow.didBecomeKeyNotification
+            )) { note in
+                guard scrollToTopOnNextOpen,
+                      (note.object as? NSWindow)?.title == "Muro Settings" else { return }
+                scrollToTopOnNextOpen = false
+                proxy.scrollTo("settings-top", anchor: .top)
+            }
             }
         }
         .frame(width: 560, height: 600)

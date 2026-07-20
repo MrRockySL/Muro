@@ -22,6 +22,10 @@ public struct EngineConfig: Codable {
     public var paused: Bool?
     /// Playback speed 0.5–1.5 (nil = 1.0).
     public var playbackSpeed: Double?
+    /// Pause while macOS Low Power Mode is on (nil = false).
+    public var autoPauseLowPower: Bool?
+    /// Pause while discharging below 20% battery (nil = false).
+    public var autoPauseBattery: Bool?
 
     public init(allDisplays: Assignment? = nil, perDisplay: [String: Assignment] = [:]) {
         self.allDisplays = allDisplays

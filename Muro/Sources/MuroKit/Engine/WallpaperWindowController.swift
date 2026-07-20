@@ -79,6 +79,14 @@ public final class WallpaperWindowController {
         paused ? hold("user") : release("user")
     }
 
+    /// Power-driven pause (Low Power Mode / low battery), gated by the
+    /// Settings toggles in EngineController. Plain holds, so they compose
+    /// with lock/sleep/occlusion/user pause and release cleanly.
+    public func setPowerPause(lowPower: Bool, lowBattery: Bool) {
+        lowPower ? hold("low-power-mode") : release("low-power-mode")
+        lowBattery ? hold("low-battery") : release("low-battery")
+    }
+
     /// Playback speed from Settings (0.5×–1.5×). Applied live when playing.
     public func setPlaybackRate(_ rate: Float) {
         guard abs(rate - desiredRate) > 0.001 else { return }

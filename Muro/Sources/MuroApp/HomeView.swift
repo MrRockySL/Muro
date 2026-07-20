@@ -55,7 +55,9 @@ struct HomeView: View {
     private func heroMedia(_ item: WallpaperItem) -> some View {
         GeometryReader { proxy in
             Group {
-                if let url = store.videoURL(for: item, mode: "smooth") {
+                // The hero only ever plays local files: a downloaded master
+                // or the bundled 4K. It never streams (owner, 2026-07-19).
+                if let url = store.heroVideoURL(for: item) {
                     LoopingPlayerView(url: url)
                 } else {
                     ThumbImage(item: item)
@@ -130,7 +132,7 @@ struct HomeView: View {
     private var heroSelector: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                ForEach(store.items.prefix(10)) { item in
+                ForEach(store.heroSelectorItems.prefix(10)) { item in
                     let active = store.heroItem?.id == item.id
                     Color.black
                         .frame(width: active ? 104 : 96, height: active ? 64 : 58)

@@ -11,10 +11,13 @@ public final class EngineController {
     private var signatures: [String: String] = [:]
     private var configWatcher: DispatchSourceFileSystemObject?
     private var observers: [NSObjectProtocol] = []
+    private let power = PowerMonitor()
 
     public init() {}
 
     public func start() {
+        power.onChange = { [weak self] in self?.applyPowerState() }
+        power.start()
         reconcile()
         watchConfigDirectory()
         observers.append(NotificationCenter.default.addObserver(
@@ -86,6 +89,19 @@ public final class EngineController {
         for controller in controllers.values {
             controller.setUserPaused(paused)
             controller.setPlaybackRate(rate)
+        }
+        applyPowerState(config: config)
+    }
+
+    /// Combines the Settings toggles (from config.json) with the live power
+    /// state. Runs on every reconcile (config edits, display changes) and on
+    /// every PowerMonitor flip, so both sides stay in sync.
+    private func applyPowerState(config: EngineConfig? = nil) {
+        let config = config ?? EngineConfig.load(root: root)
+        let lowPower = (config.autoPauseLowPower ?? false) && power.isLowPowerMode
+        let lowBattery = (config.autoPauseBattery ?? false) && power.isLowBattery
+        for controller in controllers.values {
+            controller.setPowerPause(lowPower: lowPower, lowBattery: lowBattery)
         }
     }
 }
