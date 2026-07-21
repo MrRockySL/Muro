@@ -246,7 +246,17 @@ struct PreviewView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
                 .background(Capsule().fill(Color.white.opacity(0.14)))
-        } else if store.isFullyApplied(item) {
+        } else if store.applyingLockScreen {
+            HStack(spacing: 9) {
+                ProgressView().controlSize(.small).tint(.white)
+                Text("Setting lock screen…")
+                    .font(.system(size: 12.5, weight: .semibold))
+            }
+            .foregroundStyle(.white.opacity(0.82))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 11)
+            .background(Capsule().fill(Color.white.opacity(0.12)))
+        } else if store.isApplied(item, surface: store.applySurface, target: .all) {
             Button {
                 showDisplayPopover.toggle()   // re-target / change display
             } label: {
@@ -356,80 +366,115 @@ struct ChooseDisplayPopover: View {
     /// Applies without dismissing — people with several displays apply to
     /// them one after another; clicking outside the popover closes it.
     private func apply(_ target: ApplyTarget) {
-        store.setWallpaper(item, mode: store.previewMode, target: target)
+        store.setWallpaper(
+            item,
+            mode: store.previewMode,
+            target: target,
+            surface: store.applySurface
+        )
     }
 
     private func surfacePill(_ surface: ApplySurface) -> some View {
         let selected = store.applySurface == surface
-        let enabled = surface != .lockscreen   // lock screen is a later update
+        let enabled = surface == .desktop || store.lockScreenAvailable
         // Constant font weight: weight changes used to resize the labels and
         // make "Lockscreen" jump sideways when switching Both → Desktop.
-        return Text(surface.rawValue)
-            .font(.system(size: 11.5, weight: .semibold))
-            .foregroundStyle(selected ? Color.black : Color.white.opacity(enabled ? 0.8 : 0.3))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .background {
-                if selected {
-                    Capsule().fill(Color.white)
-                        .matchedGeometryEffect(id: "surface", in: surfaceNS)
+        return Button {
+            withAnimation(.easeOut(duration: 0.16)) { store.applySurface = surface }
+        } label: {
+            Text(surface.rawValue)
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(selected ? Color.black : Color.white.opacity(enabled ? 0.8 : 0.3))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background {
+                    if selected {
+                        Capsule().fill(Color.white)
+                            .matchedGeometryEffect(id: "surface", in: surfaceNS)
+                    }
                 }
-            }
-            .overlay(alignment: .topTrailing) {
-                if !enabled {
-                    Text("SOON")
-                        .font(.system(size: 6.5, weight: .bold))
-                        .tracking(0.6)
-                        .foregroundStyle(Color.muroAccent)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1.5)
-                        .background(Capsule().fill(Color.muroAccent.opacity(0.16)))
-                        .offset(x: 8, y: -6)
+                .overlay(alignment: .topTrailing) {
+                    if !enabled {
+                        Text("26+")
+                            .font(.system(size: 6.5, weight: .bold))
+                            .tracking(0.6)
+                            .foregroundStyle(Color.muroAccent)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1.5)
+                            .background(Capsule().fill(Color.muroAccent.opacity(0.16)))
+                            .offset(x: 8, y: -6)
+                    }
                 }
-            }
-            .contentShape(Capsule())
-            .onTapGesture {
-                guard enabled else { return }
-                withAnimation(.easeOut(duration: 0.16)) { store.applySurface = surface }
-            }
-            .help(enabled ? "" : "Lock screen live wallpapers arrive in a later update")
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel("Apply to \(surface.rawValue.lowercased())")
+        .accessibilityValue(selected ? "Selected" : "Not selected")
+        .help(enabled ? "" : "Lock-screen live wallpapers require macOS 26 or later")
     }
 
     private var allPill: some View {
-        Button {
-            apply(.all)
+        let appliedEverywhere = store.isApplied(item, surface: store.applySurface, target: .all)
+        return Button {
+            if appliedEverywhere {
+                store.removeWallpaper(item, target: .all, surface: store.applySurface)
+            } else {
+                apply(.all)
+            }
         } label: {
-            Text("All")
+            Text(appliedEverywhere ? "Remove All" : "All")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(appliedEverywhere ? Color(hex: 0xFF6B6B) : .white)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 5)
-                .background(Capsule().fill(Color.white.opacity(0.12)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+                .background(Capsule().fill(
+                    appliedEverywhere
+                        ? Color(hex: 0xFF6B6B).opacity(0.13)
+                        : Color.white.opacity(0.12)
+                ))
+                .overlay(Capsule().strokeBorder(
+                    appliedEverywhere
+                        ? Color(hex: 0xFF6B6B).opacity(0.4)
+                        : Color.white.opacity(0.18),
+                    lineWidth: 1
+                ))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(appliedEverywhere ? "Remove from all displays" : "Apply to all displays")
     }
 
     private func displayCard(_ display: DisplayInfo) -> some View {
-        let appliedHere = store.config.assignment(forDisplayUUID: display.id)?.wallpaperID == item.id
-        return VStack(spacing: 6) {
-            Image(systemName: display.isMain ? "laptopcomputer" : "display")
-                .font(.system(size: 20))
-                .foregroundStyle(.white.opacity(0.9))
-            HStack(spacing: 5) {
-                if appliedHere {
-                    Circle().fill(Color.muroGreen).frame(width: 5, height: 5)
-                }
-                Text(display.name)
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-            }
+        let appliedHere = store.isApplied(
+            item,
+            surface: store.applySurface,
+            target: .display(display.id)
+        )
+        return Button {
             if appliedHere {
-                // Applied on this display → the action here is Remove.
-                Button {
-                    store.removeWallpaper(fromDisplay: display.id)
-                } label: {
+                store.removeWallpaper(
+                    item,
+                    target: .display(display.id),
+                    surface: store.applySurface
+                )
+            } else {
+                apply(.display(display.id))
+            }
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: display.isMain ? "laptopcomputer" : "display")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.white.opacity(0.9))
+                HStack(spacing: 5) {
+                    if appliedHere {
+                        Circle().fill(Color.muroGreen).frame(width: 5, height: 5)
+                    }
+                    Text(display.name)
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
+                if appliedHere {
                     Text("Remove")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Color(hex: 0xFF6B6B))
@@ -437,32 +482,28 @@ struct ChooseDisplayPopover: View {
                         .padding(.vertical, 3.5)
                         .background(Capsule().fill(Color(hex: 0xFF6B6B).opacity(0.13)))
                         .overlay(Capsule().strokeBorder(Color(hex: 0xFF6B6B).opacity(0.4), lineWidth: 1))
+                } else {
+                    Text(display.isMain ? "Main" : "External")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.muroSecondary)
                 }
-                .buttonStyle(.plain)
-            } else {
-                Text(display.isMain ? "Main" : "External")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.muroSecondary)
             }
         }
+        .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 13)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.06))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(
-                    appliedHere ? Color.muroGreen.opacity(0.55) : Color.white.opacity(0.1),
-                    lineWidth: appliedHere ? 1.5 : 1
-                )
-        )
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(Color.white.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .strokeBorder(
+                appliedHere ? Color.muroGreen.opacity(0.55) : Color.white.opacity(0.1),
+                lineWidth: appliedHere ? 1.5 : 1
+            ))
         .contentShape(RoundedRectangle(cornerRadius: 12))
-        .onTapGesture {
-            // Tapping the card applies to this display; once applied, the
-            // red Remove pill inside is the way to take it off again.
-            if !appliedHere { apply(.display(display.id)) }
-        }
+        .accessibilityLabel(
+            appliedHere
+                ? "Remove \(item.title) from \(display.name)"
+                : "Apply \(item.title) to \(display.name)"
+        )
     }
 }

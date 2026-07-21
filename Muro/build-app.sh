@@ -17,10 +17,27 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$DIR/.build/release/muro-app" "$APP/Contents/MacOS/Muro"
 
+# macOS 26+ lock-screen renderer. Build it as a real ExtensionKit target so
+# ExtensionFoundation installs the correct entry point and actor isolation.
+# The private wallpaper framework is loaded only at runtime.
+EXT="$APP/Contents/Extensions/MuroWallpaperExtension.appex"
+echo "==> building macOS 26+ wallpaper extension"
+EXT_DERIVED="$DIR/.build/muro-wallpaper-extension"
+xcodebuild \
+    -project "$DIR/MuroWallpaperExtension.xcodeproj" \
+    -scheme MuroWallpaperExtension \
+    -configuration Release \
+    -destination 'generic/platform=macOS' \
+    -derivedDataPath "$EXT_DERIVED" \
+    build
+mkdir -p "$APP/Contents/Extensions"
+cp -R "$EXT_DERIVED/Build/Products/Release/MuroWallpaperExtension.appex" "$EXT"
+
 # App icon (concept A "Moonbeam"), if present — source + generator in Icon/.
 if [[ -f "$DIR/Icon/AppIcon.icns" ]]; then
     cp "$DIR/Icon/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 fi
+cp "$DIR/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
 # Bundled wallpaper: "Snowfall in Forest" full 4K master + thumb, so a fresh
 # install always has one wallpaper playing in the hero (owner decision — 4K
@@ -53,8 +70,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIconFile</key>        <string>AppIcon</string>
     <key>CFBundleIconName</key>        <string>AppIcon</string>
     <key>CFBundleIdentifier</key>      <string>com.mrrockysl.muro</string>
-    <key>CFBundleVersion</key>         <string>4</string>
-    <key>CFBundleShortVersionString</key> <string>1.1</string>
+    <key>CFBundleVersion</key>         <string>5</string>
+    <key>CFBundleShortVersionString</key> <string>2.0</string>
     <key>CFBundlePackageType</key>     <string>APPL</string>
     <key>CFBundleInfoDictionaryVersion</key> <string>6.0</string>
     <key>LSMinimumSystemVersion</key>  <string>14.0</string>
@@ -66,6 +83,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 PLIST
 
 echo "==> ad-hoc codesign"
+codesign --force --sign - \
+    --entitlements "$DIR/Sources/MuroWallpaperExtension/MuroWallpaperExtension.entitlements" \
+    "$EXT"
 codesign --force --sign - "$APP"
 
 for arg in "$@"; do

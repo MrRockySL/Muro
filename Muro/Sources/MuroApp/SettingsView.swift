@@ -129,9 +129,11 @@ struct SettingsView: View {
 
                 section("LOCK SCREEN") {
                     row(icon: "lock", tint: .indigo, title: "Lock Screen Live Wallpapers",
-                        subtitle: "Coming in a later update. Lock screen uses the system default.") {
-                        Toggle("", isOn: .constant(false))
-                            .toggleStyle(.switch).labelsHidden().disabled(true)
+                        subtitle: store.lockScreenAvailable
+                            ? "Choose Lockscreen or Both when setting a wallpaper"
+                            : "Requires macOS 26 or later") {
+                        Image(systemName: store.lockScreenAvailable ? "checkmark.circle.fill" : "xmark.circle")
+                            .foregroundStyle(store.lockScreenAvailable ? Color.muroGreen : Color.muroSecondary)
                     }
                 }
 
@@ -231,7 +233,7 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
             Button("Clear", role: .destructive) { store.clearDownloadedCache() }
         } message: {
-            Text("Removes wallpapers downloaded from the catalog, except ones currently applied or in a playlist. Your own imported videos are kept. You can re-download anytime.")
+            Text("Removes Muro’s lock-screen selection and copied extension files, then clears downloaded catalog wallpapers except desktop-applied or playlist items. Your own imported videos are kept.")
         }
     }
 

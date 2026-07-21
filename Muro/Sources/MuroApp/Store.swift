@@ -78,10 +78,13 @@ final class AppStore: ObservableObject {
     @Published var libraryBytes: Int64 = 0
     @Published var recentIDs: [String] = []
     @Published var activePlaylistID: String?
+    @Published var applyingLockScreen = false
+    @Published var applyError: String?
 
     private var watcher: DispatchSourceFileSystemObject?
     private var playlistTimer: Timer?
     private let defaults = UserDefaults.standard
+    private lazy var lockScreen = LockScreenService(root: root)
 
     private init() {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -91,6 +94,7 @@ final class AppStore: ObservableObject {
         if activePlaylistID != nil { schedulePlaylistTimer() }
         watchRoot()
         recomputeSize()
+        if !lockScreen.isAvailable { applySurface = .desktop }
         // Seed the default so the Settings field shows the real URL instead
         // of an empty placeholder (getter also falls back when cleared).
         // Existing installs have an older default *stored*, which would keep
@@ -407,16 +411,88 @@ final class AppStore: ObservableObject {
         return (def == "efficient" && item.fps > 40) ? "efficient" : "smooth"
     }
 
-    func setWallpaper(_ item: WallpaperItem, mode: String, target: ApplyTarget = .all) {
-        guard let entry = item.local else { return }
-        if mode == "efficient", entry.fps > 40, entry.efficientFile == nil {
-            Task {
-                if await ensureEfficientVariant(entry) {
-                    applyAssignment(id: entry.id, mode: "efficient", target: target)
-                }
+    var lockScreenAvailable: Bool { lockScreen.isAvailable }
+    var lockScreenWallpaperID: String? { lockScreen.activeWallpaperID }
+
+    /// `surface == nil` is a legacy/menu-bar desktop action: it preserves any
+    /// existing lock-screen selection. The preview picker passes an explicit
+    /// surface, where Desktop means desktop-only and therefore removes Muro
+    /// from the matching Apple Idle target.
+    func setWallpaper(
+        _ item: WallpaperItem,
+        mode: String,
+        target: ApplyTarget = .all,
+        surface: ApplySurface? = nil
+    ) {
+        guard item.local != nil else { return }
+        Task { await applyWallpaper(item, mode: mode, target: target, surface: surface) }
+    }
+
+    private func applyWallpaper(
+        _ item: WallpaperItem,
+        mode: String,
+        target: ApplyTarget,
+        surface explicitSurface: ApplySurface?
+    ) async {
+        guard var entry = item.local else { return }
+        let surface = explicitSurface ?? .desktop
+        let resolvedMode = entry.fps > 40 ? mode : "smooth"
+
+        if resolvedMode == "efficient", entry.efficientFile == nil {
+            guard await ensureEfficientVariant(entry),
+                  let refreshed = manifest.wallpapers.first(where: { $0.id == entry.id })
+            else { return }
+            entry = refreshed
+        }
+
+        // A Both apply is committed to the desktop engine only after the
+        // lock-screen transaction succeeds, so a failed extension/store write
+        // cannot leave the UI in a silently half-applied state.
+        if surface == .desktop {
+            applyAssignment(id: entry.id, mode: resolvedMode, target: target)
+        }
+
+        if surface == .lockscreen || surface == .both {
+            guard lockScreenAvailable else {
+                applyError = LockScreenServiceError.requiresTahoe.localizedDescription
+                return
             }
-        } else {
-            applyAssignment(id: entry.id, mode: entry.fps > 40 ? mode : "smooth", target: target)
+            let videoURL = resolveVideoURL(entry: entry, mode: resolvedMode, root: root)
+            let thumbnailURL = root.appendingPathComponent(entry.thumbnail)
+            guard FileManager.default.fileExists(atPath: videoURL.path),
+                  FileManager.default.fileExists(atPath: thumbnailURL.path)
+            else {
+                applyError = "The downloaded wallpaper files could not be found."
+                return
+            }
+
+            applyingLockScreen = true
+            defer { applyingLockScreen = false }
+            do {
+                try await lockScreen.apply(
+                    entry: entry,
+                    videoURL: videoURL,
+                    thumbnailURL: thumbnailURL,
+                    target: target
+                )
+                if surface == .both {
+                    applyAssignment(id: entry.id, mode: resolvedMode, target: target)
+                } else {
+                    pushRecent(entry.id)
+                }
+                objectWillChange.send()
+                recomputeSize()
+            } catch {
+                applyError = error.localizedDescription
+            }
+        } else if explicitSurface == .desktop, !lockScreen.activeWallpaperIDs.isEmpty {
+            do {
+                try await lockScreen.remove(target: target)
+                objectWillChange.send()
+                recomputeSize()
+            } catch {
+                applyError = error.localizedDescription
+            }
         }
     }
 
@@ -441,18 +517,60 @@ final class AppStore: ObservableObject {
         return appliedDisplays(for: item.id).count == connected.count
     }
 
-    /// Removes the wallpaper from one display only. If the assignment came
-    /// from the all-displays fallback, that fallback is first materialized
-    /// into explicit per-display entries so the other displays keep playing.
-    func removeWallpaper(fromDisplay uuid: String) {
-        if let fallback = config.allDisplays {
-            for display in displays where display.id != uuid && config.perDisplay[display.id] == nil {
-                config.perDisplay[display.id] = fallback
-            }
-            config.allDisplays = nil
+    func isApplied(_ item: WallpaperItem, surface: ApplySurface, target: ApplyTarget) -> Bool {
+        let desktopApplied: Bool
+        switch target {
+        case .all:
+            desktopApplied = isFullyApplied(item)
+        case .display(let uuid):
+            desktopApplied = config.assignment(forDisplayUUID: uuid)?.wallpaperID == item.id
         }
-        config.perDisplay[uuid] = nil
-        saveConfig()
+        let lockApplied = lockScreen.isApplied(wallpaperID: item.id, target: target)
+        switch surface {
+        case .desktop: return desktopApplied
+        case .lockscreen: return lockApplied
+        case .both: return desktopApplied && lockApplied
+        }
+    }
+
+    /// Removes the selected wallpaper from one target. If a per-display
+    /// desktop removal came from the all-displays fallback, that fallback is
+    /// first materialized so the other displays keep playing.
+    func removeWallpaper(
+        _ item: WallpaperItem,
+        target: ApplyTarget,
+        surface: ApplySurface = .desktop
+    ) {
+        if surface == .desktop || surface == .both {
+            switch target {
+            case .all:
+                if config.allDisplays?.wallpaperID == item.id { config.allDisplays = nil }
+                config.perDisplay = config.perDisplay.filter { $0.value.wallpaperID != item.id }
+            case .display(let uuid):
+                if let fallback = config.allDisplays, fallback.wallpaperID == item.id {
+                    for display in displays
+                    where display.id != uuid && config.perDisplay[display.id] == nil {
+                        config.perDisplay[display.id] = fallback
+                    }
+                    config.allDisplays = nil
+                }
+                if config.perDisplay[uuid]?.wallpaperID == item.id {
+                    config.perDisplay[uuid] = nil
+                }
+            }
+            saveConfig()
+        }
+        if surface == .lockscreen || surface == .both {
+            Task {
+                do {
+                    try await lockScreen.remove(target: target)
+                    objectWillChange.send()
+                    recomputeSize()
+                } catch {
+                    applyError = error.localizedDescription
+                }
+            }
+        }
     }
 
     func setPaused(_ paused: Bool) {
@@ -684,10 +802,19 @@ final class AppStore: ObservableObject {
         if let all = config.allDisplays?.wallpaperID { ids.insert(all) }
         for assignment in config.perDisplay.values { ids.insert(assignment.wallpaperID) }
         for playlist in playlists { ids.formUnion(playlist.wallpaperIDs) }
+        ids.formUnion(lockScreen.activeWallpaperIDs)
         return ids
     }
 
     func clearDownloadedCache() {
+        Task {
+            await lockScreen.clearAll()
+            clearDownloadedLibraryFiles()
+            objectWillChange.send()
+        }
+    }
+
+    private func clearDownloadedLibraryFiles() {
         let remoteIDs = Set(catalog.map(\.id))
         let keep = protectedWallpaperIDs
         let removable: (WallpaperEntry) -> Bool = {
@@ -812,7 +939,7 @@ func downloadRemoteWallpaper(
         height: remote.height,
         fps: remote.fps,
         duration: remote.duration,
-        sizeBytes: sizeBytes ?? remote.sizeBytes
+        sizeBytes: sizeBytes
     ))
     try manifest.save(root: root)
     progress(1)

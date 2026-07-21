@@ -16,6 +16,7 @@ Wallpapers*/
 CLAUDE.md
 PLAN.md
 STATUS.md
+Muro/lock screen status.md
 
 # Credentials must never be committable (R2 keys live in ~/.config/muro/)
 Cloudflare API Token.rtf

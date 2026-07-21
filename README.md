@@ -41,6 +41,7 @@ wallpaper and every feature is unlocked.
 ## Features
 
 - 🌙 **Live video wallpapers.** Looping, seamless, on every display at once.
+- 🔒 **Lock screen live wallpapers.** Play a wallpaper on your lock screen too, not just the desktop. Set it to the desktop, the lock screen, or both, per display. Requires macOS 26 or newer.
 - 🪶 **Around 2% CPU while playing.** HEVC decoded in hardware, never on the CPU.
 - 😴 **Pauses itself** on full screen apps, display sleep, screen lock, Low Power Mode and low battery. A paused wallpaper costs 0% CPU.
 - ⚡ **Smooth or Efficient.** Keep a wallpaper's original frame rate, or drop it to 30 fps to halve the power draw. Your choice, per wallpaper.
@@ -127,15 +128,6 @@ The wallpaper is a video playing in a window that sits just below your desktop
 icons, decoded in hardware by the Apple Silicon media engine, so the CPU barely
 participates. The moment the wallpaper can't be seen, Muro pauses it, and a
 paused wallpaper costs nothing.
-
----
-
-## Roadmap
-
-Coming in a future update:
-
-- 🔒 **Lock screen live wallpapers.** The same video playing behind your login
-  and lock screen, not just on the desktop.
 
 ---
 

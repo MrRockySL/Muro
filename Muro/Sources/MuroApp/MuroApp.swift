@@ -83,5 +83,13 @@ struct RootView: View {
         }
         .animation(.easeOut(duration: 0.22), value: store.tab)
         .animation(.easeInOut(duration: 0.18), value: store.previewItem?.id)
+        .alert("Couldn’t set wallpaper", isPresented: Binding(
+            get: { store.applyError != nil },
+            set: { if !$0 { store.applyError = nil } }
+        )) {
+            Button("OK", role: .cancel) { store.applyError = nil }
+        } message: {
+            Text(store.applyError ?? "Unknown error")
+        }
     }
 }
