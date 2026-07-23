@@ -46,6 +46,7 @@ struct Options {
     var forceGitHub = false
     var replace = false
     var reupload = false
+    var reorderOnly = false
     var repo = "MrRockySL/Muro-Wallpapers"
     var tag = "wallpapers"
     var catalogPath = "catalog.json"
@@ -68,6 +69,7 @@ func parseOptions() -> Options {
         case "--github":  opts.forceGitHub = true
         case "--replace": opts.replace = true
         case "--reupload": opts.reupload = true
+        case "--reorder-only": opts.reorderOnly = true
         case "--repo":    opts.repo = value(for: "--repo")
         case "--tag":     opts.tag = value(for: "--tag")
         case "--catalog": opts.catalogPath = value(for: "--catalog")
@@ -87,6 +89,9 @@ func parseOptions() -> Options {
                   --replace    publish ONLY the selected wallpapers, dropping anything
                                else that is currently live (destructive — rarely wanted)
                   --reupload   re-upload assets for wallpapers already live
+                  --reorder-only  rewrite just the order of the live catalog (newest
+                               first) and re-upload catalog.json — no library needed,
+                               no wallpaper assets touched
                 """)
             exit(0)
         default:
@@ -119,22 +124,32 @@ func ghPath() -> String {
 // MARK: - Select wallpapers
 
 let opts = parseOptions()
+if opts.reorderOnly && opts.replace {
+    die("--reorder-only cannot be combined with --replace")
+}
 let root = opts.libraryRoot
-let manifest = LibraryManifest.load(root: root)
-guard !manifest.wallpapers.isEmpty else { die("library is empty — nothing to publish") }
 
+// --reorder-only rewrites only the order of the live catalog and touches no
+// wallpapers, so it needs no local library. Every other mode publishes from
+// the library, so it must exist and be non-empty.
 let selected: [WallpaperEntry]
-if opts.titles.isEmpty {
-    selected = manifest.wallpapers
+if opts.reorderOnly {
+    selected = []
 } else {
-    selected = opts.titles.map { title in
-        guard let entry = manifest.wallpapers.first(where: {
-            $0.title.lowercased() == title.lowercased()
-        }) else {
-            die("no wallpaper titled \"\(title)\" — titles: "
-                + manifest.wallpapers.map(\.title).joined(separator: ", "))
+    let manifest = LibraryManifest.load(root: root)
+    guard !manifest.wallpapers.isEmpty else { die("library is empty — nothing to publish") }
+    if opts.titles.isEmpty {
+        selected = manifest.wallpapers
+    } else {
+        selected = opts.titles.map { title in
+            guard let entry = manifest.wallpapers.first(where: {
+                $0.title.lowercased() == title.lowercased()
+            }) else {
+                die("no wallpaper titled \"\(title)\" — titles: "
+                    + manifest.wallpapers.map(\.title).joined(separator: ", "))
+            }
+            return entry
         }
-        return entry
     }
 }
 
@@ -292,6 +307,11 @@ if opts.replace {
     }
 }
 
+if opts.reorderOnly && liveEntries.isEmpty {
+    die("--reorder-only needs an existing live catalog to reorder, but none was "
+        + "found at \(liveCatalogURL.absoluteString)")
+}
+
 let publishedByID = Dictionary(uniqueKeysWithValues: publishedEntries.map { ($0.id, $0) })
 
 /// Re-publishing a wallpaper must never make its catalog entry *poorer* than
@@ -309,8 +329,24 @@ func merging(live: CatalogEntry, with published: CatalogEntry) -> CatalogEntry {
     return result
 }
 
-// Live order is preserved so existing installs keep a stable library; new
-// wallpapers land at the end in the order they were selected.
+/// Orders the catalog newest first. The installed app paints Explore in
+/// catalog array order (it has no sort of its own), so the order written here
+/// is exactly what every install shows — reordering the catalog moves fresh
+/// drops to the top for everyone, with no app update. Entries with no
+/// publishedAt (catalogs from before that field existed) keep their existing
+/// relative order at the bottom; the original index breaks ties so equal dates
+/// and undated entries stay in a stable, deterministic order.
+func newestFirst(_ entries: [CatalogEntry]) -> [CatalogEntry] {
+    entries.enumerated().sorted { lhs, rhs in
+        switch (lhs.element.publishedAt, rhs.element.publishedAt) {
+        case let (l?, r?): return l == r ? lhs.offset < rhs.offset : l > r
+        case (_?, nil):    return true      // dated entries sit above undated ones
+        case (nil, _?):    return false
+        case (nil, nil):   return lhs.offset < rhs.offset
+        }
+    }.map(\.element)
+}
+
 var mergedEntries = liveEntries.map { live in
     publishedByID[live.id].map { merging(live: live, with: $0) } ?? live
 }
@@ -325,6 +361,10 @@ mergedEntries.append(contentsOf: publishedEntries
         stamped.publishedAt = publishDate
         return stamped
     })
+
+// Newest wallpapers first so every install sees the latest drops at the top of
+// Explore. This replaces the old append-to-the-end behaviour.
+mergedEntries = newestFirst(mergedEntries)
 
 let newCount = publishedEntries.filter { !liveIDs.contains($0.id) }.count
 let updatedCount = publishedEntries.count - newCount
@@ -342,6 +382,10 @@ do {
 }
 print("wrote \(opts.catalogPath) — \(catalog.wallpapers.count) wallpapers "
     + "(\(newCount) new, \(updatedCount) updated, \(carriedCount) carried over)")
+let head = mergedEntries.prefix(8).enumerated()
+    .map { "  \($0.offset + 1). \($0.element.title) [\($0.element.category)]" }
+    .joined(separator: "\n")
+print("new order — top of Explore:\n\(head)")
 
 // MARK: - Upload
 
