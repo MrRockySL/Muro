@@ -67,6 +67,10 @@ wallpaper and every feature is unlocked.
   <img src="screenshots/home.png" width="820" alt="The Muro home gallery, showing a featured wallpaper and picks from your library">
 </p>
 
+<p align="center">
+  <a href="https://github.com/MrRockySL/Muro/releases/download/v2.0/muro-demo.mp4"><strong>Watch Muro in action</strong></a>
+</p>
+
 ---
 
 ## Install
@@ -131,11 +135,14 @@ paused wallpaper costs nothing.
 
 ---
 
-## Contributing
+## Support and contribute
 
-This is an open project and contributions are very welcome. Found a bug, have an
-idea, or want to improve something? [Open an issue](../../issues) or send a pull
-request. Let's make it better together.
+If Muro has made your Mac a little more enjoyable, you can support its continued
+development through [GitHub Sponsors](https://github.com/sponsors/MrRockySL).
+
+Contributions are welcome too. Found a bug, have an idea, or want to improve
+something? [Open an issue](../../issues) or send a pull request. Let's make Muro
+better together.
 
 ---
 
