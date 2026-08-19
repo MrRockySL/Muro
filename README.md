@@ -75,17 +75,28 @@ wallpaper and every feature is unlocked.
 
 ## Install
 
+### Homebrew
+
+```bash
+brew install --cask MrRockySL/muro/muro
+```
+
+### Manual download
+
 1. Download the latest DMG from the [Releases](../../releases/latest) page.
 2. Open it and drag Muro into your Applications folder.
-3. Let it through macOS security. Muro is free and self signed rather than
-   carrying a paid Apple notarised certificate, so macOS blocks the first launch
-   with a *"can't be opened… Apple could not verify it is free of malware"*
-   warning. To get past it:
-   - Double click the app once, then close the warning.
-   - Open System Settings, go to Privacy & Security, scroll down to the message
-     about Muro, and click **Open Anyway**, then **Open** to confirm.
-   - *(On older macOS you can right click the app instead, then pick Open twice.)*
-4. Open Explore, pick a wallpaper, hit Apply. Done.
+
+On first launch, let it through macOS security. Muro is free and self signed
+rather than carrying a paid Apple notarised certificate, so macOS blocks the
+first launch with a *"can't be opened… Apple could not verify it is free of
+malware"* warning. To get past it:
+
+1. Double click the app once, then close the warning.
+2. Open System Settings, go to Privacy & Security, scroll down to the message
+   about Muro, and click **Open Anyway**, then **Open** to confirm.
+3. On older macOS, you can right click the app instead, then pick Open twice.
+
+Open Explore, pick a wallpaper, hit Apply. Done.
 
 > Muro keeps running in your menu bar after you close the window. That's what
 > keeps your wallpaper playing. Use the menu bar icon to control it, or Quit to
