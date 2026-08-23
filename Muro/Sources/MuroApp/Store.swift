@@ -878,6 +878,86 @@ func directorySize(_ root: URL) -> Int64 {
 
 // MARK: - Download worker (off the main actor)
 
+/// Progress for a running download. `URLSession.download(from:delegate:)`
+/// reports byte counts through a delegate. Iterating `URLSession.bytes`
+/// instead yields one `UInt8` at a time, which turned a 60 MB master into
+/// 60 million async iterations and held the transfer far below whatever the
+/// connection could actually do.
+private final class DownloadProgressDelegate: NSObject, URLSessionDownloadDelegate {
+    private let onProgress: (Double) -> Void
+
+    init(onProgress: @escaping (Double) -> Void) {
+        self.onProgress = onProgress
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didWriteData bytesWritten: Int64,
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64
+    ) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        // Capped below 1 so the bar never reads finished while the file is
+        // still being moved into place and the thumbnail fetched.
+        onProgress(min(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite), 0.99))
+    }
+
+    /// Required by the protocol. The async `download` API hands the finished
+    /// file back through its own return value, so there is nothing to do here.
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didFinishDownloadingTo location: URL
+    ) {}
+}
+
+/// Puts the master at `destination`: a copy for the bundled wallpaper's
+/// `file://` URL, a real download with progress for anything else.
+private func fetchMaster(
+    from source: URL,
+    to destination: URL,
+    progress: @escaping (Double) -> Void
+) async throws {
+    let manager = FileManager.default
+    try? manager.removeItem(at: destination)
+
+    // The bundled 4K wallpaper is already inside the app, so its "download"
+    // is a local copy and finishes immediately.
+    if source.isFileURL {
+        try manager.copyItem(at: source, to: destination)
+        progress(0.99)
+        return
+    }
+
+    let delegate = DownloadProgressDelegate(onProgress: progress)
+    let (temporary, response) = try await URLSession.shared.download(
+        from: source, delegate: delegate
+    )
+    // Without this an error page would be written straight into Masters as a
+    // .mov and only fail later, when something tried to play it.
+    if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+        try? manager.removeItem(at: temporary)
+        throw URLError(.badServerResponse)
+    }
+    do {
+        try manager.moveItem(at: temporary, to: destination)
+    } catch {
+        try? manager.removeItem(at: temporary)
+        throw error
+    }
+}
+
+/// Small reader that also works for the bundled wallpaper's `file://` URLs.
+private func loadData(from url: URL) async throws -> Data {
+    if url.isFileURL { return try Data(contentsOf: url) }
+    let (data, response) = try await URLSession.shared.data(from: url)
+    if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+        throw URLError(.badServerResponse)
+    }
+    return data
+}
+
 func downloadRemoteWallpaper(
     _ remote: CatalogEntry,
     root: URL,
@@ -891,35 +971,15 @@ func downloadRemoteWallpaper(
     let destination = masters.appendingPathComponent("\(remote.id).mov")
     let thumbDestination = thumbs.appendingPathComponent("\(remote.id).jpg")
 
-    let (bytes, response) = try await URLSession.shared.bytes(from: remote.video)
-    let total = max(response.expectedContentLength, 1)
-    FileManager.default.createFile(atPath: destination.path, contents: nil)
-    let handle = try FileHandle(forWritingTo: destination)
-    var buffer = Data()
-    buffer.reserveCapacity(1 << 17)
-    var written: Int64 = 0
     do {
-        for try await byte in bytes {
-            buffer.append(byte)
-            if buffer.count >= 1 << 17 {
-                try handle.write(contentsOf: buffer)
-                written += Int64(buffer.count)
-                buffer.removeAll(keepingCapacity: true)
-                progress(min(Double(written) / Double(total), 0.99))
-            }
-        }
-        if !buffer.isEmpty {
-            try handle.write(contentsOf: buffer)
-        }
-        try handle.close()
+        try await fetchMaster(from: remote.video, to: destination, progress: progress)
     } catch {
-        try? handle.close()
         try? FileManager.default.removeItem(at: destination)
         throw error
     }
 
     // Thumbnail: prefer the hosted JPEG, fall back to extracting a frame.
-    if let (data, _) = try? await URLSession.shared.data(from: remote.thumbnail) {
+    if let data = try? await loadData(from: remote.thumbnail) {
         try? data.write(to: thumbDestination, options: .atomic)
     }
     if !FileManager.default.fileExists(atPath: thumbDestination.path) {
