@@ -174,4 +174,96 @@ final class LibraryTests: XCTestCase {
     func testMissingPlaylistsFileLoadsAsEmpty() {
         XCTAssertTrue(PlaylistStore.load(root: root).isEmpty)
     }
+
+    // MARK: - Deleting a wallpaper
+
+    /// The delete path removes exactly this list. A wallpaper with a lazily
+    /// generated efficient variant and a preview owns four files, not two.
+    func testAWallpaperKnowsEveryFileItOwns() {
+        var full = entry(id: "abc")
+        full.efficientFile = "Masters/abc-eff.mov"
+        full.previewFile = "Previews/abc-p720.mov"
+        XCTAssertEqual(full.relativeFiles, [
+            "Masters/abc.mov", "Masters/abc-eff.mov",
+            "Previews/abc-p720.mov", "Thumbnails/abc.jpg",
+        ])
+        // Nothing generated yet: two files, and no nil in the list.
+        XCTAssertEqual(entry(id: "abc").relativeFiles, ["Masters/abc.mov", "Thumbnails/abc.jpg"])
+    }
+
+    /// The whole destructive half, against real files: the entries go, their
+    /// files go, and nothing that was not asked for is touched.
+    func testDeletingWallpapersRemovesTheirEntriesAndTheirFiles() throws {
+        var doomed = entry(id: "doomed")
+        doomed.efficientFile = "Masters/doomed-eff.mov"
+        doomed.previewFile = "Previews/doomed-p720.mov"
+        let kept = entry(id: "kept")
+        _ = try LibraryWriter.update(root: root) { $0.wallpapers = [doomed, kept] }
+        for relative in doomed.relativeFiles + kept.relativeFiles {
+            let url = root.appendingPathComponent(relative)
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            try Data("video".utf8).write(to: url)
+        }
+
+        let after = try LibraryWriter.delete(ids: ["doomed"], root: root)
+
+        XCTAssertEqual(after.wallpapers.map(\.id), ["kept"])
+        XCTAssertEqual(LibraryManifest.load(root: root).wallpapers.map(\.id), ["kept"])
+        for relative in doomed.relativeFiles {
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: root.appendingPathComponent(relative).path),
+                "\(relative) was left on disk"
+            )
+        }
+        for relative in kept.relativeFiles {
+            XCTAssertTrue(
+                FileManager.default.fileExists(atPath: root.appendingPathComponent(relative).path),
+                "\(relative) belonged to another wallpaper"
+            )
+        }
+    }
+
+    /// Deleting a wallpaper whose files are already missing is not an error:
+    /// a half-finished download or a hand-cleaned folder must still be
+    /// removable from the Library rather than becoming a card that cannot go.
+    func testDeletingAWallpaperWithNoFilesLeftStillRemovesTheEntry() throws {
+        _ = try LibraryWriter.update(root: root) { $0.wallpapers = [self.entry(id: "ghost")] }
+        let after = try LibraryWriter.delete(ids: ["ghost"], root: root)
+        XCTAssertTrue(after.wallpapers.isEmpty)
+    }
+
+    /// B6: deleting a wallpaper used to leave its id behind in every playlist
+    /// that referenced it, so the rotation kept trying to apply a file that
+    /// was no longer on disk.
+    func testDeletedWallpapersLeaveNoIdsBehindInPlaylists() {
+        let playlists = [
+            Playlist(id: "p1", name: "Mixed", wallpaperIDs: ["a", "b", "c"]),
+            Playlist(id: "p2", name: "Untouched", wallpaperIDs: ["d"]),
+        ]
+        let result = PlaylistStore.pruned(playlists, removing: ["a", "c"])
+        XCTAssertEqual(result.playlists[0].wallpaperIDs, ["b"])
+        XCTAssertEqual(result.playlists[1].wallpaperIDs, ["d"])
+        XCTAssertTrue(result.emptied.isEmpty)
+    }
+
+    /// A playlist that loses its last wallpaper has to be reported, because a
+    /// running one must stop rather than tick over an empty list forever.
+    func testAPlaylistThatLosesItsLastWallpaperIsReported() {
+        let playlists = [
+            Playlist(id: "p1", name: "Gone", wallpaperIDs: ["a", "b"]),
+            Playlist(id: "p2", name: "Kept", wallpaperIDs: ["b", "c"]),
+        ]
+        let result = PlaylistStore.pruned(playlists, removing: ["a", "b"])
+        XCTAssertEqual(result.emptied, ["p1"])
+        XCTAssertEqual(result.playlists[1].wallpaperIDs, ["c"])
+    }
+
+    /// A playlist the user deliberately left empty is not something a delete
+    /// just emptied, so it must not stop anything or raise a notice.
+    func testAnAlreadyEmptyPlaylistIsNotReportedAsEmptied() {
+        let playlists = [Playlist(id: "p1", name: "Empty", wallpaperIDs: [])]
+        XCTAssertTrue(PlaylistStore.pruned(playlists, removing: ["a"]).emptied.isEmpty)
+    }
 }

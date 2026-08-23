@@ -99,5 +99,13 @@ struct RootView: View {
         } message: {
             Text(store.importError ?? "Unknown error")
         }
+        .alert("Playlist stopped", isPresented: Binding(
+            get: { store.deleteNotice != nil },
+            set: { if !$0 { store.deleteNotice = nil } }
+        )) {
+            Button("OK", role: .cancel) { store.deleteNotice = nil }
+        } message: {
+            Text(store.deleteNotice ?? "")
+        }
     }
 }

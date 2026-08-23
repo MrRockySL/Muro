@@ -40,6 +40,14 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
         self.liked = liked
         self.dateAdded = dateAdded
     }
+
+    /// Every file this wallpaper owns inside the library root. Deleting a
+    /// wallpaper means deleting exactly these, and each place that built the
+    /// list by hand was one more chance to forget the preview or the
+    /// efficient variant and leave it on disk forever.
+    public var relativeFiles: [String] {
+        [file, efficientFile, previewFile, thumbnail].compactMap { $0 }
+    }
 }
 
 public struct LibraryManifest: Codable {

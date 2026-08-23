@@ -119,6 +119,15 @@ final class LockScreenService {
             ?? state.selections.values.first(where: { $0 != Self.removedSelection })
     }
 
+    /// The targets whose lock screen currently shows one of `ids`. A delete
+    /// clears exactly those, rather than wiping the lock screen on every
+    /// display because one of them happened to hold a wallpaper going away.
+    func targets(showing ids: Set<String>) -> [ApplyTarget] {
+        state.selections
+            .filter { $0.value != Self.removedSelection && ids.contains($0.value) }
+            .map { $0.key == "all" ? .all : .display($0.key) }
+    }
+
     func isApplied(wallpaperID: String, target: ApplyTarget) -> Bool {
         switch target {
         case .all:

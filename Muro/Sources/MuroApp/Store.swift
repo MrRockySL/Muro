@@ -86,6 +86,9 @@ final class AppStore: ObservableObject {
     /// Kept separate from `applyError` so each alert can say what actually
     /// went wrong instead of sharing one misleading title.
     @Published var importError: String?
+    /// Set when a delete had a consequence the user did not ask for and
+    /// cannot see, such as a running playlist losing its last wallpaper.
+    @Published var deleteNotice: String?
 
     private var watcher: DispatchSourceFileSystemObject?
     private var playlistTimer: Timer?
@@ -885,6 +888,99 @@ final class AppStore: ObservableObject {
         try? PlaylistStore.save(playlists, root: root)
     }
 
+    // MARK: - Delete
+
+    /// The one delete path in the app.
+    ///
+    /// A wallpaper is referenced from seven places: its files on disk, the
+    /// library manifest, the display assignments, the lock screen selection,
+    /// the playlists, the recents strip and the hero. Every removal written
+    /// before this one touched two of them, which is how a playlist could end
+    /// up rotating through wallpapers that were no longer on the Mac.
+    ///
+    /// Order matters. The wallpaper is taken off the screen first, so the
+    /// engine drops its layer while the file it is decoding still exists, and
+    /// only then does the file go. That is also why an applied wallpaper no
+    /// longer has to be protected from deletion: this un-applies it first.
+    func deleteWallpapers(_ items: [WallpaperItem]) {
+        let entries = items.compactMap(\.local)
+        guard !entries.isEmpty else { return }
+        Task { await performDelete(entries) }
+    }
+
+    func deleteWallpaper(_ item: WallpaperItem) {
+        deleteWallpapers([item])
+    }
+
+    private func performDelete(_ entries: [WallpaperEntry]) async {
+        let ids = Set(entries.map(\.id))
+
+        // 1. Off the desktop. A deleted all-displays wallpaper clears every
+        //    display, which is what deleting the thing on screen means.
+        var configChanged = false
+        if let all = config.allDisplays?.wallpaperID, ids.contains(all) {
+            config.allDisplays = nil
+            configChanged = true
+        }
+        let keptPerDisplay = config.perDisplay.filter { !ids.contains($0.value.wallpaperID) }
+        if keptPerDisplay.count != config.perDisplay.count {
+            config.perDisplay = keptPerDisplay
+            configChanged = true
+        }
+        if configChanged { saveConfig() }
+
+        // 2. Off the lock screen. That surface keeps its own staged copy of
+        //    the video inside the extension container and a record in Apple's
+        //    wallpaper store, so removing the selection is what puts the
+        //    user's real wallpaper back and releases the copy.
+        for target in lockScreen.targets(showing: ids) {
+            do {
+                try await lockScreen.remove(target: target)
+            } catch {
+                applyError = error.localizedDescription
+            }
+        }
+
+        // 3. The manifest and the files, through the writer so a download
+        //    finishing in the same moment cannot lose its own entry. Off the
+        //    main actor: a batch delete can be dozens of large files.
+        let root = self.root
+        if let updated = try? await Task.detached(priority: .utility, operation: {
+            try LibraryWriter.delete(ids: ids, root: root)
+        }).value {
+            manifest = updated
+        }
+
+        // 4. Every list that points at it by id. Left alone, these are the
+        //    dead references the old removal paths kept leaving behind.
+        let (prunedPlaylists, emptied) = PlaylistStore.pruned(playlists, removing: ids)
+        if prunedPlaylists != playlists {
+            playlists = prunedPlaylists
+            savePlaylists()
+        }
+        if let running = activePlaylistID, emptied.contains(running) {
+            let name = playlists.first { $0.id == running }?.name ?? "The playlist"
+            stopPlaylist()
+            deleteNotice = "\(name) has no wallpapers left, so it stopped."
+        }
+        // F2 note: automations are stripped here too, the same way, once
+        // `automations.json` exists.
+
+        if recentIDs.contains(where: { ids.contains($0) }) {
+            recentIDs.removeAll { ids.contains($0) }
+            defaults.set(recentIDs, forKey: "recents")
+        }
+        if let heroID, ids.contains(heroID) { self.heroID = nil }
+        // A catalog wallpaper still has a card to show after its download is
+        // deleted. A personal import does not, so its open preview would sit
+        // there as an empty layer.
+        if let previewItem, ids.contains(previewItem.id), item(id: previewItem.id) == nil {
+            self.previewItem = nil
+        }
+
+        recomputeSize()
+    }
+
     // MARK: - Storage
 
     /// Removes catalog wallpapers from disk (they can be re-downloaded).
@@ -916,7 +1012,7 @@ final class AppStore: ObservableObject {
             remoteIDs.contains($0.id) && !keep.contains($0.id)
         }
         for entry in manifest.wallpapers where removable(entry) {
-            for relative in [entry.file, entry.efficientFile, entry.previewFile, entry.thumbnail].compactMap({ $0 }) {
+            for relative in entry.relativeFiles {
                 try? FileManager.default.removeItem(at: root.appendingPathComponent(relative))
             }
         }
@@ -930,19 +1026,11 @@ final class AppStore: ObservableObject {
 
     /// Manual per-wallpaper space control: delete the local copy of one
     /// catalog wallpaper (it stays in Explore, re-downloadable anytime).
-    /// The UI hides the action for protected items; the guard is a backstop.
+    /// It only removes the download, so it is the same job as a delete and
+    /// goes through the same path rather than keeping a second, thinner one.
     func removeDownload(_ item: WallpaperItem) {
-        guard item.remote != nil, let entry = item.local,
-              !protectedWallpaperIDs.contains(entry.id) else { return }
-        for relative in [entry.file, entry.efficientFile, entry.previewFile, entry.thumbnail].compactMap({ $0 }) {
-            try? FileManager.default.removeItem(at: root.appendingPathComponent(relative))
-        }
-        if let updated = try? LibraryWriter.update(root: root, { manifest in
-            manifest.wallpapers.removeAll { $0.id == entry.id }
-        }) {
-            manifest = updated
-        }
-        recomputeSize()
+        guard item.remote != nil, item.local != nil else { return }
+        deleteWallpaper(item)
     }
 
     // MARK: - Files

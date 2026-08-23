@@ -46,6 +46,33 @@ public enum LibraryWriter {
         return manifest
     }
 
+    /// Removes wallpapers from the library for good: their entries leave the
+    /// manifest, then their files leave the disk. Returns the saved manifest.
+    ///
+    /// Manifest first, deliberately. If the app dies between the two halves,
+    /// this order leaves files that nothing points at, which costs disk space
+    /// and is invisible. The other order leaves entries pointing at files
+    /// that are gone, which is a broken card in the Library and a wallpaper
+    /// that cannot play.
+    ///
+    /// The files are read from the manifest on disk rather than from the
+    /// caller's copy of the entry, so a variant or preview generated since
+    /// that copy was made is deleted too instead of being left behind.
+    @discardableResult
+    public static func delete(ids: Set<String>, root: URL) throws -> LibraryManifest {
+        var doomed: [String] = []
+        let manifest = try update(root: root) { manifest in
+            doomed = manifest.wallpapers
+                .filter { ids.contains($0.id) }
+                .flatMap(\.relativeFiles)
+            manifest.wallpapers.removeAll { ids.contains($0.id) }
+        }
+        for relative in doomed {
+            try? FileManager.default.removeItem(at: root.appendingPathComponent(relative))
+        }
+        return manifest
+    }
+
     /// Best effort: if the lock file cannot be opened the update still runs,
     /// protected by the in-process lock alone. Losing cross-process safety is
     /// better than refusing to save the user's library.
