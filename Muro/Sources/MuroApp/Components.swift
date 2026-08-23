@@ -4,37 +4,113 @@ import UniformTypeIdentifiers
 
 // MARK: - Image loading
 
+/// Bounded, downsampled thumbnail cache.
+///
+/// Thumbnails are 1280 px JPEGs. Loading them whole, as `NSImage(contentsOfFile:)`
+/// does, keeps a 3.7 MB bitmap alive per wallpaper, and the cache had no size
+/// limit at all, so scrolling the full catalog could hold hundreds of
+/// megabytes in an app that promises to stay under 150.
 enum ImageCache {
-    static let cache = NSCache<NSString, NSImage>()
+    private static let cache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.totalCostLimit = 64 * 1024 * 1024
+        return cache
+    }()
 
-    static func image(path: String) -> NSImage? {
-        if let cached = cache.object(forKey: path as NSString) { return cached }
-        guard let image = NSImage(contentsOfFile: path) else { return nil }
-        cache.setObject(image, forKey: path as NSString)
+    /// A grid card is roughly 420 points wide, so 900 pixels covers it on a
+    /// Retina display and nothing beyond that is ever drawn.
+    static let gridPixels = 900
+    /// For the two places a thumbnail is shown huge: the Home hero when it has
+    /// no video to play, and the full window preview behind a loading p720.
+    static let fullPixels = 2400
+
+    private static func key(path: String, maxPixels: Int) -> NSString {
+        "\(path)#\(maxPixels)" as NSString
+    }
+
+    /// Synchronous hit only. Lets a view paint in the very same frame when the
+    /// picture is already in memory, with no blank flash.
+    static func cached(path: String, maxPixels: Int) -> NSImage? {
+        cache.object(forKey: key(path: path, maxPixels: maxPixels))
+    }
+
+    /// Decodes at reduced size through ImageIO, so only the pixels that will
+    /// actually be drawn are ever allocated. Call this off the main thread.
+    static func load(path: String, maxPixels: Int) -> NSImage? {
+        if let hit = cached(path: path, maxPixels: maxPixels) { return hit }
+        guard let source = CGImageSourceCreateWithURL(
+            URL(fileURLWithPath: path) as CFURL, nil
+        ), let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+        ] as CFDictionary) else { return nil }
+
+        let image = NSImage(
+            cgImage: cgImage,
+            size: NSSize(width: cgImage.width, height: cgImage.height)
+        )
+        cache.setObject(
+            image,
+            forKey: key(path: path, maxPixels: maxPixels),
+            cost: cgImage.bytesPerRow * cgImage.height
+        )
         return image
     }
 }
 
 /// Local thumbnail from disk, or streamed catalog thumbnail for
 /// not-yet-downloaded wallpapers.
+///
+/// The decode happens off the main thread. Doing it inside `body`, as this
+/// used to, meant every card opened and decoded a JPEG while the grid was
+/// being scrolled.
 struct ThumbImage: View {
     @EnvironmentObject var store: AppStore
     let item: WallpaperItem
+    var maxPixels: Int = ImageCache.gridPixels
+
+    @State private var image: NSImage?
 
     var body: some View {
-        if let path = store.thumbnailPath(for: item), let image = ImageCache.image(path: path) {
-            Image(nsImage: image).resizable().scaledToFill()
-        } else if let url = item.remote?.thumbnail {
-            AsyncImage(url: url) { phase in
-                if let image = phase.image {
-                    image.resizable().scaledToFill()
-                } else {
-                    Color.white.opacity(0.04)
+        let path = store.thumbnailPath(for: item)
+        let ready = image ?? path.flatMap { ImageCache.cached(path: $0, maxPixels: maxPixels) }
+        Group {
+            if let ready {
+                Image(nsImage: ready).resizable().scaledToFill()
+            } else if path == nil, let url = item.remote?.thumbnail {
+                AsyncImage(url: url) { phase in
+                    if let remote = phase.image {
+                        remote.resizable().scaledToFill()
+                    } else {
+                        Color.white.opacity(0.04)
+                    }
                 }
+            } else {
+                Color.white.opacity(0.04)
             }
-        } else {
-            Color.white.opacity(0.04)
         }
+        .task(id: path) { await load(path: path) }
+    }
+
+    private func load(path: String?) async {
+        guard let path else {
+            image = nil
+            return
+        }
+        if let hit = ImageCache.cached(path: path, maxPixels: maxPixels) {
+            image = hit
+            return
+        }
+        let pixels = maxPixels
+        let loaded = await Task.detached(priority: .userInitiated) {
+            ImageCache.load(path: path, maxPixels: pixels)
+        }.value
+        // A scrolled-away card may have been reused for another wallpaper
+        // while this was decoding.
+        guard path == store.thumbnailPath(for: item) else { return }
+        image = loaded
     }
 }
 

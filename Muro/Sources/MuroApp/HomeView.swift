@@ -63,7 +63,8 @@ struct HomeView: View {
                 if let url = store.heroVideoURL(for: item) {
                     LoopingPlayerView(url: url, isActive: store.previewItem == nil)
                 } else {
-                    ThumbImage(item: item)
+                    // Hero-sized, so it gets the full decode.
+                    ThumbImage(item: item, maxPixels: ImageCache.fullPixels)
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)

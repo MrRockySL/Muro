@@ -85,7 +85,9 @@ struct PreviewView: View {
 
     @ViewBuilder private func remotePreview(_ item: WallpaperItem) -> some View {
         ZStack {
-            ThumbImage(item: item)
+            // Fills the whole window behind the loading p720, so it needs the
+            // full-size decode rather than the grid-card one.
+            ThumbImage(item: item, maxPixels: ImageCache.fullPixels)
             if case .ready(let url) = loader.state {
                 LoopingPlayerView(url: url)
                     .transition(.opacity)
