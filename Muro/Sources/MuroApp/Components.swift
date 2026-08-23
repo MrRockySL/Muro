@@ -473,15 +473,69 @@ struct HeartButton: View {
     }
 }
 
+/// Bottom-right twin of `HeartButton`: same 30 pt circle, same black wash,
+/// opposite corner. It shares that corner with the download icon, which is
+/// only ever shown while a wallpaper is NOT downloaded, and delete only ever
+/// applies once it is, so the two can never be on a card at the same time.
+///
+/// The black wash stays under the red on hover. A tint alone would leave the
+/// glyph sitting on whatever the thumbnail happens to be, and half these
+/// wallpapers are bright.
+struct DeleteButton: View {
+    var size: CGFloat = 30
+    var action: () -> Void
+
+    @State private var hovering = false
+
+    private static let danger = Color(hex: 0xFF6B6B)
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "trash")
+                .font(.system(size: size * 0.44, weight: .medium))
+                .foregroundStyle(hovering ? Self.danger : .white)
+                .frame(width: size, height: size)
+                .background(
+                    ZStack {
+                        Circle().fill(Color.black.opacity(0.4))
+                        Circle().fill(Self.danger.opacity(hovering ? 0.22 : 0))
+                    }
+                )
+                .overlay(
+                    Circle().strokeBorder(
+                        Self.danger.opacity(hovering ? 0.45 : 0), lineWidth: 1
+                    )
+                )
+                .scaleEffect(hovering ? 1.08 : 1)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .help("Delete wallpaper")
+    }
+}
+
 // MARK: - Wallpaper card
 
 struct WallpaperCard: View {
     @EnvironmentObject var store: AppStore
     let item: WallpaperItem
     var persistentTitle = false
+    /// Library only. Explore and Home show wallpapers you may not own yet,
+    /// where a trash can would be meaningless.
+    var showsDelete = false
 
     @State private var hovering = false
     @State private var showMenu = false
+
+    /// The two hover controls rise and spring into place rather than blinking
+    /// on. Deliberately quicker than the card's own 1.015 hover scale, so the
+    /// control lands before the card has finished settling under it.
+    private static let controlPop = Animation.spring(response: 0.22, dampingFraction: 0.72)
+
+    private static let popIn: AnyTransition = .scale(scale: 0.82)
+        .combined(with: .opacity)
+        .combined(with: .offset(y: 4))
 
     var body: some View {
         Color.black
@@ -489,8 +543,12 @@ struct WallpaperCard: View {
             .overlay(ThumbImage(item: item))
             .overlay(alignment: .bottom) { titleOverlay }
             .overlay(alignment: .topLeading) { topLeadingChip }
-            .overlay(alignment: .topTrailing) { topTrailingControls }
-            .overlay(alignment: .bottomTrailing) { downloadState }
+            .overlay(alignment: .topTrailing) {
+                topTrailingControls.animation(Self.controlPop, value: hovering)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                bottomTrailingControls.animation(Self.controlPop, value: hovering)
+            }
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -501,15 +559,29 @@ struct WallpaperCard: View {
             .onHover { hovering = $0 }
             .contentShape(RoundedRectangle(cornerRadius: 16))
             .onTapGesture { store.openPreview(item) }
-            .overlay { if removableDownload { RightClickCatcher { showMenu = true } } }
+            .overlay { if !menuOptions.isEmpty { RightClickCatcher { showMenu = true } } }
             .popover(isPresented: $showMenu, arrowEdge: .bottom) {
-                GlassMenuList(width: 200, options: [
-                    MenuOption(
-                        title: "Remove Download (\(formatSize(item.sizeBytes)))",
-                        destructive: true
-                    ) { store.removeDownload(item) }
-                ]) { showMenu = false }
+                GlassMenuList(width: 210, options: menuOptions) { showMenu = false }
             }
+    }
+
+    /// In the Library a wallpaper can go for good, so the menu says Delete and
+    /// matches the trash button beside it. Elsewhere it is still only about
+    /// reclaiming space on a wallpaper that stays a download away.
+    private var menuOptions: [MenuOption] {
+        if showsDelete, item.isDownloaded {
+            return [MenuOption(
+                title: "Delete Wallpaper (\(formatSize(item.sizeBytes)))",
+                destructive: true
+            ) { store.deleteWallpaper(item) }]
+        }
+        if removableDownload {
+            return [MenuOption(
+                title: "Remove Download (\(formatSize(item.sizeBytes)))",
+                destructive: true
+            ) { store.removeDownload(item) }]
+        }
+        return []
     }
 
     /// Manual space control (owner decision 2026-07-18): only catalog
@@ -535,6 +607,9 @@ struct WallpaperCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 18)
+            // Room kept for the trash button whether or not it is showing, so
+            // a long title never reflows the moment the pointer arrives.
+            .padding(.trailing, showsDelete ? 34 : 0)
             .padding(.top, 34)
             .padding(.bottom, 14)
             .background(
@@ -557,12 +632,17 @@ struct WallpaperCard: View {
     }
 
     @ViewBuilder private var topTrailingControls: some View {
-        if item.liked || (hovering && item.isDownloaded) {
+        if item.liked {
             HeartButton(item: item).padding(12)
+        } else if hovering && item.isDownloaded {
+            HeartButton(item: item).padding(12).transition(Self.popIn)
         }
     }
 
-    @ViewBuilder private var downloadState: some View {
+    /// One corner, one control. The progress ring and the download arrow
+    /// belong to a wallpaper that is not here yet; the trash belongs to one
+    /// that is. Writing them as a single chain is what makes that exclusive.
+    @ViewBuilder private var bottomTrailingControls: some View {
         if let progress = store.downloads[item.id] {
             ProgressView(value: progress)
                 .progressViewStyle(.circular)
@@ -576,6 +656,10 @@ struct WallpaperCard: View {
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(Color.black.opacity(0.4)))
                 .padding(12)
+        } else if showsDelete && hovering {
+            DeleteButton { store.deleteWallpaper(item) }
+                .padding(12)
+                .transition(Self.popIn)
         }
     }
 }

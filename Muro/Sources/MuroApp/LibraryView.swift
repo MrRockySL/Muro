@@ -165,7 +165,7 @@ struct LibraryView: View {
     private func grid(items: [WallpaperItem]) -> some View {
         LazyVGrid(columns: gridColumns, spacing: 24) {
             ForEach(items) { item in
-                WallpaperCard(item: item, persistentTitle: true)
+                WallpaperCard(item: item, persistentTitle: true, showsDelete: true)
             }
         }
     }
