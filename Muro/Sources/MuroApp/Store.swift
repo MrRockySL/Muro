@@ -141,12 +141,19 @@ final class AppStore: ObservableObject {
     // MARK: - Items
 
     var items: [WallpaperItem] {
-        let remoteByID = Dictionary(uniqueKeysWithValues: catalog.map { ($0.id, $0) })
+        // `Dictionary(uniqueKeysWithValues:)` traps on a repeated key, and the
+        // catalog is a file fetched from the network. One duplicate id in a
+        // published catalog.json would therefore crash every installed copy of
+        // Muro at launch, with no way for the user to recover. Keep the first
+        // entry and carry on instead.
+        let remoteByID = Dictionary(
+            catalog.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
         var seen = Set<String>()
         var out: [WallpaperItem] = []
-        for entry in manifest.wallpapers {
+        for entry in manifest.wallpapers where seen.insert(entry.id).inserted {
             out.append(WallpaperItem(local: entry, remote: remoteByID[entry.id]))
-            seen.insert(entry.id)
         }
         for remote in catalog where !seen.contains(remote.id) {
             out.append(WallpaperItem(local: nil, remote: remote))

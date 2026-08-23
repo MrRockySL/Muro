@@ -312,6 +312,21 @@ if opts.reorderOnly && liveEntries.isEmpty {
         + "found at \(liveCatalogURL.absoluteString)")
 }
 
+// A repeated id would trap here, and a duplicate that reached catalog.json
+// would crash every installed copy of Muro at launch. Catch it on this side,
+// where it is still one loud message on the publisher's screen.
+let duplicateIDs = Dictionary(grouping: publishedEntries, by: \.id)
+    .filter { $0.value.count > 1 }
+    .keys
+    .sorted()
+if !duplicateIDs.isEmpty {
+    die("""
+        the library has \(duplicateIDs.count) duplicate wallpaper id(s): \
+        \(duplicateIDs.joined(separator: ", "))
+        Publishing them would crash every installed copy of Muro. Remove the \
+        duplicate entries from library.json and retry.
+        """)
+}
 let publishedByID = Dictionary(uniqueKeysWithValues: publishedEntries.map { ($0.id, $0) })
 
 /// Re-publishing a wallpaper must never make its catalog entry *poorer* than
