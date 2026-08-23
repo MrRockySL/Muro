@@ -428,24 +428,13 @@ final class AppStore: ObservableObject {
             return
         }
         let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-        if AppStore.isVersion(latest, newerThan: AppStore.appVersion) {
+        if AppVersion.isNewer(latest, than: AppStore.appVersion) {
             updateAvailable = page
             if userInitiated { updateCheck = .available(version: latest, page: page) }
         } else {
             updateAvailable = nil
             if userInitiated { updateCheck = .upToDate }
         }
-    }
-
-    static func isVersion(_ a: String, newerThan b: String) -> Bool {
-        let av = a.split(separator: ".").map { Int($0) ?? 0 }
-        let bv = b.split(separator: ".").map { Int($0) ?? 0 }
-        for i in 0..<max(av.count, bv.count) {
-            let x = i < av.count ? av[i] : 0
-            let y = i < bv.count ? bv[i] : 0
-            if x != y { return x > y }
-        }
-        return false
     }
 
     // MARK: - Apply

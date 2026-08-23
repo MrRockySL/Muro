@@ -38,6 +38,11 @@ let package = Package(
             name: "muro-prepare",
             dependencies: ["MuroKit"],
             path: "Sources/MuroPrepare"
+        ),
+        .testTarget(
+            name: "MuroKitTests",
+            dependencies: ["MuroKit"],
+            path: "Tests/MuroKitTests"
         )
     ]
 )
