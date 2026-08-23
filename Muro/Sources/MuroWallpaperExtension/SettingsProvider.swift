@@ -119,6 +119,6 @@ func makeSettingsResponse() -> AnyObject? {
     let result = unarchiver.decodeObject(forKey: NSKeyedArchiveRootObjectKey)
     if let error = unarchiver.error { extensionLog("settings model remap failed: \(error)") }
     unarchiver.finishDecoding()
-    extensionLog("built \(items.count) settings choice(s)")
+    extensionTrace("built \(items.count) settings choice(s)")
     return result as AnyObject?
 }

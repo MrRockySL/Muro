@@ -123,7 +123,7 @@ final class RendererState: @unchecked Sendable {
         presentationMode = mode
         activityState = activity
         lock.unlock()
-        extensionLog("presentation mode=\(mode) activity=\(activity)")
+        extensionTrace("presentation mode=\(mode) activity=\(activity)")
         applyCurrentPlaybackPolicy()
     }
 
@@ -151,6 +151,6 @@ final class RendererState: @unchecked Sendable {
         let removed = active.removeValue(forKey: key)
         lock.unlock()
         removed?.renderer.stop()
-        if removed != nil { extensionLog("released inactive wallpaper surface") }
+        if removed != nil { extensionTrace("released inactive wallpaper surface") }
     }
 }

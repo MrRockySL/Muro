@@ -5,20 +5,79 @@ import Foundation
 
 let extensionDomain = "com.mrrockysl.muro.wallpaper-extension"
 
-func extensionLog(_ message: String) {
-    let stamp = ISO8601DateFormatter().string(from: Date())
-    let line = "[\(stamp)] \(message)\n"
-    guard let data = line.data(using: .utf8) else { return }
-    let docs = FileManager.default.homeDirectoryForCurrentUser
+// MARK: - Logging
+//
+// The log earned its place while the lock screen was being solved, and it is
+// still the only window into what WallpaperAgent asks this extension to do.
+// What it must not do is grow forever on a stranger's Mac. So: routine chatter
+// is off unless someone turns it on, what remains is capped, and one previous
+// file is kept so a bug report still has history either side of a failure.
+
+/// Set `MURO_WALLPAPER_DEBUG` in the environment to record the routine
+/// chatter as well. Off, only failures and the acquire/render milestones that
+/// matter to a bug report are written.
+private let verboseLogging = ProcessInfo.processInfo.environment["MURO_WALLPAPER_DEBUG"] != nil
+
+/// Built once. It used to be constructed on every single log line, which is
+/// an expensive object to make for the sake of one timestamp.
+///
+/// A date formatter is not thread safe, and this extension logs from the
+/// renderer, XPC and notification callbacks alike, so it is only ever touched
+/// inside `logQueue` below. That serialisation is what makes the unchecked
+/// annotation true.
+nonisolated(unsafe) private let logTimestamps = ISO8601DateFormatter()
+
+/// Serialises writes, since renderer, XPC and notification callbacks all log
+/// from different queues.
+private let logQueue = DispatchQueue(label: "com.mrrockysl.muro.wallpaper-log")
+
+private let maxLogBytes = 256 * 1024
+
+private var logURL: URL {
+    FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Documents", isDirectory: true)
-    let url = docs.appendingPathComponent("extension.log")
-    if !FileManager.default.fileExists(atPath: url.path) {
+        .appendingPathComponent("extension.log")
+}
+
+/// Routine chatter: connections, notifications, surface bookkeeping. Recorded
+/// only when `MURO_WALLPAPER_DEBUG` is set, so a normal install writes almost
+/// nothing. The message is only built if it will be used.
+func extensionTrace(_ message: @autoclosure () -> String) {
+    guard verboseLogging else { return }
+    extensionLog(message())
+}
+
+/// Failures, and the few milestones worth having in every bug report.
+func extensionLog(_ message: String) {
+    let now = Date()
+    logQueue.sync {
+        let line = "[\(logTimestamps.string(from: now))] \(message)\n"
+        guard let data = line.data(using: .utf8) else { return }
+        appendToLog(data)
+    }
+}
+
+private func appendToLog(_ data: Data) {
+    let manager = FileManager.default
+    let url = logURL
+
+    // Roll rather than truncate, so the lines just before a failure are not
+    // the ones thrown away.
+    if let size = (try? manager.attributesOfItem(atPath: url.path)[.size]) as? Int,
+       size + data.count > maxLogBytes {
+        let previous = url.deletingLastPathComponent()
+            .appendingPathComponent("extension.previous.log")
+        try? manager.removeItem(at: previous)
+        try? manager.moveItem(at: url, to: previous)
+    }
+
+    guard manager.fileExists(atPath: url.path) else {
         try? data.write(to: url, options: .atomic)
         return
     }
     guard let handle = try? FileHandle(forWritingTo: url) else { return }
     defer { try? handle.close() }
-    try? handle.seekToEnd()
+    _ = try? handle.seekToEnd()
     try? handle.write(contentsOf: data)
 }
 
@@ -100,7 +159,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
            existing.choiceID == info.choiceID,
            let response = createRemoteContextXPC(contextId: existing.context.contextId)
         {
-            extensionLog("reusing remote context \(existing.context.contextId)")
+            extensionTrace("reusing remote context \(existing.context.contextId)")
             reply(response, nil)
             return
         }
@@ -148,7 +207,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             let responseBox = SendableBox(value: response)
             let contextID = context.contextId
             renderer.start(initiallyPaused: !RendererState.shared.shouldPlayNow(isPreview: info.isPreview)) {
-                extensionLog("remote context \(contextID) ready")
+                extensionTrace("remote context \(contextID) ready")
                 reply(responseBox.value, nil)
             }
         } catch {
@@ -174,7 +233,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
     func invalidate(withId id: Any?, reply: @escaping @Sendable (NSError?) -> Void) {
         if let uuid = extractWallpaperUUID(from: id) {
             RendererState.shared.scheduleRemoval(identifier: uuid.uuidString)
-            extensionLog("scheduled surface release after invalidate")
+            extensionTrace("scheduled surface release after invalidate")
         }
         reply(nil)
     }
@@ -190,7 +249,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         withContentTypes types: Any?,
         reply: @escaping @Sendable (Any?, NSError?) -> Void
     ) {
-        extensionLog("settings request received through ExtensionFoundation")
+        extensionTrace("settings request received through ExtensionFoundation")
         if let models = makeSettingsResponse() {
             reply(models, nil)
         } else {
@@ -206,7 +265,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         for id: Any?,
         reply: @escaping @Sendable (NSError?) -> Void
     ) {
-        extensionLog("selected choices changed")
+        extensionTrace("selected choices changed")
         reply(nil)
     }
 
@@ -221,7 +280,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         withNamed name: Any?,
         reply: @escaping @Sendable (NSError?) -> Void
     ) {
-        extensionLog("notification: \(String(describing: name))")
+        extensionTrace("notification: \(String(describing: name))")
         reply(nil)
     }
 
@@ -236,7 +295,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
 
 private struct MuroWallpaperConfiguration: AppExtensionConfiguration {
     func accept(connection: NSXPCConnection) -> Bool {
-        extensionLog("XPC connection from PID \(connection.processIdentifier)")
+        extensionTrace("XPC connection from PID \(connection.processIdentifier)")
 
         let exported = NSXPCInterface(with: WallpaperExtensionXPCProtocol.self)
         let runtimeNames = [
@@ -294,13 +353,13 @@ private struct MuroWallpaperConfiguration: AppExtensionConfiguration {
         )
         connection.exportedObject = WallpaperXPCHandler()
         connection.invalidationHandler = {
-            extensionLog("XPC connection invalidated")
+            extensionTrace("XPC connection invalidated")
         }
         connection.interruptionHandler = {
-            extensionLog("XPC connection interrupted")
+            extensionTrace("XPC connection interrupted")
         }
         connection.resume()
-        extensionLog("XPC accepted with wallpaper protocol")
+        extensionTrace("XPC accepted with wallpaper protocol")
         return true
     }
 }
@@ -312,7 +371,7 @@ private final class MuroWallpaperExtension: NSObject, AppExtension {
         _ = ExtensionPlaybackCoordinator.shared
         let path = "/System/Library/PrivateFrameworks/WallpaperExtensionKit.framework/WallpaperExtensionKit"
         if dlopen(path, RTLD_LAZY) != nil {
-            extensionLog("WallpaperExtensionKit loaded at runtime")
+            extensionTrace("WallpaperExtensionKit loaded at runtime")
         } else {
             extensionLog("WallpaperExtensionKit failed to load")
         }

@@ -120,7 +120,7 @@ final class VideoRenderer: @unchecked Sendable {
                 noteEnd(of: first)
                 CATransaction.commit()
                 CATransaction.flush()
-                extensionLog("renderer composited first frame")
+                extensionTrace("renderer composited first frame")
             } else {
                 extensionLog("renderer produced no first frame")
             }
