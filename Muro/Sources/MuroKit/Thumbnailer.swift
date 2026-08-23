@@ -23,7 +23,15 @@ public func generateThumbnail(
     generator.requestedTimeToleranceAfter = .positiveInfinity
 
     let time = CMTime(seconds: seconds, preferredTimescale: 600)
-    let cgImage = try generator.copyCGImage(at: time, actualTime: nil)
+    let cgImage: CGImage
+    do {
+        cgImage = try generator.copyCGImage(at: time, actualTime: nil)
+    } catch {
+        // A clip shorter than the sample point may have no frame there. Fall
+        // back to the very first frame rather than failing, which used to take
+        // the whole import down with it.
+        cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
+    }
     let rep = NSBitmapImageRep(cgImage: cgImage)
     guard let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else {
         throw ThumbnailError.encodeFailed

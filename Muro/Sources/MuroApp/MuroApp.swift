@@ -91,5 +91,13 @@ struct RootView: View {
         } message: {
             Text(store.applyError ?? "Unknown error")
         }
+        .alert("Couldn’t import video", isPresented: Binding(
+            get: { store.importError != nil },
+            set: { if !$0 { store.importError = nil } }
+        )) {
+            Button("OK", role: .cancel) { store.importError = nil }
+        } message: {
+            Text(store.importError ?? "Unknown error")
+        }
     }
 }

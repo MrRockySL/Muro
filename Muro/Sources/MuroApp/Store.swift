@@ -80,6 +80,9 @@ final class AppStore: ObservableObject {
     @Published var activePlaylistID: String?
     @Published var applyingLockScreen = false
     @Published var applyError: String?
+    /// Kept separate from `applyError` so each alert can say what actually
+    /// went wrong instead of sharing one misleading title.
+    @Published var importError: String?
 
     private var watcher: DispatchSourceFileSystemObject?
     private var playlistTimer: Timer?
@@ -697,20 +700,48 @@ final class AppStore: ObservableObject {
 
     func importFiles(_ urls: [URL]) {
         let videos = urls.filter { ["mp4", "mov", "m4v"].contains($0.pathExtension.lowercased()) }
-        guard !videos.isEmpty else { return }
+        guard !videos.isEmpty else {
+            // Dropping a folder, an image or an unsupported video used to do
+            // nothing whatsoever, with no hint as to why.
+            if !urls.isEmpty {
+                importError = "Muro imports MP4, MOV and M4V videos. Nothing was added."
+            }
+            return
+        }
+        let skipped = urls.count - videos.count
         let root = self.root
         Task.detached(priority: .userInitiated) {
+            var failures: [String] = []
             for (index, url) in videos.enumerated() {
                 await MainActor.run {
                     AppStore.shared.importStatus =
                         "Importing \(url.lastPathComponent) (\(index + 1)/\(videos.count)), transcoding to HEVC…"
                 }
-                _ = try? importVideo(source: url, root: root)
+                do {
+                    _ = try importVideo(source: url, root: root)
+                } catch {
+                    failures.append("\(url.lastPathComponent): \(importFailureReason(error))")
+                }
                 await MainActor.run { AppStore.shared.reloadFromDisk() }
             }
+            let report = failures
             await MainActor.run {
                 AppStore.shared.importStatus = nil
                 AppStore.shared.recomputeSize()
+                // Silence here is what made a failed import look like a
+                // no-op: the spinner stopped, nothing appeared, and the user
+                // was told nothing at all.
+                if !report.isEmpty {
+                    let heading = report.count == 1
+                        ? "This video could not be imported."
+                        : "\(report.count) of \(videos.count) videos could not be imported."
+                    AppStore.shared.importError =
+                        ([heading] + report).joined(separator: "\n\n")
+                } else if skipped > 0 {
+                    AppStore.shared.importError =
+                        "\(skipped) file\(skipped == 1 ? " was" : "s were") skipped. "
+                        + "Muro imports MP4, MOV and M4V videos."
+                }
             }
         }
     }
@@ -884,6 +915,24 @@ final class AppStore: ObservableObject {
         }
         return nil
     }
+}
+
+/// Readable reason for a failed import. The engine's own descriptions carry a
+/// whole `NSError` dump inside them, which is right for a terminal and wrong
+/// for an alert, so each case gets a plain sentence instead.
+func importFailureReason(_ error: Error) -> String {
+    if let transcode = error as? TranscodeError {
+        switch transcode {
+        case .noVideoTrack:
+            return "It has no video track."
+        case .readerFailed:
+            return "It could not be read. The file may be damaged, or in a format macOS cannot open."
+        case .writerFailed:
+            return "It could not be converted to HEVC."
+        }
+    }
+    if error is ThumbnailError { return "A picture could not be taken from it." }
+    return error.localizedDescription
 }
 
 func directorySize(_ root: URL) -> Int64 {

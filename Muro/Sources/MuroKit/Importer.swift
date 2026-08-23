@@ -25,7 +25,14 @@ public func importVideo(
 
     do {
         let result = try transcodeToHEVC(source: source, destination: masterURL)
-        try generateThumbnail(video: masterURL, destination: thumbURL)
+        // A missing thumbnail costs the card its picture and nothing more, so
+        // like the preview below it must not fail an import whose master
+        // transcoded perfectly well.
+        do {
+            try generateThumbnail(video: masterURL, destination: thumbURL)
+        } catch {
+            // Left deliberately silent: the card falls back to a plain tile.
+        }
         // A missing preview only degrades the remote detail view to a static
         // thumbnail, so it must not fail the whole import.
         let preview = try? generatePreview(
