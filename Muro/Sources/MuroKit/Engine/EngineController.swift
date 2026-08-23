@@ -86,9 +86,11 @@ public final class EngineController {
         // Live-applied state that never needs a window rebuild.
         let paused = config.paused ?? false
         let rate = Float(config.playbackSpeed ?? 1.0)
+        let pauseWhenCovered = config.autoPauseFullScreen ?? true
         for controller in controllers.values {
             controller.setUserPaused(paused)
             controller.setPlaybackRate(rate)
+            controller.setAutoPauseFullScreen(pauseWhenCovered)
         }
         applyPowerState(config: config)
     }

@@ -115,6 +115,12 @@ final class AppStore: ObservableObject {
             config.autoPauseBattery = defaults.bool(forKey: "autoPauseBattery")
             try? config.save(root: root)
         }
+        // Same story for the full screen toggle: it was @AppStorage-only and
+        // the engine never read it, so switching it off did nothing at all.
+        if config.autoPauseFullScreen == nil, defaults.object(forKey: "autoPauseFullScreen") != nil {
+            config.autoPauseFullScreen = defaults.bool(forKey: "autoPauseFullScreen")
+            try? config.save(root: root)
+        }
         Task { await refreshCatalog() }
         Task { await checkForUpdates() }
         // Newly published wallpapers should show up without quitting the app,
@@ -597,6 +603,13 @@ final class AppStore: ObservableObject {
     // and playback speed, and the muro-engine CLI honors it too.
     var autoPauseLowPower: Bool { config.autoPauseLowPower ?? false }
     var autoPauseBattery: Bool { config.autoPauseBattery ?? false }
+    /// On by default: a covered wallpaper that keeps decoding is pure waste.
+    var autoPauseFullScreen: Bool { config.autoPauseFullScreen ?? true }
+
+    func setAutoPauseFullScreen(_ on: Bool) {
+        config.autoPauseFullScreen = on
+        saveConfig()
+    }
 
     func setAutoPauseLowPower(_ on: Bool) {
         config.autoPauseLowPower = on

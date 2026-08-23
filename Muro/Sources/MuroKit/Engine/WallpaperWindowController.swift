@@ -19,6 +19,10 @@ public final class WallpaperWindowController {
     /// playback. Playback resumes only when every hold is released.
     private var holds = Set<String>()
     private var desiredRate: Float = 1.0
+    /// Settings toggle. Off means the wallpaper keeps playing even when it is
+    /// covered, which costs CPU for something nobody can see, so it stays on
+    /// unless the user deliberately turns it off.
+    private var autoPauseFullScreen = true
 
     public init(screen: NSScreen, videoURL: URL) {
         window = NSWindow(
@@ -87,6 +91,15 @@ public final class WallpaperWindowController {
         lowBattery ? hold("low-battery") : release("low-battery")
     }
 
+    /// Occlusion pause from Settings. Turning it off releases any occlusion
+    /// hold immediately, so the wallpaper resumes without waiting for the
+    /// window to become visible again.
+    public func setAutoPauseFullScreen(_ enabled: Bool) {
+        guard enabled != autoPauseFullScreen else { return }
+        autoPauseFullScreen = enabled
+        occlusionChanged()
+    }
+
     /// Playback speed from Settings (0.5×–1.5×). Applied live when playing.
     public func setPlaybackRate(_ rate: Float) {
         guard abs(rate - desiredRate) > 0.001 else { return }
@@ -135,7 +148,7 @@ public final class WallpaperWindowController {
     }
 
     private func occlusionChanged() {
-        if window.occlusionState.contains(.visible) {
+        if window.occlusionState.contains(.visible) || !autoPauseFullScreen {
             release("occluded")
         } else {
             hold("occluded")

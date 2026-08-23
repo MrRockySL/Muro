@@ -7,8 +7,6 @@ struct SettingsView: View {
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("defaultMode") private var defaultMode = "smooth"
-    @AppStorage("autoPauseFullScreen") private var autoPauseFullScreen = true
-    @AppStorage("autoClear") private var autoClear = "Manual"
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var confirmClear = false
@@ -120,10 +118,13 @@ struct SettingsView: View {
                         .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
                     }
                     divider
-                    row(icon: "macwindow.on.rectangle", tint: .teal, title: "Auto-pause on full screens",
-                        subtitle: "Only on the display that is full screen") {
-                        Toggle("", isOn: $autoPauseFullScreen)
-                            .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                    row(icon: "macwindow.on.rectangle", tint: .teal, title: "Auto-pause when covered",
+                        subtitle: "Freeze a display's wallpaper while a full screen app or window hides it") {
+                        Toggle("", isOn: Binding(
+                            get: { store.autoPauseFullScreen },
+                            set: { store.setAutoPauseFullScreen($0) }
+                        ))
+                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
                     }
                 }
 
@@ -167,29 +168,10 @@ struct SettingsView: View {
                                 .glassCapsule(fill: 0.09, stroke: 0.15)
                         }
                     }
-                    divider
-                    row(icon: "clock.arrow.circlepath", tint: .brown, title: "Auto-clear memory",
-                        subtitle: "Free RAM on a schedule") {
-                        GlassDropdown(width: 120, options: {
-                            ["Manual", "Daily", "Weekly"].map { option in
-                                MenuOption(title: option, checked: autoClear == option) {
-                                    autoClear = option
-                                }
-                            }
-                        }) {
-                            HStack(spacing: 6) {
-                                Text(autoClear)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 8, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.6))
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 5.5)
-                            .glassCapsule(fill: 0.09, stroke: 0.15)
-                        }
-                    }
+                    // An "Auto-clear memory: Manual / Daily / Weekly" row used
+                    // to sit here. Nothing ever read it, and the RAM it claimed
+                    // to free is not RAM Muro holds, so it was removed rather
+                    // than given a fake implementation.
                 }
 
                 // The wallpaper catalog URL is baked in (AppStore

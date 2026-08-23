@@ -26,6 +26,10 @@ public struct EngineConfig: Codable {
     public var autoPauseLowPower: Bool?
     /// Pause while discharging below 20% battery (nil = false).
     public var autoPauseBattery: Bool?
+    /// Pause a display's wallpaper while something covers it, a full screen
+    /// app or any window (nil = true, which is how the engine has always
+    /// behaved and is what keeps a hidden wallpaper at 0% CPU).
+    public var autoPauseFullScreen: Bool?
 
     public init(allDisplays: Assignment? = nil, perDisplay: [String: Assignment] = [:]) {
         self.allDisplays = allDisplays
