@@ -89,6 +89,8 @@ final class AppStore: ObservableObject {
     /// Set when a delete had a consequence the user did not ask for and
     /// cannot see, such as a running playlist losing its last wallpaper.
     @Published var deleteNotice: String?
+    /// A delete waiting on the confirmation sheet.
+    @Published var pendingDelete: DeleteRequest?
 
     private var watcher: DispatchSourceFileSystemObject?
     private var playlistTimer: Timer?
@@ -908,6 +910,14 @@ final class AppStore: ObservableObject {
         Task { await performDelete(entries) }
     }
 
+    /// What the interface calls. Nothing deletes without an answer, so the
+    /// button, the menu item and the batch bar all end up in the same sheet.
+    func requestDelete(_ items: [WallpaperItem]) {
+        let deletable = items.filter { $0.local != nil }
+        guard !deletable.isEmpty else { return }
+        pendingDelete = DeleteRequest(items: deletable)
+    }
+
     func deleteWallpaper(_ item: WallpaperItem) {
         deleteWallpapers([item])
     }
@@ -983,45 +993,68 @@ final class AppStore: ObservableObject {
 
     // MARK: - Storage
 
-    /// Removes catalog wallpapers from disk (they can be re-downloaded).
-    /// User-imported videos are never touched.
-    /// Wallpapers whose local files must never be cache-cleaned: everything
-    /// applied (any display or the all-displays fallback) and everything a
-    /// playlist references — deleting those would break playback mid-loop.
+    /// The only wallpapers Clear keeps: whatever is on screen right now, on
+    /// any display or on the lock screen.
+    ///
+    /// Playlist members used to be protected too, which quietly defeated the
+    /// point: a user with everything in one playlist pressed Clear and freed
+    /// nothing. A playlist that shrinks still works, and F1d strips the dead
+    /// ids out of it.
     var protectedWallpaperIDs: Set<String> {
         var ids = Set<String>()
         if let all = config.allDisplays?.wallpaperID { ids.insert(all) }
         for assignment in config.perDisplay.values { ids.insert(assignment.wallpaperID) }
-        for playlist in playlists { ids.formUnion(playlist.wallpaperIDs) }
         ids.formUnion(lockScreen.activeWallpaperIDs)
         return ids
     }
 
-    func clearDownloadedCache() {
-        Task {
-            await lockScreen.clearAll()
-            clearDownloadedLibraryFiles()
-            objectWillChange.send()
-        }
+    /// What Clear is about to do, so the confirmation can say it out loud
+    /// instead of describing the rules and leaving the user to do the sums.
+    struct ClearPlan {
+        var removed: [WallpaperEntry]
+        var kept: Int
+        var personal: Int
+        var bytes: Int64
+
+        var isEmpty: Bool { removed.isEmpty }
     }
 
-    private func clearDownloadedLibraryFiles() {
-        let remoteIDs = Set(catalog.map(\.id))
+    var clearPlan: ClearPlan {
         let keep = protectedWallpaperIDs
-        let removable: (WallpaperEntry) -> Bool = {
-            remoteIDs.contains($0.id) && !keep.contains($0.id)
-        }
-        for entry in manifest.wallpapers where removable(entry) {
-            for relative in entry.relativeFiles {
-                try? FileManager.default.removeItem(at: root.appendingPathComponent(relative))
+        let remote = Set(catalog.map(\.id))
+        let removed = manifest.wallpapers.filter { !keep.contains($0.id) }
+        return ClearPlan(
+            removed: removed,
+            kept: manifest.wallpapers.count - removed.count,
+            personal: removed.filter { !remote.contains($0.id) }.count,
+            bytes: removed.reduce(0) { $0 + $1.sizeBytes } + PreviewCache.sizeOnDisk()
+        )
+    }
+
+    func clearDownloadedCache() {
+        let doomed = clearPlan.removed.map(\.id)
+        Task {
+            await lockScreen.clearAll()
+            // Re-downloadable and never counted in the library size, so it is
+            // never mentioned anywhere: 20 MB of streamed previews that only
+            // Clear can reach.
+            PreviewCache.clear()
+            if let updated = try? await Task.detached(priority: .utility, operation: {
+                [root] in try LibraryWriter.delete(ids: Set(doomed), root: root)
+            }).value {
+                manifest = updated
             }
+            let (pruned, _) = PlaylistStore.pruned(playlists, removing: Set(doomed))
+            if pruned != playlists {
+                playlists = pruned
+                savePlaylists()
+            }
+            recentIDs.removeAll { doomed.contains($0) }
+            defaults.set(recentIDs, forKey: "recents")
+            if let heroID, doomed.contains(heroID) { self.heroID = nil }
+            recomputeSize()
+            objectWillChange.send()
         }
-        if let updated = try? LibraryWriter.update(root: root, { manifest in
-            manifest.wallpapers.removeAll(where: removable)
-        }) {
-            manifest = updated
-        }
-        recomputeSize()
     }
 
     /// Manual per-wallpaper space control: delete the local copy of one

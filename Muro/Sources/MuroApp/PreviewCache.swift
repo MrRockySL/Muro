@@ -48,6 +48,22 @@ enum PreviewCache {
         return destination
     }
 
+    /// Everything the streamed previews are taking up. It sits outside the
+    /// library, so the Storage row has never counted it and the user has
+    /// never been told it exists.
+    static func sizeOnDisk() -> Int64 {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: [.fileSizeKey]
+        ) else { return 0 }
+        return files.reduce(Int64(0)) { total, url in
+            total + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+    }
+
+    static func clear() {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     /// Evicts oldest-touched previews until the cache fits the cap.
     private static func prune() {
         let keys: [URLResourceKey] = [.contentModificationDateKey, .fileSizeKey]

@@ -99,6 +99,10 @@ struct RootView: View {
         } message: {
             Text(store.importError ?? "Unknown error")
         }
+        .sheet(item: $store.pendingDelete) { request in
+            ConfirmDeleteView(request: request)
+                .environmentObject(store)
+        }
         .alert("Playlist stopped", isPresented: Binding(
             get: { store.deleteNotice != nil },
             set: { if !$0 { store.deleteNotice = nil } }

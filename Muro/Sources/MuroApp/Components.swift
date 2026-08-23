@@ -515,6 +515,27 @@ struct DeleteButton: View {
     }
 }
 
+/// The accent tick used wherever wallpapers are picked: the playlist editor,
+/// the automation editor, and Library select mode.
+struct SelectionTick: View {
+    let isSelected: Bool
+    var size: CGFloat = 22
+
+    var body: some View {
+        ZStack {
+            Circle().fill(isSelected ? Color.muroAccent : Color.black.opacity(0.45))
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: size * 0.45, weight: .bold))
+                    .foregroundStyle(Color.black)
+            } else {
+                Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 // MARK: - Wallpaper card
 
 struct WallpaperCard: View {
@@ -524,6 +545,9 @@ struct WallpaperCard: View {
     /// Library only. Explore and Home show wallpapers you may not own yet,
     /// where a trash can would be meaningless.
     var showsDelete = false
+    /// Select mode: the card stops opening the preview and starts toggling a
+    /// checkmark instead. `nil` means the grid is not in select mode at all.
+    var selection: Binding<Set<String>>?
 
     @State private var hovering = false
     @State private var showMenu = false
@@ -537,10 +561,14 @@ struct WallpaperCard: View {
         .combined(with: .opacity)
         .combined(with: .offset(y: 4))
 
+    private var isSelected: Bool { selection?.wrappedValue.contains(item.id) ?? false }
+    private var selecting: Bool { selection != nil }
+
     var body: some View {
         Color.black
             .aspectRatio(16 / 9, contentMode: .fit)
             .overlay(ThumbImage(item: item))
+            .overlay { if selecting && isSelected { Color.muroAccent.opacity(0.14) } }
             .overlay(alignment: .bottom) { titleOverlay }
             .overlay(alignment: .topLeading) { topLeadingChip }
             .overlay(alignment: .topTrailing) {
@@ -552,14 +580,26 @@ struct WallpaperCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+                    .strokeBorder(
+                        isSelected ? Color.muroAccent.opacity(0.85) : Color.white.opacity(0.07),
+                        lineWidth: isSelected ? 2 : 1
+                    )
             )
             .scaleEffect(hovering ? 1.015 : 1)
             .animation(.easeOut(duration: 0.15), value: hovering)
             .onHover { hovering = $0 }
             .contentShape(RoundedRectangle(cornerRadius: 16))
-            .onTapGesture { store.openPreview(item) }
-            .overlay { if !menuOptions.isEmpty { RightClickCatcher { showMenu = true } } }
+            .onTapGesture {
+                if let selection {
+                    if isSelected { selection.wrappedValue.remove(item.id) }
+                    else { selection.wrappedValue.insert(item.id) }
+                } else {
+                    store.openPreview(item)
+                }
+            }
+            .overlay {
+                if !selecting, !menuOptions.isEmpty { RightClickCatcher { showMenu = true } }
+            }
             .popover(isPresented: $showMenu, arrowEdge: .bottom) {
                 GlassMenuList(width: 210, options: menuOptions) { showMenu = false }
             }
@@ -573,7 +613,7 @@ struct WallpaperCard: View {
             return [MenuOption(
                 title: "Delete Wallpaper (\(formatSize(item.sizeBytes)))",
                 destructive: true
-            ) { store.deleteWallpaper(item) }]
+            ) { store.requestDelete([item]) }]
         }
         if removableDownload {
             return [MenuOption(
@@ -632,7 +672,9 @@ struct WallpaperCard: View {
     }
 
     @ViewBuilder private var topTrailingControls: some View {
-        if item.liked {
+        if selecting {
+            SelectionTick(isSelected: isSelected).padding(12)
+        } else if item.liked {
             HeartButton(item: item).padding(12)
         } else if hovering && item.isDownloaded {
             HeartButton(item: item).padding(12).transition(Self.popIn)
@@ -643,7 +685,9 @@ struct WallpaperCard: View {
     /// belong to a wallpaper that is not here yet; the trash belongs to one
     /// that is. Writing them as a single chain is what makes that exclusive.
     @ViewBuilder private var bottomTrailingControls: some View {
-        if let progress = store.downloads[item.id] {
+        if selecting {
+            EmptyView()
+        } else if let progress = store.downloads[item.id] {
             ProgressView(value: progress)
                 .progressViewStyle(.circular)
                 .controlSize(.small)
@@ -657,7 +701,7 @@ struct WallpaperCard: View {
                 .background(Circle().fill(Color.black.opacity(0.4)))
                 .padding(12)
         } else if showsDelete && hovering {
-            DeleteButton { store.deleteWallpaper(item) }
+            DeleteButton { store.requestDelete([item]) }
                 .padding(12)
                 .transition(Self.popIn)
         }

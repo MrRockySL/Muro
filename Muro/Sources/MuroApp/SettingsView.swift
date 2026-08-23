@@ -154,7 +154,7 @@ struct SettingsView: View {
 
                 section("STORAGE") {
                     row(icon: "internaldrive", tint: .gray, title: "Library & Cache",
-                        subtitle: "Wallpapers stored on this Mac") {
+                        subtitle: "Everything goes except the wallpaper in use") {
                         HStack(spacing: 10) {
                             Text(formatSize(store.libraryBytes))
                                 .font(.system(size: 12, weight: .medium))
@@ -211,12 +211,36 @@ struct SettingsView: View {
         }
         .frame(width: 560, height: 600)
         .background(SettingsWindowConfigurator())
-        .alert("Clear downloaded wallpapers?", isPresented: $confirmClear) {
+        .alert("Clear the library?", isPresented: $confirmClear) {
             Button("Cancel", role: .cancel) {}
             Button("Clear", role: .destructive) { store.clearDownloadedCache() }
         } message: {
-            Text("Removes Muro’s lock-screen selection and copied extension files, then clears downloaded catalog wallpapers except desktop-applied or playlist items. Your own imported videos are kept.")
+            Text(clearMessage)
         }
+    }
+
+    /// Says what is about to happen in counts, and names the part that cannot
+    /// be taken back. "Except applied or playlist items" told the user the
+    /// rules and left them to work out the consequence.
+    private var clearMessage: String {
+        let plan = store.clearPlan
+        guard !plan.isEmpty else {
+            return "Nothing to clear. The only wallpapers here are the ones in use."
+        }
+        var text = "This removes \(plan.removed.count) "
+            + (plan.removed.count == 1 ? "wallpaper" : "wallpapers")
+            + " and frees about \(formatSize(plan.bytes))."
+        if plan.kept > 0 {
+            text += plan.kept == 1
+                ? " The one that is playing stays."
+                : " The \(plan.kept) in use stay."
+        }
+        if plan.personal > 0 {
+            text += plan.personal == 1
+                ? " 1 of them is your own video and cannot be recovered."
+                : " \(plan.personal) of them are your own videos and cannot be recovered."
+        }
+        return text
     }
 
     // MARK: - Pieces

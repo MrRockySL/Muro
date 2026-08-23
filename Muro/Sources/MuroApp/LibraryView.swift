@@ -12,6 +12,8 @@ struct LibraryView: View {
     @State private var tab: LibTab = .all
     @State private var dropTargeted = false
     @State private var editorTarget: PlaylistEditorTarget?
+    @State private var selecting = false
+    @State private var selected: Set<String> = []
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 24),
@@ -35,6 +37,8 @@ struct LibraryView: View {
                 tabPill(.liked, count: store.likedItems.count)
                 tabPill(.playlists, count: store.playlists.count)
                 Spacer()
+                if selecting { selectAllButton }
+                if tab == .all || tab == .liked { selectPill }
             }
             .padding(.horizontal, 64)
             .padding(.top, 96)
@@ -43,7 +47,7 @@ struct LibraryView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     switch tab {
                     case .all:
-                        dropZone
+                        if !selecting { dropZone }
                         grid(items: searched)
                     case .liked:
                         grid(items: searched.filter(\.liked))
@@ -57,10 +61,112 @@ struct LibraryView: View {
             }
             .topFade()
         }
+        .overlay(alignment: .bottom) {
+            if selecting && !selected.isEmpty { batchBar.padding(.bottom, 28) }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.82), value: selected.isEmpty)
+        .animation(.easeOut(duration: 0.18), value: selecting)
+        // Esc is the way out of every other mode in the app, so it is the way
+        // out of this one.
+        .onExitCommand { endSelecting() }
+        .onChange(of: tab) { _, new in
+            if new != .all && new != .liked { endSelecting() }
+        }
+        // After a batch delete the ids are gone but the set is not, which
+        // would leave the bar counting wallpapers that no longer exist.
+        .onChange(of: store.localItems.count) { _, _ in
+            guard selecting else { return }
+            let alive = Set(store.localItems.map(\.id))
+            selected.formIntersection(alive)
+        }
         .sheet(item: $editorTarget) { target in
             PlaylistEditorView(target: target)
                 .environmentObject(store)
         }
+    }
+
+    // MARK: - Select mode
+
+    private var visibleItems: [WallpaperItem] {
+        tab == .liked ? searched.filter(\.liked) : searched
+    }
+
+    private var selectedItems: [WallpaperItem] {
+        visibleItems.filter { selected.contains($0.id) }
+    }
+
+    private func endSelecting() {
+        selecting = false
+        selected = []
+    }
+
+    private var selectPill: some View {
+        Button {
+            if selecting { endSelecting() } else { selecting = true }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: selecting ? "xmark" : "checkmark.circle")
+                    .font(.system(size: 10.5, weight: .semibold))
+                Text(selecting ? "Done" : "Select")
+                    .font(.system(size: 12.5, weight: .semibold))
+            }
+            .foregroundStyle(selecting ? Color.black : Color.white.opacity(0.85))
+            .padding(.horizontal, 15)
+            .padding(.vertical, 7.5)
+            .background { Capsule().fill(selecting ? Color.white : Color.white.opacity(0.07)) }
+            .overlay {
+                if !selecting { Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1) }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var selectAllButton: some View {
+        let all = Set(visibleItems.map(\.id))
+        let everything = !all.isEmpty && selected.isSuperset(of: all)
+        return Button(everything ? "Select None" : "Select All") {
+            selected = everything ? [] : all
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 11.5, weight: .semibold))
+        .foregroundStyle(Color.muroAccent)
+        .padding(.trailing, 4)
+    }
+
+    /// Floating bar, deliberately not a row in the layout: it appears over the
+    /// grid without pushing anything, the way the pill bar does in the preview.
+    private var batchBar: some View {
+        HStack(spacing: 14) {
+            Text("\(selected.count) selected")
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(.white)
+            Rectangle().fill(Color.white.opacity(0.14)).frame(width: 1, height: 18)
+            Button("Clear") { selected = [] }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.muroSecondary)
+            Button {
+                store.requestDelete(selectedItems)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Delete")
+                        .font(.system(size: 12.5, weight: .semibold))
+                }
+                .foregroundStyle(Color(hex: 0xFF6B6B))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(Color(hex: 0xFF6B6B).opacity(0.15)))
+                .overlay(Capsule().strokeBorder(Color(hex: 0xFF6B6B).opacity(0.42), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.leading, 20)
+        .padding(.trailing, 8)
+        .padding(.vertical, 8)
+        .liquidGlass(cornerRadius: 99, tint: 0.3, stroke: 0.16)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private func tabPill(_ value: LibTab, count: Int) -> some View {
@@ -165,7 +271,12 @@ struct LibraryView: View {
     private func grid(items: [WallpaperItem]) -> some View {
         LazyVGrid(columns: gridColumns, spacing: 24) {
             ForEach(items) { item in
-                WallpaperCard(item: item, persistentTitle: true, showsDelete: true)
+                WallpaperCard(
+                    item: item,
+                    persistentTitle: true,
+                    showsDelete: !selecting,
+                    selection: selecting ? $selected : nil
+                )
             }
         }
     }
@@ -528,18 +639,7 @@ struct PlaylistEditorView: View {
                     .padding(8)
             }
             .overlay(alignment: .topTrailing) {
-                ZStack {
-                    Circle().fill(isSelected ? Color.muroAccent : Color.black.opacity(0.45))
-                    if isSelected {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(Color.black)
-                    } else {
-                        Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
-                    }
-                }
-                .frame(width: 20, height: 20)
-                .padding(7)
+                SelectionTick(isSelected: isSelected, size: 20).padding(7)
             }
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
