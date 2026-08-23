@@ -53,9 +53,9 @@ public func importVideo(
             duration: result.duration,
             sizeBytes: sizeBytes ?? 0
         )
-        var manifest = LibraryManifest.load(root: root)
-        manifest.wallpapers.append(entry)
-        try manifest.save(root: root)
+        try LibraryWriter.update(root: root) { manifest in
+            manifest.wallpapers.append(entry)
+        }
         return entry
     } catch {
         try? FileManager.default.removeItem(at: masterURL)

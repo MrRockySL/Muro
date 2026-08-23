@@ -661,10 +661,17 @@ final class AppStore: ObservableObject {
 
     // MARK: - Likes
 
+    /// Saving the in-memory manifest would write back whatever this copy was
+    /// last loaded with, so a download that finished in the meantime would be
+    /// erased by a heart tap. Every manifest edit goes through LibraryWriter,
+    /// which works from what is actually on disk.
     func toggleLike(_ item: WallpaperItem) {
-        guard let index = manifest.wallpapers.firstIndex(where: { $0.id == item.id }) else { return }
-        manifest.wallpapers[index].liked.toggle()
-        try? manifest.save(root: root)
+        guard let updated = try? LibraryWriter.update(root: root, { manifest in
+            guard let index = manifest.wallpapers.firstIndex(where: { $0.id == item.id })
+            else { return }
+            manifest.wallpapers[index].liked.toggle()
+        }) else { return }
+        manifest = updated
     }
 
     // MARK: - Download (remote catalog → local library)
@@ -760,11 +767,10 @@ final class AppStore: ObservableObject {
             _ = try await Task.detached(priority: .userInitiated) {
                 try transcodeToHEVC(source: source, destination: destination, halveFrameRate: true)
             }.value
-            var fresh = LibraryManifest.load(root: root)
-            if let index = fresh.wallpapers.firstIndex(where: { $0.id == entry.id }) {
+            manifest = try LibraryWriter.update(root: root) { fresh in
+                guard let index = fresh.wallpapers.firstIndex(where: { $0.id == entry.id })
+                else { return }
                 fresh.wallpapers[index].efficientFile = relative
-                try fresh.save(root: root)
-                manifest = fresh
             }
             return true
         } catch {
@@ -876,8 +882,11 @@ final class AppStore: ObservableObject {
                 try? FileManager.default.removeItem(at: root.appendingPathComponent(relative))
             }
         }
-        manifest.wallpapers.removeAll(where: removable)
-        try? manifest.save(root: root)
+        if let updated = try? LibraryWriter.update(root: root, { manifest in
+            manifest.wallpapers.removeAll(where: removable)
+        }) {
+            manifest = updated
+        }
         recomputeSize()
     }
 
@@ -890,8 +899,11 @@ final class AppStore: ObservableObject {
         for relative in [entry.file, entry.efficientFile, entry.previewFile, entry.thumbnail].compactMap({ $0 }) {
             try? FileManager.default.removeItem(at: root.appendingPathComponent(relative))
         }
-        manifest.wallpapers.removeAll { $0.id == entry.id }
-        try? manifest.save(root: root)
+        if let updated = try? LibraryWriter.update(root: root, { manifest in
+            manifest.wallpapers.removeAll { $0.id == entry.id }
+        }) {
+            manifest = updated
+        }
         recomputeSize()
     }
 
@@ -1057,8 +1069,7 @@ func downloadRemoteWallpaper(
 
     let sizeBytes = (try? FileManager.default.attributesOfItem(atPath: destination.path)[.size] as? Int64) ?? remote.sizeBytes
 
-    var manifest = LibraryManifest.load(root: root)
-    manifest.wallpapers.append(WallpaperEntry(
+    let entry = WallpaperEntry(
         id: remote.id,
         title: remote.title,
         category: remote.category,
@@ -1069,7 +1080,12 @@ func downloadRemoteWallpaper(
         fps: remote.fps,
         duration: remote.duration,
         sizeBytes: sizeBytes
-    ))
-    try manifest.save(root: root)
+    )
+    try LibraryWriter.update(root: root) { manifest in
+        // Re-downloading something already listed replaces its entry rather
+        // than adding a second one with the same id.
+        manifest.wallpapers.removeAll { $0.id == entry.id }
+        manifest.wallpapers.append(entry)
+    }
     progress(1)
 }
