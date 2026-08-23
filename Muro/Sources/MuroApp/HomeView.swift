@@ -57,8 +57,11 @@ struct HomeView: View {
             Group {
                 // The hero only ever plays local files: a downloaded master
                 // or the bundled 4K. It never streams (owner, 2026-07-19).
+                // It also stops while a full screen preview covers it, since
+                // Home stays mounted underneath and two 4K decoders would
+                // otherwise run at once.
                 if let url = store.heroVideoURL(for: item) {
-                    LoopingPlayerView(url: url)
+                    LoopingPlayerView(url: url, isActive: store.previewItem == nil)
                 } else {
                     ThumbImage(item: item)
                 }
