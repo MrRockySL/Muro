@@ -67,22 +67,43 @@ final class LockScreenService {
     private let root: URL
     private var state: SelectionState
 
+    /// Cheap half only: read Muro's own small state file. Everything
+    /// expensive moved to `healIfNeeded()`.
     init(root: URL) {
         self.root = root
         state = Self.loadState(root: root)
-        // WallpaperAgent may reject or remove a provider (for example after a
-        // test bundle is replaced). Never keep showing "Applied" when Apple no
-        // longer has a matching Idle record.
-        if !activeWallpaperIDs.isEmpty, !Self.wallpaperStoresHaveSelection() {
-            try? Self.restoreWallpaperStores(targetKey: "all", root: root)
-            state = SelectionState()
+    }
+
+    /// WallpaperAgent may reject or remove a provider (for example after a
+    /// test bundle is replaced). Never keep showing "Applied" when Apple no
+    /// longer has a matching record.
+    ///
+    /// This used to run inside `init`, which the app reaches while building
+    /// its store, on the main actor, before the window is drawn. It reads and
+    /// rewrites Apple's property lists, runs `pluginkit`, and restarts
+    /// WallpaperAgent, so on a slow launch it froze the interface behind a
+    /// process spawn. It is a background job now, and the only thing it
+    /// changes in the interface is an "Applied" badge that was already wrong.
+    func healIfNeeded() async {
+        guard !activeWallpaperIDs.isEmpty else { return }
+        let root = self.root
+        let extensionURL = extensionBundleURL
+
+        let stillSelected = await Task.detached(priority: .utility) {
+            Self.wallpaperStoresHaveSelection()
+        }.value
+        guard !stillSelected else { return }
+
+        await Task.detached(priority: .utility) {
+            try? await Self.restoreWallpaperStores(targetKey: "all", root: root)
             try? FileManager.default.removeItem(at: Self.stateURL(root: root))
             try? Self.pruneStagedLibrary(keeping: [])
-            Self.unregisterExtension(at: extensionBundleURL)
+            Self.unregisterExtension(at: extensionURL)
             try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
             try? FileManager.default.removeItem(at: Self.legacyBackupURL(root: root))
             Self.restartWallpaperAgent()
-        }
+        }.value
+        state = SelectionState()
     }
 
     var isAvailable: Bool {
@@ -138,7 +159,7 @@ final class LockScreenService {
                 try Self.stage(entry: entry, videoURL: videoURL, thumbnailURL: thumbnailURL)
                 try Self.writePreferences()
                 try Self.registerExtension(at: extensionURL)
-                try Self.updateWallpaperStores(
+                try await Self.updateWallpaperStores(
                     wallpaperID: entry.id,
                     videoURL: Self.stagedVideoURL(id: entry.id),
                     targetKey: targetKey,
@@ -193,7 +214,7 @@ final class LockScreenService {
         let root = root
         let extensionURL = extensionBundleURL
         try await Task.detached(priority: .userInitiated) {
-            try Self.restoreWallpaperStores(targetKey: targetKey, root: root)
+            try await Self.restoreWallpaperStores(targetKey: targetKey, root: root)
             try Self.saveState(nextState, root: root)
             Self.restartWallpaperAgent()
             try Self.pruneStagedLibrary(
@@ -215,7 +236,7 @@ final class LockScreenService {
         let root = root
         let extensionURL = extensionBundleURL
         await Task.detached(priority: .userInitiated) {
-            try? Self.restoreWallpaperStores(targetKey: "all", root: root)
+            try? await Self.restoreWallpaperStores(targetKey: "all", root: root)
             Self.restartWallpaperAgent()
             Self.unregisterExtension(at: extensionURL)
             try? FileManager.default.removeItem(at: Self.extensionDocumentsURL)
@@ -434,7 +455,7 @@ final class LockScreenService {
         videoURL: URL,
         targetKey: String,
         root: URL
-    ) throws {
+    ) async throws {
         let manager = FileManager.default
         guard let primaryURL = wallpaperStoreURLs.first,
               manager.fileExists(atPath: primaryURL.path)
@@ -490,7 +511,10 @@ final class LockScreenService {
             }
 
             try writePropertyList(store, to: storeURL)
-            Thread.sleep(forTimeInterval: 0.25)
+            // Written twice with a pause, because WallpaperAgent may rewrite
+            // the file from its own state in between. Task.sleep yields the
+            // thread; Thread.sleep parked one in the cooperative pool.
+            try? await Task.sleep(nanoseconds: 250_000_000)
             try writePropertyList(store, to: storeURL)
         }
     }
@@ -498,7 +522,7 @@ final class LockScreenService {
     private static func restoreWallpaperStores(
         targetKey: String,
         root: URL
-    ) throws {
+    ) async throws {
         let manager = FileManager.default
         for storeURL in wallpaperStoreURLs where manager.fileExists(atPath: storeURL.path) {
             let currentData = try Data(contentsOf: storeURL)
@@ -529,7 +553,7 @@ final class LockScreenService {
             }
 
             try writePropertyList(current, to: storeURL)
-            Thread.sleep(forTimeInterval: 0.25)
+            try? await Task.sleep(nanoseconds: 250_000_000)
             try writePropertyList(current, to: storeURL)
         }
     }

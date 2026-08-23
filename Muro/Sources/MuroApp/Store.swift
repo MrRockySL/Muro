@@ -129,6 +129,9 @@ final class AppStore: ObservableObject {
         }
         Task { await refreshCatalog() }
         Task { await checkForUpdates() }
+        // Reads Apple's wallpaper plists and may run pluginkit and restart
+        // WallpaperAgent, so it must never sit on the launch path.
+        Task { await lockScreen.healIfNeeded() }
         // Newly published wallpapers should show up without quitting the app,
         // so re-check whenever Muro is brought back to the front.
         NotificationCenter.default.addObserver(
