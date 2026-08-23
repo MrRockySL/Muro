@@ -10,10 +10,36 @@ import AVFoundation
 /// engine costs 0% CPU exactly when nobody can see the wallpaper.
 public final class WallpaperWindowController {
     private let window: NSWindow
-    private let player: AVQueuePlayer
-    private let playerLayer: AVPlayerLayer
+    private var player: AVQueuePlayer
+    private var playerLayer: AVPlayerLayer
     private var looper: AVPlayerLooper?
     private var observers: [NSObjectProtocol] = []
+    private var currentURL: URL
+
+    /// A wallpaper change builds a second player on a second layer above the
+    /// first, and only takes the old one down once the new one has a frame to
+    /// show. Swapping the item on the single existing layer would blink black
+    /// while the new file loads, which at the ten second steps automations
+    /// allow would be constant.
+    private struct PendingVideo {
+        let player: AVQueuePlayer
+        let layer: AVPlayerLayer
+        let looper: AVPlayerLooper
+    }
+
+    private var pending: PendingVideo?
+    private var readyObservation: NSKeyValueObservation?
+    private var swapTimeout: DispatchWorkItem?
+
+    /// The crossfade is short on purpose: long enough not to read as a cut,
+    /// short enough that two videos are rarely decoding at once.
+    private static let crossfadeSeconds = 0.45
+
+    /// Both the visible player and any swap still in flight, so a pause or a
+    /// speed change never leaves the incoming video out of step.
+    private var allPlayers: [AVQueuePlayer] {
+        pending.map { [player, $0.player] } ?? [player]
+    }
 
     /// True while a condition (lock/sleep/occlusion/user pause) is holding
     /// playback. Playback resumes only when every hold is released.
@@ -56,8 +82,102 @@ public final class WallpaperWindowController {
         contentView.layer?.addSublayer(playerLayer)
         window.contentView = contentView
 
+        currentURL = videoURL
         let item = AVPlayerItem(url: videoURL)
         looper = AVPlayerLooper(player: player, templateItem: item)
+    }
+
+    // MARK: - Changing wallpaper without rebuilding the window
+
+    /// Replaces the looping video on this screen, crossfading to it.
+    ///
+    /// The engine used to answer a wallpaper change by destroying this whole
+    /// controller and building a new NSWindow and AVPlayer, which flashed
+    /// black and spiked CPU on every switch.
+    public func setVideo(url: URL) {
+        guard url != currentURL else { return }
+        currentURL = url
+        discardPendingSwap()
+
+        let nextPlayer = AVQueuePlayer()
+        nextPlayer.isMuted = true
+        nextPlayer.preventsDisplaySleepDuringVideoPlayback = false
+
+        let nextLayer = AVPlayerLayer(player: nextPlayer)
+        nextLayer.videoGravity = .resizeAspectFill
+        nextLayer.frame = playerLayer.frame
+        nextLayer.autoresizingMask = playerLayer.autoresizingMask
+        nextLayer.opacity = 0
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        window.contentView?.layer?.addSublayer(nextLayer)
+        CATransaction.commit()
+
+        let nextLooper = AVPlayerLooper(player: nextPlayer, templateItem: AVPlayerItem(url: url))
+        pending = PendingVideo(player: nextPlayer, layer: nextLayer, looper: nextLooper)
+        if holds.isEmpty { nextPlayer.playImmediately(atRate: desiredRate) }
+
+        // `isReadyForDisplay` is the layer saying it has a frame to draw. Only
+        // then is it safe to take the outgoing video away.
+        readyObservation = nextLayer.observe(
+            \.isReadyForDisplay, options: [.initial, .new]
+        ) { [weak self] layer, _ in
+            guard layer.isReadyForDisplay else { return }
+            DispatchQueue.main.async { self?.completeSwap() }
+        }
+
+        // A damaged or unreadable file may never become ready. Rather than
+        // leave a dead layer stacked on the window forever, give up and show
+        // it anyway after a moment.
+        let timeout = DispatchWorkItem { [weak self] in self?.completeSwap() }
+        swapTimeout = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: timeout)
+    }
+
+    private func completeSwap() {
+        guard let incoming = pending else { return }
+        pending = nil
+        readyObservation = nil
+        swapTimeout?.cancel()
+        swapTimeout = nil
+
+        let outgoingPlayer = player
+        let outgoingLayer = playerLayer
+        let outgoingLooper = looper
+
+        player = incoming.player
+        playerLayer = incoming.layer
+        looper = incoming.looper
+
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(Self.crossfadeSeconds)
+        CATransaction.setCompletionBlock {
+            outgoingLooper?.disableLooping()
+            outgoingPlayer.pause()
+            outgoingPlayer.removeAllItems()
+            outgoingLayer.player = nil
+            outgoingLayer.removeFromSuperlayer()
+        }
+        incoming.layer.opacity = 1
+        CATransaction.commit()
+
+        EngineLog.log("switched to \(currentURL.lastPathComponent)")
+    }
+
+    /// Drops a swap that never completed, e.g. two wallpaper changes in quick
+    /// succession, so layers cannot pile up on the window.
+    private func discardPendingSwap() {
+        readyObservation = nil
+        swapTimeout?.cancel()
+        swapTimeout = nil
+        guard let stale = pending else { return }
+        pending = nil
+        stale.looper.disableLooping()
+        stale.player.pause()
+        stale.player.removeAllItems()
+        stale.layer.player = nil
+        stale.layer.removeFromSuperlayer()
     }
 
     public func start() {
@@ -67,6 +187,7 @@ public final class WallpaperWindowController {
     }
 
     public func stop() {
+        discardPendingSwap()
         player.pause()
         for observer in observers {
             NotificationCenter.default.removeObserver(observer)
@@ -104,7 +225,7 @@ public final class WallpaperWindowController {
     public func setPlaybackRate(_ rate: Float) {
         guard abs(rate - desiredRate) > 0.001 else { return }
         desiredRate = rate
-        if player.rate > 0 { player.rate = rate }
+        for player in allPlayers where player.rate > 0 { player.rate = rate }
     }
 
     // MARK: - Visibility-driven pause/resume
@@ -159,16 +280,17 @@ public final class WallpaperWindowController {
         let wasEmpty = holds.isEmpty
         holds.insert(reason)
         if wasEmpty {
-            player.pause()
+            allPlayers.forEach { $0.pause() }
             EngineLog.log("paused (\(reason))")
         }
     }
 
     private func release(_ reason: String) {
         holds.remove(reason)
-        if holds.isEmpty && player.rate == 0 {
-            player.playImmediately(atRate: desiredRate)
-            EngineLog.log("resumed (\(reason) cleared)")
-        }
+        guard holds.isEmpty else { return }
+        let stopped = allPlayers.filter { $0.rate == 0 }
+        guard !stopped.isEmpty else { return }
+        stopped.forEach { $0.playImmediately(atRate: desiredRate) }
+        EngineLog.log("resumed (\(reason) cleared)")
     }
 }

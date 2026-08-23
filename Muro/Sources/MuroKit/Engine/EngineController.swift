@@ -6,9 +6,11 @@ import AppKit
 public final class EngineController {
     private let root = LibraryManifest.defaultRoot()
     private var controllers: [String: WallpaperWindowController] = [:]
-    /// Signature of what each display is currently showing:
-    /// "<wallpaperID>|<mode>|<screen frame>" — any difference forces a rebuild.
-    private var signatures: [String: String] = [:]
+    /// Split deliberately. The window's geometry is the only thing that needs
+    /// a rebuild; the video is swapped in place, because tearing the window
+    /// down for a wallpaper change flashed black on every switch.
+    private var frames: [String: String] = [:]
+    private var videos: [String: String] = [:]
     private var configWatcher: DispatchSourceFileSystemObject?
     private var observers: [NSObjectProtocol] = []
     private let power = PowerMonitor()
@@ -50,7 +52,7 @@ public final class EngineController {
         let manifest = LibraryManifest.load(root: root)
         let config = EngineConfig.load(root: root)
 
-        var desired: [String: (screen: NSScreen, url: URL, signature: String)] = [:]
+        var desired: [String: (screen: NSScreen, url: URL, frame: String, video: String)] = [:]
         for screen in NSScreen.screens {
             guard let uuid = displayUUID(for: screen) else { continue }
             guard let assignment = config.assignment(forDisplayUUID: uuid),
@@ -61,17 +63,22 @@ public final class EngineController {
                 EngineLog.log("skipping \(entry.title) — missing file \(url.lastPathComponent)")
                 continue
             }
-            let signature = "\(entry.id)|\(assignment.mode)|\(NSStringFromRect(screen.frame))"
-            desired[uuid] = (screen, url, signature)
+            desired[uuid] = (
+                screen,
+                url,
+                NSStringFromRect(screen.frame),
+                "\(entry.id)|\(assignment.mode)"
+            )
         }
 
-        // Tear down displays whose assignment vanished or changed.
-        for (uuid, controller) in controllers {
-            if desired[uuid]?.signature != signatures[uuid] {
-                controller.stop()
-                controllers[uuid] = nil
-                signatures[uuid] = nil
-            }
+        // Tear down displays that lost their assignment, or whose geometry
+        // changed. A resolution or arrangement change genuinely needs a new
+        // window; a different wallpaper does not.
+        for (uuid, controller) in controllers where desired[uuid]?.frame != frames[uuid] {
+            controller.stop()
+            controllers[uuid] = nil
+            frames[uuid] = nil
+            videos[uuid] = nil
         }
 
         // Bring up displays that need a (new) wallpaper.
@@ -79,8 +86,16 @@ public final class EngineController {
             let controller = WallpaperWindowController(screen: want.screen, videoURL: want.url)
             controller.start()
             controllers[uuid] = controller
-            signatures[uuid] = want.signature
+            frames[uuid] = want.frame
+            videos[uuid] = want.video
             EngineLog.log("applied \(want.url.lastPathComponent) → \(want.screen.localizedName)")
+        }
+
+        // Same window, different wallpaper: crossfade to it in place.
+        for (uuid, want) in desired {
+            guard let controller = controllers[uuid], videos[uuid] != want.video else { continue }
+            controller.setVideo(url: want.url)
+            videos[uuid] = want.video
         }
 
         // Live-applied state that never needs a window rebuild.
