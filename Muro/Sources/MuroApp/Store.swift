@@ -62,8 +62,11 @@ final class AppStore: ObservableObject {
     /// +1 when moving right in the tab order, -1 when moving left — drives
     /// the direction of the small slide transition between pages.
     @Published var tabShift: CGFloat = 1
-    @Published var manifest = LibraryManifest()
-    @Published var catalog: [CatalogEntry] = []
+    // The merged wallpaper list is derived from exactly these two, so any
+    // change to either is the one and only thing that can stale the cache
+    // built from them (see `items`).
+    @Published var manifest = LibraryManifest() { didSet { invalidateItemCache() } }
+    @Published var catalog: [CatalogEntry] = [] { didSet { invalidateItemCache() } }
     @Published var config = EngineConfig()
     @Published var playlists: [Playlist] = []
     @Published var downloads: [String: Double] = [:]        // id → 0…1
@@ -149,7 +152,29 @@ final class AppStore: ObservableObject {
 
     // MARK: - Items
 
+    // Everything below is derived from `manifest` + `catalog` and was being
+    // rebuilt on every single access. `items` allocated an array and a
+    // dictionary of the whole catalog, and `item(id:)` did that and then
+    // linear-scanned the result, from inside view bodies, once per card and
+    // once per playlist thumbnail. At 99 wallpapers that is wasteful; at the
+    // 1000 this library is aimed at it is quadratic, and the automations
+    // feature calls `item(id:)` once per step on every tick.
+    private var cachedItems: [WallpaperItem]?
+    private var cachedItemsByID: [String: WallpaperItem]?
+    private var cachedLocalItems: [WallpaperItem]?
+    private var cachedLikedItems: [WallpaperItem]?
+    private var cachedCategories: [String]?
+
+    private func invalidateItemCache() {
+        cachedItems = nil
+        cachedItemsByID = nil
+        cachedLocalItems = nil
+        cachedLikedItems = nil
+        cachedCategories = nil
+    }
+
     var items: [WallpaperItem] {
+        if let cachedItems { return cachedItems }
         // `Dictionary(uniqueKeysWithValues:)` traps on a repeated key, and the
         // catalog is a file fetched from the network. One duplicate id in a
         // published catalog.json would therefore crash every installed copy of
@@ -161,25 +186,46 @@ final class AppStore: ObservableObject {
         )
         var seen = Set<String>()
         var out: [WallpaperItem] = []
+        out.reserveCapacity(manifest.wallpapers.count + catalog.count)
         for entry in manifest.wallpapers where seen.insert(entry.id).inserted {
             out.append(WallpaperItem(local: entry, remote: remoteByID[entry.id]))
         }
         for remote in catalog where !seen.contains(remote.id) {
             out.append(WallpaperItem(local: nil, remote: remote))
         }
+        cachedItems = out
         return out
     }
 
-    var localItems: [WallpaperItem] { items.filter(\.isDownloaded) }
-    var likedItems: [WallpaperItem] { items.filter(\.liked) }
-
-    var categories: [String] {
-        var seen = Set<String>()
-        return items.map(\.category).filter { seen.insert($0).inserted }
+    var localItems: [WallpaperItem] {
+        if let cachedLocalItems { return cachedLocalItems }
+        let out = items.filter(\.isDownloaded)
+        cachedLocalItems = out
+        return out
     }
 
+    var likedItems: [WallpaperItem] {
+        if let cachedLikedItems { return cachedLikedItems }
+        let out = items.filter(\.liked)
+        cachedLikedItems = out
+        return out
+    }
+
+    var categories: [String] {
+        if let cachedCategories { return cachedCategories }
+        var seen = Set<String>()
+        let out = items.map(\.category).filter { seen.insert($0).inserted }
+        cachedCategories = out
+        return out
+    }
+
+    /// A dictionary lookup. This is called from view bodies far more often
+    /// than anything else here, so it must not walk the library.
     func item(id: String) -> WallpaperItem? {
-        items.first { $0.id == id }
+        if let cachedItemsByID { return cachedItemsByID[id] }
+        let byID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        cachedItemsByID = byID
+        return byID[id]
     }
 
     /// The hero only ever plays LOCAL files (owner, 2026-07-19): a fresh
