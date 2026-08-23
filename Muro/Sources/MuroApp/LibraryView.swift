@@ -6,12 +6,13 @@ struct LibraryView: View {
     @EnvironmentObject var store: AppStore
 
     enum LibTab: String, CaseIterable {
-        case all = "All", liked = "Liked", playlists = "Playlists"
+        case all = "All", liked = "Liked", playlists = "Playlists", automations = "Automations"
     }
 
     @State private var tab: LibTab = .all
     @State private var dropTargeted = false
     @State private var editorTarget: PlaylistEditorTarget?
+    @State private var automationTarget: AutomationEditorTarget?
     @State private var selecting = false
     @State private var selected: Set<String> = []
 
@@ -36,6 +37,7 @@ struct LibraryView: View {
                 tabPill(.all, count: store.localItems.count)
                 tabPill(.liked, count: store.likedItems.count)
                 tabPill(.playlists, count: store.playlists.count)
+                tabPill(.automations, count: store.automations.count)
                 Spacer()
                 if selecting { selectAllButton }
                 if tab == .all || tab == .liked { selectPill }
@@ -53,6 +55,8 @@ struct LibraryView: View {
                         grid(items: searched.filter(\.liked))
                     case .playlists:
                         playlistsGrid
+                    case .automations:
+                        automationsGrid
                     }
                 }
                 .padding(.horizontal, 64)
@@ -81,6 +85,10 @@ struct LibraryView: View {
         }
         .sheet(item: $editorTarget) { target in
             PlaylistEditorView(target: target)
+                .environmentObject(store)
+        }
+        .sheet(item: $automationTarget) { target in
+            AutomationEditorView(target: target)
                 .environmentObject(store)
         }
     }
@@ -297,6 +305,47 @@ struct LibraryView: View {
         }
     }
 
+    // MARK: - Automations
+
+    private var automationsGrid: some View {
+        LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)],
+            spacing: 24
+        ) {
+            ForEach(store.automations) { automation in
+                AutomationCard(automation: automation) {
+                    automationTarget = .edit(automation)
+                }
+            }
+            newAutomationCard
+        }
+    }
+
+    private var newAutomationCard: some View {
+        VStack(spacing: 10) {
+            CircledPlus()
+            Text("New Automation")
+                .font(.system(size: 14.5, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("Give each wallpaper its own time of day, or its own length")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Color.muroSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 176)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.muroAccent.opacity(0.045))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Color.muroAccent.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, dash: [7, 7]))
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onTapGesture { automationTarget = .new }
+    }
+
     private var newPlaylistCard: some View {
         VStack(spacing: 10) {
             CircledPlus()
@@ -475,6 +524,157 @@ struct PlaylistCard: View {
         }
     }
 
+}
+
+// MARK: - Automation card
+
+/// Same card as `PlaylistCard`, because an automation is the same idea with a
+/// richer schedule, and the two sit in tabs next to each other.
+struct AutomationCard: View {
+    @EnvironmentObject var store: AppStore
+    let automation: Automation
+    var onEdit: () -> Void = {}
+
+    @State private var showMenu = false
+
+    private var isActive: Bool { store.activeAutomationID == automation.id }
+
+    private var thumbs: [WallpaperItem] {
+        automation.steps.compactMap { store.item(id: $0.wallpaperID) }
+    }
+
+    private var metaLine: String {
+        let count = automation.steps.count
+        let wallpapers = "\(count) wallpaper\(count == 1 ? "" : "s")"
+        switch automation.mode {
+        case .timer:
+            return "\(wallpapers) · timer · \(durationLabel(automation.cycleSeconds)) cycle"
+        case .clock:
+            let gaps = automation.uncoveredWindows
+            let coverage = gaps.isEmpty ? "covers 24 h" : "\(gaps.count) gap\(gaps.count == 1 ? "" : "s")"
+            return "\(wallpapers) · clock · \(coverage)"
+        }
+    }
+
+    /// While a clock automation runs, what it is showing now is more useful
+    /// than what it will show later.
+    private var nowLine: String? {
+        guard isActive, automation.mode == .clock,
+              let step = automation.clockStep(at: AutomationScheduler.minuteOfDay()),
+              let item = store.item(id: step.wallpaperID)
+        else { return nil }
+        return "Now: \(item.title) until \(clockLabel(step.end))"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Text(automation.name)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                if isActive { playingChip }
+                Spacer()
+                playButton
+            }
+            Text(nowLine ?? metaLine)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(nowLine == nil ? Color.muroSecondary : Color.muroAccent.opacity(0.9))
+                .lineLimit(1)
+                .padding(.top, 7)
+            thumbStrip
+                .padding(.top, 16)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 176)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    isActive ? Color.muroAccent.opacity(0.55) : Color.white.opacity(0.1),
+                    lineWidth: isActive ? 1.5 : 1
+                )
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onTapGesture { onEdit() }
+        .overlay(RightClickCatcher { showMenu = true })
+        .popover(isPresented: $showMenu, arrowEdge: .bottom) {
+            GlassMenuList(width: 200, options: menuOptions) { showMenu = false }
+        }
+    }
+
+    private var playingChip: some View {
+        HStack(spacing: 5) {
+            Circle().fill(Color.muroGreen).frame(width: 5.5, height: 5.5)
+            Text("PLAYING")
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.9)
+                .foregroundStyle(.white.opacity(0.95))
+        }
+        .padding(.leading, 9)
+        .padding(.trailing, 10)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color.black.opacity(0.45)))
+        .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.5), lineWidth: 1))
+    }
+
+    private var menuOptions: [MenuOption] {
+        [
+            MenuOption(title: isActive ? "Stop" : "Play") {
+                isActive ? store.stopAutomation() : store.startAutomation(automation)
+            },
+            MenuOption(title: "Edit Automation") { onEdit() },
+            .divider,
+            MenuOption(title: "Delete Automation", destructive: true) {
+                store.deleteAutomation(automation)
+            }
+        ]
+    }
+
+    private var playButton: some View {
+        Button {
+            isActive ? store.stopAutomation() : store.startAutomation(automation)
+        } label: {
+            Image(systemName: isActive ? "pause.fill" : "play.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(isActive ? Color.black : Color.white)
+                .frame(width: 40, height: 40)
+                .background { Circle().fill(isActive ? Color.white : Color.white.opacity(0.1)) }
+                .overlay {
+                    if !isActive { Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1) }
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(automation.steps.isEmpty)
+        .opacity(automation.steps.isEmpty ? 0.4 : 1)
+    }
+
+    private var thumbStrip: some View {
+        HStack(spacing: 10) {
+            ForEach(Array(thumbs.prefix(3).enumerated()), id: \.offset) { _, item in
+                Color.black
+                    .frame(width: 120, height: 68)
+                    .overlay(ThumbImage(item: item))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+            if thumbs.count > 3 {
+                Color.black
+                    .frame(width: 120, height: 68)
+                    .overlay(ThumbImage(item: thumbs[3]))
+                    .overlay(Color.black.opacity(0.55))
+                    .overlay(
+                        Text("+\(thumbs.count - 3)")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+        }
+    }
 }
 
 // MARK: - Playlist editor

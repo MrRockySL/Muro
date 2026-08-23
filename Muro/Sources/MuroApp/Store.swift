@@ -80,7 +80,9 @@ final class AppStore: ObservableObject {
     @Published var heroID: String?
     @Published var libraryBytes: Int64 = 0
     @Published var recentIDs: [String] = []
+    @Published var automations: [Automation] = []
     @Published var activePlaylistID: String?
+    @Published var activeAutomationID: String?
     @Published var applyingLockScreen = false
     @Published var applyError: String?
     /// Kept separate from `applyError` so each alert can say what actually
@@ -93,7 +95,7 @@ final class AppStore: ObservableObject {
     @Published var pendingDelete: DeleteRequest?
 
     private var watcher: DispatchSourceFileSystemObject?
-    private var playlistTimer: Timer?
+    private let scheduler = AutomationScheduler()
     private let defaults = UserDefaults.standard
     private lazy var lockScreen = LockScreenService(root: root)
 
@@ -101,8 +103,12 @@ final class AppStore: ObservableObject {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         reloadFromDisk()
         recentIDs = defaults.stringArray(forKey: "recents") ?? []
-        activePlaylistID = defaults.string(forKey: "activePlaylist")
-        if activePlaylistID != nil { schedulePlaylistTimer() }
+        scheduler.apply = { [weak self] id in
+            guard let self, let item = self.item(id: id) else { return }
+            self.setWallpaper(item, mode: self.defaultMode(for: item))
+        }
+        scheduler.currentIDForOrdering = { [weak self] in self?.currentAppliedID }
+        syncScheduler()
         watchRoot()
         recomputeSize()
         if !lockScreen.isAvailable { applySurface = .desktop }
@@ -284,6 +290,16 @@ final class AppStore: ObservableObject {
         manifest = LibraryManifest.load(root: root)
         config = EngineConfig.load(root: root)
         playlists = PlaylistStore.load(root: root)
+        automations = AutomationStore.load(root: root)
+        syncScheduler()
+    }
+
+    /// The scheduler owns the running schedule; the store owns what is on
+    /// disk. This is the one place the two meet.
+    private func syncScheduler() {
+        scheduler.update(automations: automations, playlists: playlists)
+        activePlaylistID = scheduler.activePlaylistID
+        activeAutomationID = scheduler.activeAutomationID
     }
 
     private func watchRoot() {
@@ -652,6 +668,38 @@ final class AppStore: ObservableObject {
     /// On by default: a covered wallpaper that keeps decoding is pure waste.
     var autoPauseFullScreen: Bool { config.autoPauseFullScreen ?? true }
 
+    /// "Pause after": seconds of motion before a wallpaper freezes on a
+    /// frame. 0 is off, which is how every existing install behaves.
+    var pauseAfterSeconds: Int { config.pauseAfterSeconds ?? 0 }
+
+    func setPauseAfter(_ seconds: Int) {
+        config.pauseAfterSeconds = seconds > 0 ? seconds : nil
+        saveConfig()
+    }
+
+    /// The value actually in force for one wallpaper: its own override, or
+    /// the global setting when it has none.
+    func effectivePauseAfter(for item: WallpaperItem) -> Int {
+        guard let override = item.local?.pauseAfterSeconds else { return pauseAfterSeconds }
+        return max(0, override)
+    }
+
+    func hasPauseAfterOverride(_ item: WallpaperItem) -> Bool {
+        item.local?.pauseAfterSeconds != nil
+    }
+
+    /// `nil` clears the override and puts the wallpaper back on the setting.
+    /// A negative value is how "never pause this one" is stored, so a
+    /// wallpaper can opt out while the global setting stays on.
+    func setPauseAfter(_ seconds: Int?, for item: WallpaperItem) {
+        guard let updated = try? LibraryWriter.update(root: root, { manifest in
+            guard let index = manifest.wallpapers.firstIndex(where: { $0.id == item.id })
+            else { return }
+            manifest.wallpapers[index].pauseAfterSeconds = seconds
+        }) else { return }
+        manifest = updated
+    }
+
     func setAutoPauseFullScreen(_ on: Bool) {
         config.autoPauseFullScreen = on
         saveConfig()
@@ -842,52 +890,67 @@ final class AppStore: ObservableObject {
         guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
         playlists[index] = playlist
         savePlaylists()
-        if activePlaylistID == playlist.id { schedulePlaylistTimer() }
     }
 
     func startPlaylist(_ playlist: Playlist) {
-        activePlaylistID = playlist.id
-        defaults.set(playlist.id, forKey: "activePlaylist")
-        advancePlaylist(forward: true, initial: true)
-        schedulePlaylistTimer()
+        scheduler.startPlaylist(playlist)
+        syncScheduler()
     }
 
     func stopPlaylist() {
-        activePlaylistID = nil
-        defaults.removeObject(forKey: "activePlaylist")
-        playlistTimer?.invalidate()
-        playlistTimer = nil
+        scheduler.stopPlaylist()
+        syncScheduler()
     }
 
-    func advancePlaylist(forward: Bool, initial: Bool = false) {
-        guard let playlist = activePlaylist else { return }
-        let ids = playlist.wallpaperIDs.filter { id in localItems.contains { $0.id == id } }
-        guard !ids.isEmpty else { return }
-        let nextID: String
-        if playlist.shuffle {
-            nextID = ids.filter { $0 != currentAppliedID }.randomElement() ?? ids[0]
-        } else if let current = currentAppliedID, let index = ids.firstIndex(of: current) {
-            let step = initial ? 0 : (forward ? 1 : ids.count - 1)
-            nextID = ids[(index + step) % ids.count]
-        } else {
-            nextID = ids[0]
-        }
-        if let item = item(id: nextID) {
-            setWallpaper(item, mode: defaultMode(for: item))
-        }
-    }
-
-    private func schedulePlaylistTimer() {
-        playlistTimer?.invalidate()
-        guard let playlist = activePlaylist else { return }
-        let interval = max(1, playlist.intervalMinutes) * 60
-        playlistTimer = Timer.scheduledTimer(withTimeInterval: Double(interval), repeats: true) { _ in
-            Task { @MainActor in AppStore.shared.advancePlaylist(forward: true) }
-        }
+    func advancePlaylist(forward: Bool) {
+        scheduler.advancePlaylist(forward: forward)
     }
 
     private func savePlaylists() {
         try? PlaylistStore.save(playlists, root: root)
+        syncScheduler()
+    }
+
+    // MARK: - Automations
+
+    var activeAutomation: Automation? {
+        automations.first { $0.id == activeAutomationID }
+    }
+
+    /// Whatever schedule is driving the wallpaper right now, for the status
+    /// line in the menu bar.
+    var runningScheduleName: String? { scheduler.runningName }
+
+    func addAutomation(_ automation: Automation) {
+        automations.append(automation)
+        saveAutomations()
+    }
+
+    func updateAutomation(_ automation: Automation) {
+        guard let index = automations.firstIndex(where: { $0.id == automation.id }) else { return }
+        automations[index] = automation
+        saveAutomations()
+    }
+
+    func deleteAutomation(_ automation: Automation) {
+        if activeAutomationID == automation.id { stopAutomation() }
+        automations.removeAll { $0.id == automation.id }
+        saveAutomations()
+    }
+
+    func startAutomation(_ automation: Automation) {
+        scheduler.startAutomation(automation)
+        syncScheduler()
+    }
+
+    func stopAutomation() {
+        scheduler.stopAutomation()
+        syncScheduler()
+    }
+
+    private func saveAutomations() {
+        try? AutomationStore.save(automations, root: root)
+        syncScheduler()
     }
 
     // MARK: - Delete
@@ -973,8 +1036,17 @@ final class AppStore: ObservableObject {
             stopPlaylist()
             deleteNotice = "\(name) has no wallpapers left, so it stopped."
         }
-        // F2 note: automations are stripped here too, the same way, once
-        // `automations.json` exists.
+        let (prunedAutomations, emptiedAutomations) =
+            AutomationStore.pruned(automations, removing: ids)
+        if prunedAutomations != automations {
+            automations = prunedAutomations
+            saveAutomations()
+        }
+        if let running = activeAutomationID, emptiedAutomations.contains(running) {
+            let name = automations.first { $0.id == running }?.name ?? "The automation"
+            stopAutomation()
+            deleteNotice = "\(name) has no wallpapers left, so it stopped."
+        }
 
         if recentIDs.contains(where: { ids.contains($0) }) {
             recentIDs.removeAll { ids.contains($0) }
@@ -1048,6 +1120,11 @@ final class AppStore: ObservableObject {
             if pruned != playlists {
                 playlists = pruned
                 savePlaylists()
+            }
+            let (prunedAutomations, _) = AutomationStore.pruned(automations, removing: Set(doomed))
+            if prunedAutomations != automations {
+                automations = prunedAutomations
+                saveAutomations()
             }
             recentIDs.removeAll { doomed.contains($0) }
             defaults.set(recentIDs, forKey: "recents")

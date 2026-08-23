@@ -44,6 +44,8 @@ public final class WallpaperWindowController {
     /// True while a condition (lock/sleep/occlusion/user pause) is holding
     /// playback. Playback resumes only when every hold is released.
     private var holds = Set<String>()
+    private var pauseAfterSeconds: Int?
+    private var settleTimer: Timer?
     private var desiredRate: Float = 1.0
     /// Settings toggle. Off means the wallpaper keeps playing even when it is
     /// covered, which costs CPU for something nobody can see, so it stays on
@@ -116,6 +118,10 @@ public final class WallpaperWindowController {
 
         let nextLooper = AVPlayerLooper(player: nextPlayer, templateItem: AVPlayerItem(url: url))
         pending = PendingVideo(player: nextPlayer, layer: nextLayer, looper: nextLooper)
+        // A new wallpaper is a new chance to watch it move, including every
+        // automation and playlist step.
+        release("settled")
+        armSettleTimer()
         if holds.isEmpty { nextPlayer.playImmediately(atRate: desiredRate) }
 
         // `isReadyForDisplay` is the layer saying it has a frame to draw. Only
@@ -184,10 +190,13 @@ public final class WallpaperWindowController {
         window.orderFrontRegardless()
         player.playImmediately(atRate: desiredRate)
         installObservers()
+        armSettleTimer()
     }
 
     public func stop() {
         discardPendingSwap()
+        settleTimer?.invalidate()
+        settleTimer = nil
         player.pause()
         for observer in observers {
             NotificationCenter.default.removeObserver(observer)
@@ -219,6 +228,38 @@ public final class WallpaperWindowController {
         guard enabled != autoPauseFullScreen else { return }
         autoPauseFullScreen = enabled
         occlusionChanged()
+    }
+
+    /// "Pause after": let a wallpaper move for a while when it starts, then
+    /// freeze it on a frame. Zero or nil means it never freezes.
+    ///
+    /// It is an ordinary hold named `settled`, so it composes with lock,
+    /// sleep, occlusion and the user pause exactly like the rest, and the
+    /// wallpaper only actually resumes when every hold is gone.
+    public func setPauseAfter(_ seconds: Int?) {
+        let normalized = (seconds ?? 0) > 0 ? seconds : nil
+        guard normalized != pauseAfterSeconds else { return }
+        pauseAfterSeconds = normalized
+        armSettleTimer()
+    }
+
+    /// Restarts the clock. Called whenever playback genuinely begins again:
+    /// a new wallpaper, an unlock, a resume from any other hold.
+    private func armSettleTimer() {
+        settleTimer?.invalidate()
+        settleTimer = nil
+        release("settled")
+        guard let seconds = pauseAfterSeconds, holds.isEmpty else { return }
+        let timer = Timer(timeInterval: Double(seconds), repeats: false) { [weak self] _ in
+            DispatchQueue.main.async { self?.settle() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        settleTimer = timer
+    }
+
+    private func settle() {
+        settleTimer = nil
+        hold("settled")
     }
 
     /// Playback speed from Settings (0.5×–1.5×). Applied live when playing.
@@ -264,7 +305,10 @@ public final class WallpaperWindowController {
             forName: Notification.Name("com.apple.screenIsUnlocked"),
             object: nil, queue: .main
         ) { [weak self] _ in
+            // Unlocking is the other moment the issue asks about: the desktop
+            // reappears, so it gets its window of motion again.
             self?.release("screen-lock")
+            self?.armSettleTimer()
         })
     }
 
@@ -292,5 +336,8 @@ public final class WallpaperWindowController {
         guard !stopped.isEmpty else { return }
         stopped.forEach { $0.playImmediately(atRate: desiredRate) }
         EngineLog.log("resumed (\(reason) cleared)")
+        // Playback really did just start again, so the settle clock starts
+        // again with it. Not for `settled` itself, which would loop.
+        if reason != "settled" { armSettleTimer() }
     }
 }

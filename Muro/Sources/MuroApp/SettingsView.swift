@@ -1,5 +1,6 @@
 import SwiftUI
 import ServiceManagement
+import MuroKit
 
 struct SettingsView: View {
     @EnvironmentObject var store: AppStore
@@ -10,6 +11,7 @@ struct SettingsView: View {
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var confirmClear = false
+    @State private var customPauseAfter = false
     /// The window keeps this view alive across close/reopen, which used to
     /// preserve the scroll position — reopening must always show the header.
     @State private var scrollToTopOnNextOpen = false
@@ -100,6 +102,39 @@ struct SettingsView: View {
                         )
                     }
                     divider
+                    row(icon: "pause.circle", tint: .indigo, title: "Pause After",
+                        subtitle: pauseAfterSubtitle) {
+                        GlassDropdown(width: 150, options: {
+                            SettingsView.pauseAfterChoices.map { seconds in
+                                MenuOption(
+                                    title: seconds == 0 ? "Off" : durationLabel(seconds),
+                                    checked: store.pauseAfterSeconds == seconds
+                                ) { store.setPauseAfter(seconds) }
+                            } + [.divider, MenuOption(title: "Custom…") { customPauseAfter = true }]
+                        }) {
+                            HStack(spacing: 6) {
+                                Text(store.pauseAfterSeconds == 0
+                                     ? "Off" : durationLabel(store.pauseAfterSeconds))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5.5)
+                            .glassCapsule(fill: 0.09, stroke: 0.15)
+                        }
+                        .popover(isPresented: $customPauseAfter) {
+                            CustomDurationPicker(seconds: Binding(
+                                get: { max(10, store.pauseAfterSeconds) },
+                                set: { store.setPauseAfter($0) }
+                            )) { customPauseAfter = false }
+                        }
+                    }
+                }
+
+                section("ENERGY") {
                     row(icon: "battery.25percent", tint: .yellow, title: "Auto-pause in Low Power Mode",
                         subtitle: "Freeze wallpapers while saving energy") {
                         Toggle("", isOn: Binding(
@@ -217,6 +252,20 @@ struct SettingsView: View {
         } message: {
             Text(clearMessage)
         }
+    }
+
+    /// Issue #3: a fast wallpaper is distracting, so let it move for a while
+    /// and then hold on a frame.
+    static let pauseAfterChoices = [0, 10, 30, 60, 120, 300, 900, 3600]
+
+    static func pauseAfterLabel(_ seconds: Int) -> String {
+        seconds <= 0 ? "Off" : durationLabel(seconds)
+    }
+
+    private var pauseAfterSubtitle: String {
+        store.pauseAfterSeconds == 0
+            ? "Wallpapers keep playing until something else pauses them"
+            : "Play for \(durationLabel(store.pauseAfterSeconds)) after every change or unlock, then hold on a frame"
     }
 
     /// Says what is about to happen in counts, and names the part that cannot

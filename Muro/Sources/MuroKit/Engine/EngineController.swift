@@ -52,7 +52,8 @@ public final class EngineController {
         let manifest = LibraryManifest.load(root: root)
         let config = EngineConfig.load(root: root)
 
-        var desired: [String: (screen: NSScreen, url: URL, frame: String, video: String)] = [:]
+        var desired: [String: (screen: NSScreen, url: URL, frame: String,
+                               video: String, pauseAfter: Int?)] = [:]
         for screen in NSScreen.screens {
             guard let uuid = displayUUID(for: screen) else { continue }
             guard let assignment = config.assignment(forDisplayUUID: uuid),
@@ -67,7 +68,10 @@ public final class EngineController {
                 screen,
                 url,
                 NSStringFromRect(screen.frame),
-                "\(entry.id)|\(assignment.mode)"
+                "\(entry.id)|\(assignment.mode)",
+                // A wallpaper may carry its own "pause after"; otherwise the
+                // one global setting applies.
+                entry.pauseAfterSeconds ?? config.pauseAfterSeconds
             )
         }
 
@@ -102,10 +106,11 @@ public final class EngineController {
         let paused = config.paused ?? false
         let rate = Float(config.playbackSpeed ?? 1.0)
         let pauseWhenCovered = config.autoPauseFullScreen ?? true
-        for controller in controllers.values {
+        for (uuid, controller) in controllers {
             controller.setUserPaused(paused)
             controller.setPlaybackRate(rate)
             controller.setAutoPauseFullScreen(pauseWhenCovered)
+            controller.setPauseAfter(desired[uuid]?.pauseAfter)
         }
         applyPowerState(config: config)
     }

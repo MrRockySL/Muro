@@ -17,13 +17,17 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
     public var sizeBytes: Int64
     public var liked: Bool
     public var dateAdded: Date
+    /// Per wallpaper "pause after", overriding the global setting. Nil means
+    /// follow the setting; a value here wins for this wallpaper only.
+    public var pauseAfterSeconds: Int?
 
     public init(
         id: String, title: String, category: String, file: String,
         efficientFile: String? = nil, previewFile: String? = nil,
         thumbnail: String, width: Int,
         height: Int, fps: Double, duration: Double, sizeBytes: Int64,
-        liked: Bool = false, dateAdded: Date = Date()
+        liked: Bool = false, dateAdded: Date = Date(),
+        pauseAfterSeconds: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -39,6 +43,7 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
         self.sizeBytes = sizeBytes
         self.liked = liked
         self.dateAdded = dateAdded
+        self.pauseAfterSeconds = pauseAfterSeconds
     }
 
     /// Every file this wallpaper owns inside the library root. Deleting a

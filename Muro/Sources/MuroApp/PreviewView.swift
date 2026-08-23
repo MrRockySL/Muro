@@ -1,4 +1,5 @@
 import SwiftUI
+import MuroKit
 
 /// Fetches the p720 preview loop for the detail view (cache-first). Tiny
 /// files, so a full download-then-play beats progressive streaming: simpler,
@@ -136,6 +137,8 @@ struct PreviewView: View {
                 fpsToggle(item)
             }
 
+            if item.isDownloaded { pauseAfterPill(item) }
+
             HeartButton(item: item, size: 40)
 
             setButton(item)
@@ -207,6 +210,45 @@ struct PreviewView: View {
             .contentShape(Capsule())
             .onTapGesture { store.previewMode = mode }
             .help("\(label) fps · \(hint)")
+    }
+
+    // MARK: - Pause after (per wallpaper)
+
+    /// The per wallpaper half of issue #3: one wallpaper can settle after ten
+    /// seconds while everything else keeps playing. It shows the value in
+    /// force either way, and says when that value is coming from Settings.
+    private func pauseAfterPill(_ item: WallpaperItem) -> some View {
+        let value = store.effectivePauseAfter(for: item)
+        let overridden = store.hasPauseAfterOverride(item)
+        return GlassDropdown(width: 190, arrowEdge: .top, options: {
+            [MenuOption(title: "Use setting (\(SettingsView.pauseAfterLabel(store.pauseAfterSeconds)))",
+                        checked: !overridden) {
+                store.setPauseAfter(nil, for: item)
+            }, .divider]
+            + SettingsView.pauseAfterChoices.map { seconds in
+                MenuOption(
+                    title: seconds == 0 ? "Never pause" : durationLabel(seconds),
+                    checked: overridden && value == seconds
+                ) { store.setPauseAfter(seconds == 0 ? -1 : seconds, for: item) }
+            }
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "pause.circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(overridden ? Color.muroAccent : .white.opacity(0.75))
+                Text(value == 0 ? "Off" : durationLabel(value))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(overridden ? Color.muroAccent : .white)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(Color.white.opacity(0.08)))
+            .overlay(Capsule().strokeBorder(
+                overridden ? Color.muroAccent.opacity(0.4) : Color.white.opacity(0.14),
+                lineWidth: 1
+            ))
+        }
+        .help("Pause after: how long this wallpaper moves before holding on a frame")
     }
 
     // MARK: - Download / Set Wallpaper

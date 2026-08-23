@@ -14,6 +14,7 @@ struct MenuBarView: View {
             speedRow
             if !store.recentItems.isEmpty { recents }
             playlistsRow
+            automationsRow
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
             menuButtons
         }
@@ -90,7 +91,13 @@ struct MenuBarView: View {
             .compactMap { store.config.assignment(forDisplayUUID: $0.id) }
             .first { $0.wallpaperID == item.id }?.mode
         let fps = mode == "efficient" ? 30 : Int(item.fps)
-        return "\(state) · \(displays) DISPLAY\(displays == 1 ? "" : "S") · \(fps) FPS"
+        let base = "\(state) · \(displays) DISPLAY\(displays == 1 ? "" : "S") · \(fps) FPS"
+        // While something is scheduling the wallpaper, its name matters more
+        // than the frame rate does.
+        if let schedule = store.runningScheduleName {
+            return "\(state) · \(schedule.uppercased())"
+        }
+        return base
     }
 
     // MARK: - Transport
@@ -223,13 +230,63 @@ struct MenuBarView: View {
         guard !store.playlists.isEmpty else {
             return [MenuOption(title: "No playlists yet. Create one in Library.")]
         }
-        return store.playlists.map { playlist in
+        return [MenuOption(title: "Off", checked: store.activePlaylistID == nil) {
+            store.stopPlaylist()
+        }, .divider] + store.playlists.map { playlist in
             MenuOption(title: playlist.name, checked: store.activePlaylistID == playlist.id) {
                 store.activePlaylistID == playlist.id
                     ? store.stopPlaylist()
                     : store.startPlaylist(playlist)
             }
         }
+    }
+
+    // MARK: - Automations
+
+    private var automationsRow: some View {
+        HStack {
+            Image(systemName: "clock.arrow.2.circlepath")
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.85))
+            Text("Automations")
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(.white)
+            Spacer()
+            GlassDropdown(width: 190, arrowEdge: .bottom, options: automationOptions) {
+                HStack(spacing: 4) {
+                    Text(store.activeAutomation?.name ?? "Off")
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(store.activeAutomation != nil ? Color.muroAccent : Color.muroSecondary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(Color.muroSecondary)
+                }
+            }
+            .fixedSize()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .glass(cornerRadius: 12, fill: 0.06, stroke: 0.1)
+    }
+
+    private func automationOptions() -> [MenuOption] {
+        guard !store.automations.isEmpty else {
+            return [MenuOption(title: "No automations yet. Create one in Library.")]
+        }
+        var options = [MenuOption(title: "Off", checked: store.activeAutomationID == nil) {
+            store.stopAutomation()
+        }, .divider]
+        options += store.automations.map { automation in
+            MenuOption(
+                title: automation.name,
+                checked: store.activeAutomationID == automation.id
+            ) {
+                store.activeAutomationID == automation.id
+                    ? store.stopAutomation()
+                    : store.startAutomation(automation)
+            }
+        }
+        return options
     }
 
     // MARK: - Bottom menu

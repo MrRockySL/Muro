@@ -30,6 +30,10 @@ public struct EngineConfig: Codable {
     /// app or any window (nil = true, which is how the engine has always
     /// behaved and is what keeps a hidden wallpaper at 0% CPU).
     public var autoPauseFullScreen: Bool?
+    /// Play for this many seconds after a wallpaper starts, then freeze on a
+    /// frame (nil or 0 = never freeze). Issue #3: fast wallpapers are
+    /// distracting, so let them move briefly and then settle.
+    public var pauseAfterSeconds: Int?
 
     public init(allDisplays: Assignment? = nil, perDisplay: [String: Assignment] = [:]) {
         self.allDisplays = allDisplays
