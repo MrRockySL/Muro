@@ -60,3 +60,32 @@ public enum PlaylistStore {
         try encoder.encode(playlists).write(to: url(root: root), options: .atomic)
     }
 }
+
+/// The first of "New Playlist", "New Playlist 2", "New Playlist 3" that nobody
+/// has taken.
+///
+/// Playlists and automations are picked from by name, in the menu bar, in the
+/// apply panel and in the Library, so two of them called the same thing cannot
+/// be told apart. The editors refuse a duplicate typed by hand; this is what
+/// stops the default name from walking into that refusal on its own.
+public func uniqueName(base: String, taken: [String]) -> String {
+    let used = Set(taken.map {
+        $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    })
+    guard used.contains(base.lowercased()) else { return base }
+    var n = 2
+    while used.contains("\(base) \(n)".lowercased()) { n += 1 }
+    return "\(base) \(n)"
+}
+
+/// Whether `name` is already taken, ignoring case, surrounding spaces and the
+/// row being edited.
+public func nameIsTaken(_ name: String, in existing: [(id: String, name: String)], excluding id: String?) -> Bool {
+    let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !wanted.isEmpty else { return false }
+    return existing.contains {
+        $0.id != id
+            && $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                .localizedCaseInsensitiveCompare(wanted) == .orderedSame
+    }
+}

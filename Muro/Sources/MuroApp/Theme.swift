@@ -111,3 +111,136 @@ func formatDuration(_ seconds: Double) -> String {
     let s = Int(seconds.rounded())
     return String(format: "%d:%02d", s / 60, s % 60)
 }
+
+// MARK: - Page surface (Muro 3.0)
+
+// The library and explore pages used to sit on flat #0A0C10, which reads as a
+// black box rather than a surface. Three layers fix that without a blur pass:
+// a barely-blue gradient, three wide radial blooms, and an inset glass tray
+// the content is clipped to. Radial gradients are used instead of `.blur()`
+// because blur on a full-window view is the one thing that would break the
+// CPU budget the whole app is built around.
+
+extension Color {
+    static let muroBGTop = Color(hex: 0x0B0E15)
+    static let muroBGMid = Color(hex: 0x0C1017)
+    static let muroBGBottom = Color(hex: 0x090B10)
+    static let muroViolet = Color(hex: 0x8E7BFF)
+    static let muroTeal = Color(hex: 0x4FD6C9)
+    static let muroWarn = Color(hex: 0xFFC46B)
+    static let muroDanger = Color(hex: 0xFF6B6B)
+}
+
+/// One soft colour bloom, sized and placed as a fraction of the page.
+private struct Bloom: View {
+    var colour: Color
+    var alpha: Double
+    /// Centre, in unit coordinates of the containing page.
+    var at: UnitPoint
+    /// Radius, as a fraction of the page's larger edge.
+    var spread: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            let side = max(geo.size.width, geo.size.height) * spread
+            RadialGradient(
+                gradient: Gradient(stops: [
+                    .init(color: colour.opacity(alpha), location: 0),
+                    .init(color: colour.opacity(alpha * 0.42), location: 0.5),
+                    .init(color: colour.opacity(0), location: 1)
+                ]),
+                center: .center,
+                startRadius: 0,
+                endRadius: side / 2
+            )
+            .frame(width: side, height: side)
+            .position(x: geo.size.width * at.x, y: geo.size.height * at.y)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// The coloured surface behind a page. Home does not use it: a 4K wallpaper
+/// is already playing there and anything painted over it is noise.
+struct MuroPageBackground: View {
+    var body: some View {
+        LinearGradient(
+            colors: [.muroBGTop, .muroBGMid, .muroBGBottom],
+            startPoint: .top, endPoint: .bottom
+        )
+        .overlay(Bloom(colour: .muroAccent, alpha: 0.26, at: UnitPoint(x: 0.16, y: 0.06), spread: 0.86))
+        .overlay(Bloom(colour: .muroViolet, alpha: 0.20, at: UnitPoint(x: 0.88, y: 0.85), spread: 0.82))
+        .overlay(Bloom(colour: .muroTeal, alpha: 0.11, at: UnitPoint(x: 0.40, y: 1.02), spread: 0.62))
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
+/// The rounded glass panel a page's content sits inside. Content is clipped to
+/// it, so a scrolled grid dissolves at the corner instead of spilling onto the
+/// background.
+struct GlassTray<Content: View>: View {
+    var cornerRadius: CGFloat = 28
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        content
+            .background(
+                shape.fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.055), .white.opacity(0.022)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+            )
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(Color.white.opacity(0.09), lineWidth: 1))
+            // The top edge catch-light: the detail that makes glass read as
+            // glass rather than as a lighter rectangle.
+            .overlay(alignment: .top) {
+                LinearGradient(
+                    colors: [.white.opacity(0), .white.opacity(0.28), .white.opacity(0)],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(height: 1)
+                .padding(.horizontal, cornerRadius * 3)
+            }
+            .shadow(color: .black.opacity(0.45), radius: 22, x: 0, y: 12)
+    }
+}
+
+// MARK: - Glass building blocks
+
+extension ShapeStyle where Self == LinearGradient {
+    /// Top-lit glass fill. Two stops, because a flat white wash looks like
+    /// paper and a real pane is brighter where the light lands.
+    static func glassSheen(_ top: Double, _ bottom: Double) -> LinearGradient {
+        LinearGradient(
+            colors: [.white.opacity(top), .white.opacity(bottom)],
+            startPoint: .top, endPoint: .bottom
+        )
+    }
+}
+
+extension View {
+    /// A card or panel in the 3.0 language: sheened glass, hairline border,
+    /// and an accent ring plus glow when it is the active one.
+    func glassPanel(
+        cornerRadius: CGFloat = 22,
+        active: Bool = false,
+        top: Double = 0.065,
+        bottom: Double = 0.028
+    ) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return self
+            .background(shape.fill(.glassSheen(active ? 0.10 : top, active ? 0.04 : bottom)))
+            .overlay(
+                shape.strokeBorder(
+                    active ? Color.muroAccent.opacity(0.5) : Color.white.opacity(0.1),
+                    lineWidth: active ? 1.5 : 1
+                )
+            )
+            .shadow(color: active ? Color.muroAccent.opacity(0.18) : .clear, radius: 13, x: 0, y: 3)
+    }
+}
