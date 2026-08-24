@@ -72,7 +72,7 @@ struct SettingsView: View {
                 section("PLAYBACK") {
                     row(icon: "speedometer", tint: .orange, title: "Playback Speed",
                         subtitle: "How fast wallpapers play") {
-                        GlassDropdown(width: 120, options: {
+                        GlassDropdown(width: 120, align: .trailing, options: {
                             [0.5, 0.75, 1.0, 1.25, 1.5].map { speed in
                                 MenuOption(
                                     title: speedLabel(speed),
@@ -104,7 +104,7 @@ struct SettingsView: View {
                     divider
                     row(icon: "pause.circle", tint: .indigo, title: "Pause After",
                         subtitle: pauseAfterSubtitle) {
-                        GlassDropdown(width: 150, options: {
+                        GlassDropdown(width: 150, align: .trailing, options: {
                             SettingsView.pauseAfterChoices.map { seconds in
                                 MenuOption(
                                     title: seconds == 0 ? "Off" : durationLabel(seconds),
@@ -125,7 +125,7 @@ struct SettingsView: View {
                             .padding(.vertical, 5.5)
                             .glassCapsule(fill: 0.09, stroke: 0.15)
                         }
-                        .anchoredCard(isPresented: $customPauseAfter, width: 272) {
+                        .anchoredCard(isPresented: $customPauseAfter, width: 300, align: .trailing) {
                             CustomDurationPicker(seconds: Binding(
                                 get: { max(10, store.pauseAfterSeconds) },
                                 set: { store.setPauseAfter($0) }
@@ -160,16 +160,6 @@ struct SettingsView: View {
                             set: { store.setAutoPauseFullScreen($0) }
                         ))
                         .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
-                    }
-                }
-
-                section("LOCK SCREEN") {
-                    row(icon: "lock", tint: .indigo, title: "Lock Screen Live Wallpapers",
-                        subtitle: store.lockScreenAvailable
-                            ? "Choose Lockscreen or Both when setting a wallpaper"
-                            : "Requires macOS 26 or later") {
-                        Image(systemName: store.lockScreenAvailable ? "checkmark.circle.fill" : "xmark.circle")
-                            .foregroundStyle(store.lockScreenAvailable ? Color.muroGreen : Color.muroSecondary)
                     }
                 }
 

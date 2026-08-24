@@ -70,8 +70,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIconFile</key>        <string>AppIcon</string>
     <key>CFBundleIconName</key>        <string>AppIcon</string>
     <key>CFBundleIdentifier</key>      <string>com.mrrockysl.muro</string>
-    <key>CFBundleVersion</key>         <string>5</string>
-    <key>CFBundleShortVersionString</key> <string>2.0</string>
+    <key>CFBundleVersion</key>         <string>6</string>
+    <key>CFBundleShortVersionString</key> <string>3.0</string>
     <key>CFBundlePackageType</key>     <string>APPL</string>
     <key>CFBundleInfoDictionaryVersion</key> <string>6.0</string>
     <key>LSMinimumSystemVersion</key>  <string>14.0</string>

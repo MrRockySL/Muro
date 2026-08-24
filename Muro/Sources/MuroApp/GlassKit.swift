@@ -33,19 +33,31 @@ struct PlusGlyph: View {
     }
 }
 
-// MARK: - The + bubble
+// MARK: - The glass bubble
 
-/// The liquid-glass "+" shared by the import drop zone, New Playlist and New
-/// Automation. It replaces the flat accent-tinted circle and, with it, the
-/// dashed borders those three surfaces used to advertise themselves with.
-struct PlusBubble: View {
-    var size: CGFloat = 56
+/// The surface every round glass control in the app is made of: the Library's
+/// import "+", the New Playlist and New Automation cards, and the four
+/// controls in the top bar.
+///
+/// It lives in one place because the four top-bar buttons were asked for as
+/// "the plus button with that animation". Two copies of a lit circle drift
+/// apart the moment one of them is tuned, so the circle, the light inside it,
+/// the rim, the catch-light and the two springs are written once and the
+/// callers only supply what goes in the middle.
+struct BubbleSurface: ViewModifier {
+    var size: CGFloat
     var hovering = false
     var pressed = false
+    /// A control that is currently on (search, while the field is open). It
+    /// reads like a permanent hover with an accent rim, rather than a
+    /// different kind of button.
+    var active = false
+    var tint: Color = .muroAccent
 
-    var body: some View {
-        PlusGlyph(span: size * 0.36, thickness: size * 0.054, colour: .muroAccent)
-            .shadow(color: Color.muroAccent.opacity(0.55), radius: hovering ? 5 : 3)
+    private var lit: Bool { hovering || active }
+
+    func body(content: Content) -> some View {
+        content
             .frame(width: size, height: size)
             // The accent light lives inside the circle.
             //
@@ -57,12 +69,12 @@ struct PlusBubble: View {
             // light to the circle keeps the lit look and stops it leaking.
             .background {
                 Circle()
-                    .fill(.glassSheen(hovering ? 0.26 : 0.20, hovering ? 0.09 : 0.06))
+                    .fill(.glassSheen(lit ? 0.26 : 0.20, lit ? 0.09 : 0.06))
                     .overlay {
                         RadialGradient(
                             gradient: Gradient(colors: [
-                                Color.muroAccent.opacity(hovering ? 0.30 : 0.20),
-                                Color.muroAccent.opacity(0)
+                                tint.opacity(active ? 0.38 : (hovering ? 0.30 : 0.20)),
+                                tint.opacity(0)
                             ]),
                             center: .center, startRadius: 0, endRadius: size * 0.52
                         )
@@ -70,7 +82,10 @@ struct PlusBubble: View {
                     }
             }
             .overlay(
-                Circle().strokeBorder(Color.white.opacity(hovering ? 0.34 : 0.26), lineWidth: 1)
+                Circle().strokeBorder(
+                    active ? tint.opacity(0.55) : Color.white.opacity(hovering ? 0.34 : 0.26),
+                    lineWidth: 1
+                )
             )
             // The top inner highlight, so the bubble looks lit rather than
             // filled.
@@ -82,12 +97,114 @@ struct PlusBubble: View {
                     .padding(1)
             )
             .shadow(color: .black.opacity(0.35), radius: pressed ? 3 : 7, x: 0, y: pressed ? 1 : 4)
+            .shadow(color: tint.opacity(active ? 0.28 : 0), radius: 10)
             // It lifts under the pointer and dips when pressed, so clicking
             // the strip feels like pressing something rather than like
             // nothing happening until a file panel appears.
             .scaleEffect(pressed ? 0.94 : (hovering ? 1.06 : 1))
             .animation(.spring(response: 0.26, dampingFraction: 0.62), value: hovering)
             .animation(.spring(response: 0.2, dampingFraction: 0.7), value: pressed)
+            .animation(.easeOut(duration: 0.2), value: active)
+    }
+}
+
+extension View {
+    func bubbleSurface(
+        size: CGFloat,
+        hovering: Bool = false,
+        pressed: Bool = false,
+        active: Bool = false,
+        tint: Color = .muroAccent
+    ) -> some View {
+        modifier(BubbleSurface(size: size, hovering: hovering, pressed: pressed, active: active, tint: tint))
+    }
+}
+
+/// The liquid-glass "+" shared by the import drop zone, New Playlist, New
+/// Automation and the top bar. It replaces the flat accent-tinted circle and,
+/// with it, the dashed borders those surfaces used to advertise themselves
+/// with.
+struct PlusBubble: View {
+    var size: CGFloat = 56
+    var hovering = false
+    var pressed = false
+
+    var body: some View {
+        PlusGlyph(span: size * 0.36, thickness: size * 0.054, colour: .muroAccent)
+            .shadow(color: Color.muroAccent.opacity(0.55), radius: hovering ? 5 : 3)
+            .bubbleSurface(size: size, hovering: hovering, pressed: pressed)
+    }
+}
+
+/// The press half of a bubble. A `ButtonStyle` is what reads the real press
+/// state: tracking it with a gesture of our own would fight the button for the
+/// same clicks, and a `@State` written from a gesture cannot know about a
+/// press that ends outside the control.
+struct BubbleButtonStyle: ButtonStyle {
+    var size: CGFloat
+    var hovering: Bool
+    var active: Bool
+    var tint: Color = .muroAccent
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .bubbleSurface(
+                size: size,
+                hovering: hovering,
+                pressed: configuration.isPressed,
+                active: active,
+                tint: tint
+            )
+            .contentShape(Circle())
+    }
+}
+
+/// A top-bar control: the import bubble's glass and springs with a symbol in
+/// the middle instead of the plus.
+///
+/// White, not accent. The Library's "+" is accent because it is the one thing
+/// on that page asking to be pressed; a row of four accent bubbles in the top
+/// bar just turns the corner of the window blue, and it fought the white nav
+/// pill next to it (owner, 2026-08-24).
+struct GlassBubbleButton: View {
+    var systemName: String
+    var size: CGFloat = 42
+    /// Glyph size as a share of the bubble. Symbols carry their own optical
+    /// weight, so a magnifier and a gear do not want the same number.
+    var glyphScale: CGFloat = 0.40
+    var weight: Font.Weight = .semibold
+    var tint: Color = .white
+    /// On, as opposed to merely hovered.
+    var active = false
+    /// The gear turns a little under the pointer. Nothing else does.
+    var turns = false
+    var help: String?
+    var action: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: size * glyphScale, weight: weight))
+                .foregroundStyle(tint)
+                .shadow(color: tint.opacity(0.45), radius: hovering ? 5 : 3)
+                .rotationEffect(.degrees(turns && hovering ? 40 : 0))
+                .animation(.spring(response: 0.34, dampingFraction: 0.7), value: hovering)
+        }
+        .buttonStyle(BubbleButtonStyle(size: size, hovering: hovering, active: active, tint: tint))
+        .onHover { hovering = $0 }
+        // `.help("")` still arms a tooltip, and an empty one flashing under
+        // the pointer is worse than none.
+        .modifier(OptionalHelp(text: help))
+    }
+}
+
+private struct OptionalHelp: ViewModifier {
+    var text: String?
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if let text, !text.isEmpty { content.help(text) } else { content }
     }
 }
 
@@ -909,48 +1026,73 @@ struct GlassScrollView<Content: View>: View {
 /// A macOS popover draws its own background: square-ish corners, a grey sheet
 /// and a little arrow pointing at whatever opened it. None of that belongs in
 /// this app, and no amount of styling the content hides it, because it sits
-/// behind the content. `presentationBackground(.clear)` takes it away and lets
-/// the card below be the only thing on screen. The outer padding is there so
-/// the popover sizes itself large enough for the card's shadow, which it would
-/// otherwise clip flush against the edge.
+/// behind the content. Menus are drawn inside the window instead (see
+/// `menuHost`), and this is what they are drawn on.
+///
+/// Real glass, not a dark card. It used to be a 97% opaque panel with an
+/// accent bloom across it, which read as a purple box floating over the page
+/// rather than as a pane of the same material as the bar it opened from. Now
+/// it is the preview bar's recipe: a blur of whatever is behind it, a black
+/// wash heavy enough to keep white text readable over a bright 4K wallpaper,
+/// a hairline rim, the top catch-light, and a trace of accent that is a tint
+/// rather than a colour wash (owner, 2026-08-24).
 struct GlassCard: ViewModifier {
-    var cornerRadius: CGFloat = 16
+    var cornerRadius: CGFloat = 20
+    /// How dark the glass is tinted. Menus open over 4K video, so this and
+    /// the base fill below decide whether their text can be read.
+    var tint: Double = 0.32
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return content
+            // A trace of accent, under the text and over the glass. The old
+            // card had this at 10% across a nearly opaque panel, which is
+            // what made every menu read as a purple box.
             .background {
-                shape
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(hex: 0x1A1F28).opacity(0.97),
-                                Color(hex: 0x11151C).opacity(0.97)
-                            ],
-                            startPoint: .top, endPoint: .bottom
-                        )
-                    )
-                    .overlay(
-                        RadialGradient(
-                            gradient: Gradient(colors: [
-                                Color.muroAccent.opacity(0.10), Color.muroAccent.opacity(0)
-                            ]),
-                            center: UnitPoint(x: 0.2, y: -0.2), startRadius: 0, endRadius: 260
-                        )
-                        .clipShape(shape)
-                    )
-                    .overlay(shape.strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-                    .overlay(alignment: .top) {
-                        LinearGradient(
-                            colors: [.white.opacity(0), .white.opacity(0.32), .white.opacity(0)],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(height: 1)
-                        .padding(.horizontal, 30)
-                    }
-                    .shadow(color: .black.opacity(0.55), radius: 18, x: 0, y: 10)
+                RadialGradient(
+                    gradient: Gradient(colors: [
+                        Color.muroAccent.opacity(0.07), Color.muroAccent.opacity(0)
+                    ]),
+                    center: UnitPoint(x: 0.15, y: -0.15), startRadius: 0, endRadius: 240
+                )
+                .clipShape(shape)
             }
+            .modifier(GlassMaterial(shape: shape, tint: tint))
+            // A dark base behind the glass. Two reasons: white text over a
+            // bright 4K wallpaper needs it, and the menu bar's menus live in a
+            // transparent window of their own, where a material with nothing
+            // behind it has nothing to blur.
+            .background(shape.fill(Color(hex: 0x0B0E14).opacity(0.38)))
+            .overlay(shape.strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+            // The top edge catch-light, the detail that makes glass read as
+            // glass rather than as a lighter rectangle.
+            .overlay(alignment: .top) {
+                LinearGradient(
+                    colors: [.white.opacity(0), .white.opacity(0.34), .white.opacity(0)],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(height: 1)
+                .padding(.horizontal, cornerRadius * 1.8)
+            }
+            .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 10)
             .preferredColorScheme(.dark)
+    }
+}
+
+/// Real liquid glass where the system has it, a blurred material where it does
+/// not. Written once so every menu, card and picker is made of the same thing.
+private struct GlassMaterial: ViewModifier {
+    let shape: RoundedRectangle
+    let tint: Double
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular.tint(Color.black.opacity(tint)), in: shape)
+        } else {
+            content
+                .background(shape.fill(Color.black.opacity(tint)))
+                .background(.ultraThinMaterial, in: shape)
+        }
     }
 }
 
@@ -958,16 +1100,6 @@ extension View {
     /// The visual surface only, for a menu drawn inside the window.
     func glassCard(cornerRadius: CGFloat = 16) -> some View {
         modifier(GlassCard(cornerRadius: cornerRadius))
-    }
-
-    /// The same surface, plus the fight with a real popover's own chrome.
-    /// Only the menu bar panel needs this now; everything inside a window
-    /// draws through `menuHost()` instead.
-    func glassPopover(cornerRadius: CGFloat = 16) -> some View {
-        glassCard(cornerRadius: cornerRadius)
-            .padding(14)
-            .background(ClearWindowChrome())
-            .presentationBackground(.clear)
     }
 }
 
@@ -977,34 +1109,41 @@ struct CustomValueCard<Unit: View>: View {
     var title: String
     var amount: Binding<Int>
     var applyLabel: String
+    /// Must match the width the caller anchors the card at, or the card
+    /// floats inside a frame of a different size.
+    var width: CGFloat = 272
     @ViewBuilder var unit: Unit
     var apply: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        // Centred, not left-aligned. The card is a small floating panel with
+        // one job, and a title and a field pushed into its left corner left a
+        // ragged margin down the right of it (owner, 2026-08-24).
+        VStack(alignment: .center, spacing: 14) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, alignment: .center)
             HStack(spacing: 12) {
                 TextField("", value: amount, format: .number)
                     .textFieldStyle(.plain)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
-                    .multilineTextAlignment(.leading)
+                    .multilineTextAlignment(.center)
                     .frame(width: 56)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 10)
                     .frame(height: 40)
                     .background(
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .fill(.glassSheen(0.10, 0.045))
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .fill(.glassSheen(0.16, 0.07))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .strokeBorder(Color.muroAccent.opacity(0.42), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 15, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
                     )
                 unit
-                Spacer(minLength: 0)
             }
+            .frame(maxWidth: .infinity, alignment: .center)
             Button(action: apply) {
                 Text(applyLabel)
                     .font(.system(size: 12.5, weight: .semibold))
@@ -1017,7 +1156,7 @@ struct CustomValueCard<Unit: View>: View {
             .buttonStyle(.plain)
         }
         .padding(18)
-        .frame(width: 272)
+        .frame(width: width)
     }
 }
 
@@ -1037,6 +1176,17 @@ struct CustomValueCard<Unit: View>: View {
 /// paints, there is no arrow, the corner radius is ours, and it can be animated
 /// like anything else. Each window that can raise a menu installs one host:
 /// the main window, the two editor sheets and Settings.
+/// Which edge of a menu lines up with the control that opened it.
+///
+/// A menu is nearly always wider than the control, so this decides which way
+/// the extra width goes. Left for a control at the left of its row, right for
+/// one at the right (otherwise the menu reaches past the edge of the page),
+/// centred for a control in a bar, where either side would look like a
+/// mistake.
+enum MenuAlign {
+    case leading, center, trailing
+}
+
 @MainActor
 final class MenuPresenter: ObservableObject {
     static let space = "muro.menuHost"
@@ -1045,6 +1195,7 @@ final class MenuPresenter: ObservableObject {
         let id = UUID()
         var anchor: CGRect
         var width: CGFloat
+        var align: MenuAlign
         var content: AnyView
     }
 
@@ -1053,10 +1204,14 @@ final class MenuPresenter: ObservableObject {
     func show<C: View>(
         anchor: CGRect,
         width: CGFloat,
+        align: MenuAlign = .leading,
         @ViewBuilder content: (@escaping () -> Void) -> C
     ) {
         let dismiss: () -> Void = { [weak self] in self?.dismiss() }
-        current = Presentation(anchor: anchor, width: width, content: AnyView(content(dismiss)))
+        current = Presentation(
+            anchor: anchor, width: width, align: align,
+            content: AnyView(content(dismiss))
+        )
     }
 
     func dismiss() { current = nil }
@@ -1133,15 +1288,29 @@ private struct MenuOverlay: View {
 
     /// Below the control by default, above it when there is no room below,
     /// and never off either side.
+    /// Below the control, and far enough from it to read as a separate
+    /// surface rather than an extension of the control.
+    private static let gapBelow: CGFloat = 10
+    /// More, when it has to flip above. A control that has no room below it
+    /// is nearly always sitting in a bar at the bottom of the window, and the
+    /// bar's own padding eats most of the gap: at 6 the menu's bottom corners
+    /// ended up behind the bar (owner, 2026-08-24).
+    private static let gapAbove: CGFloat = 18
+
     private var x: CGFloat {
-        let ideal = presentation.anchor.minX
+        let ideal: CGFloat
+        switch presentation.align {
+        case .leading:  ideal = presentation.anchor.minX
+        case .center:   ideal = presentation.anchor.midX - size.width / 2
+        case .trailing: ideal = presentation.anchor.maxX - size.width
+        }
         let limit = max(container.width - size.width - 10, 10)
         return min(max(ideal, 10), limit)
     }
 
     private var y: CGFloat {
-        let below = presentation.anchor.maxY + 6
-        let above = presentation.anchor.minY - size.height - 6
+        let below = presentation.anchor.maxY + Self.gapBelow
+        let above = presentation.anchor.minY - size.height - Self.gapAbove
         if below + size.height > container.height - 10, above > 10 { return above }
         return min(below, max(container.height - size.height - 10, 10))
     }
@@ -1185,18 +1354,30 @@ extension View {
 /// A control that opens a list of options anchored to itself.
 struct MenuButton<Label: View>: View {
     var width: CGFloat = 180
+    var align: MenuAlign = .leading
     var options: () -> [MenuOption]
     @ViewBuilder var label: () -> Label
 
     @Environment(\.menuPresenter) private var presenter
     @State private var anchor: CGRect = .zero
-    @State private var fallbackOpen = false
+    @State private var screenAnchor = ScreenAnchor()
 
     var body: some View {
         Button {
-            guard let presenter else { fallbackOpen = true; return }
             let items = options()
-            presenter.show(anchor: anchor, width: width) { dismiss in
+            guard let presenter else {
+                // The menu bar panel: no host to draw in, so the menu opens in
+                // a window of its own. Never a popover, which would bring its
+                // own glass sheet with it.
+                MenuBarMenuPanel.shared.show(
+                    options: items,
+                    width: width,
+                    anchor: screenAnchor.frame ?? .zero,
+                    parent: screenAnchor.window
+                )
+                return
+            }
+            presenter.show(anchor: anchor, width: width, align: align) { dismiss in
                 GlassMenuList(width: width, options: items, dismiss: dismiss)
             }
         } label: {
@@ -1204,12 +1385,40 @@ struct MenuButton<Label: View>: View {
         }
         .buttonStyle(.plain)
         .background(AnchorReader { anchor = $0 })
-        // Only reached from the menu bar panel, which is its own small window
-        // and has nowhere inside itself to draw.
-        .popover(isPresented: $fallbackOpen, arrowEdge: .bottom) {
-            GlassMenuList(width: width, options: options()) { fallbackOpen = false }
-                .glassPopover()
-        }
+        .background(ScreenAnchorReader(anchor: screenAnchor))
+    }
+}
+
+/// Where a control sits on screen, for a menu that opens in its own window.
+@MainActor
+final class ScreenAnchor {
+    weak var view: NSView?
+
+    var window: NSWindow? { view?.window }
+
+    var frame: NSRect? {
+        guard let view, let window = view.window else { return nil }
+        return window.convertToScreen(view.convert(view.bounds, to: nil))
+    }
+}
+
+/// Hands a `ScreenAnchor` an AppKit view to measure. It reports nothing and
+/// takes no clicks; it exists to be somewhere in the window.
+struct ScreenAnchorReader: NSViewRepresentable {
+    let anchor: ScreenAnchor
+
+    func makeNSView(context: Context) -> NSView {
+        let view = Probe()
+        anchor.view = view
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        anchor.view = nsView
+    }
+
+    final class Probe: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
 }
 
@@ -1223,9 +1432,10 @@ extension View {
     func anchoredCard<C: View>(
         isPresented: Binding<Bool>,
         width: CGFloat,
+        align: MenuAlign = .leading,
         @ViewBuilder content: @escaping () -> C
     ) -> some View {
-        modifier(AnchoredCard(isPresented: isPresented, width: width, card: content))
+        modifier(AnchoredCard(isPresented: isPresented, width: width, align: align, card: content))
     }
 }
 
@@ -1235,43 +1445,64 @@ private struct GlassContextMenu: ViewModifier {
 
     @Environment(\.menuPresenter) private var presenter
     @State private var anchor: CGRect = .zero
-    @State private var fallbackOpen = false
+    @State private var screenAnchor = ScreenAnchor()
 
     func body(content: Content) -> some View {
         content
             .background(AnchorReader { anchor = $0 })
+            .background(ScreenAnchorReader(anchor: screenAnchor))
             .overlay(RightClickCatcher {
-                guard let presenter else { fallbackOpen = true; return }
                 let items = options()
                 guard !items.isEmpty else { return }
+                guard let presenter else {
+                    MenuBarMenuPanel.shared.show(
+                        options: items, width: width,
+                        anchor: screenAnchor.frame ?? .zero, parent: screenAnchor.window
+                    )
+                    return
+                }
                 presenter.show(anchor: anchor, width: width) { dismiss in
                     GlassMenuList(width: width, options: items, dismiss: dismiss)
                 }
             })
-            .popover(isPresented: $fallbackOpen, arrowEdge: .bottom) {
-                GlassMenuList(width: width, options: options()) { fallbackOpen = false }
-                    .glassPopover()
-            }
     }
 }
 
 private struct AnchoredCard<C: View>: ViewModifier {
     @Binding var isPresented: Bool
     var width: CGFloat
+    var align: MenuAlign = .leading
     var card: () -> C
 
     @Environment(\.menuPresenter) private var presenter
     @State private var anchor: CGRect = .zero
+    @State private var screenAnchor = ScreenAnchor()
 
     func body(content: Content) -> some View {
         content
             .background(AnchorReader { anchor = $0 })
+            .background(ScreenAnchorReader(anchor: screenAnchor))
             .onChange(of: isPresented) { _, now in
-                guard let presenter else { return }
+                guard let presenter else {
+                    // The menu bar panel, which has nowhere inside itself to
+                    // draw. Never a popover: it would bring its own sheet.
+                    if now {
+                        MenuBarMenuPanel.shared.show(
+                            width: width,
+                            anchor: screenAnchor.frame ?? .zero,
+                            parent: screenAnchor.window
+                        ) {
+                            card().glassCard(cornerRadius: 22)
+                        }
+                    } else {
+                        MenuBarMenuPanel.shared.close()
+                    }
+                    return
+                }
                 if now {
-                    presenter.show(anchor: anchor, width: width) { _ in
+                    presenter.show(anchor: anchor, width: width, align: align) { _ in
                         card()
-                            .glassCard(cornerRadius: 18)
+                            .glassCard(cornerRadius: 22)
                             // Fires whether the card closed itself or the user
                             // clicked away, so the flag never gets stuck on.
                             .onDisappear { isPresented = false }
@@ -1279,12 +1510,6 @@ private struct AnchoredCard<C: View>: ViewModifier {
                 } else {
                     presenter.dismiss()
                 }
-            }
-            .popover(isPresented: Binding(
-                get: { presenter == nil && isPresented },
-                set: { if !$0 { isPresented = false } }
-            )) {
-                card().glassPopover(cornerRadius: 18)
             }
     }
 }
