@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var store: AppStore
 
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
+    @State private var confirmDeleteCustom = false
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("defaultMode") private var defaultMode = "smooth"
     @AppStorage("autoPauseFullScreen") private var autoPauseFullScreen = true
@@ -162,10 +163,43 @@ struct SettingsView: View {
                                 .buttonStyle(.plain)
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .fixedSize()
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 5.5)
                                 .glassCapsule(fill: 0.09, stroke: 0.15)
                         }
+                    }
+                    divider
+                    // Its own row: sharing one with the size and Clear squeezed
+                    // the capsule until the label wrapped to two lines, and it
+                    // also sat a pixel away from a destructive button.
+                    row(icon: "folder", tint: .blue, title: "Wallpapers Folder",
+                        subtitle: "Where your video files are stored") {
+                        Button("Show in Finder") { store.revealWallpapersFolder() }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .fixedSize()
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 5.5)
+                            .glassCapsule(fill: 0.09, stroke: 0.15)
+                    }
+                    divider
+                    row(icon: "square.and.arrow.down", tint: .orange,
+                        title: "Custom Wallpapers",
+                        subtitle: customSubtitle) {
+                        Button("Delete All") { confirmDeleteCustom = true }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(store.canDeleteCustom ? Color(hex: 0xFF6B6B) : Color.muroSecondary)
+                            .lineLimit(1)
+                            .fixedSize()
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 5.5)
+                            .glassCapsule(fill: 0.09, stroke: 0.15)
+                            .disabled(!store.canDeleteCustom)
                     }
                     divider
                     row(icon: "clock.arrow.circlepath", tint: .brown, title: "Auto-clear memory",
@@ -235,6 +269,18 @@ struct SettingsView: View {
         } message: {
             Text("Removes Muro’s lock-screen selection and copied extension files, then clears downloaded catalog wallpapers except desktop-applied or playlist items. Your own imported videos are kept.")
         }
+        .alert("Delete all custom wallpapers?", isPresented: $confirmDeleteCustom) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete All", role: .destructive) { store.deleteAllCustomWallpapers() }
+        } message: {
+            Text("Permanently deletes the \(store.customEntries.count) wallpapers you imported yourself (\(formatSize(store.customBytes))). Muro has no copy of these, so they can only come back by importing the original files again. Any that are in use will be taken off your displays, playlists and lock screen.")
+        }
+    }
+
+    private var customSubtitle: String {
+        if store.customEntries.isEmpty { return "Videos you imported yourself" }
+        if store.catalog.isEmpty { return "Checking the catalog first…" }
+        return "\(store.customEntries.count) imported · \(formatSize(store.customBytes))"
     }
 
     // MARK: - Pieces

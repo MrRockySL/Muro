@@ -844,7 +844,134 @@ final class AppStore: ObservableObject {
         recomputeSize()
     }
 
+    /// True delete for a wallpaper that exists only on this Mac. Unlike
+    /// `removeDownload` there is no catalog copy to pull back, so instead of
+    /// refusing while the wallpaper is in use it clears every reference first
+    /// — displays, playlists, lock screen. Refusing would strand any import
+    /// the user had applied, with no way left to ever remove it.
+    func deleteWallpaper(_ item: WallpaperItem) {
+        guard let entry = item.local, isDeletable(item) else { return }
+        Task { await performDelete([entry]) }
+    }
+
+    /// Every wallpaper the user brought in themselves. Kept separate from
+    /// Clear on purpose: Clear only ever removes things that can come back,
+    /// and an import cannot — there is no catalog copy behind it.
+    var customEntries: [WallpaperEntry] {
+        let remoteIDs = Set(catalog.map(\.id))
+        return manifest.wallpapers.filter {
+            $0.id != BundledWallpaper.id && !remoteIDs.contains($0.id)
+        }
+    }
+
+    var customBytes: Int64 {
+        customEntries.reduce(0) { $0 + $1.sizeBytes }
+    }
+
+    /// An entry counts as custom by being absent from the catalog, so with no
+    /// catalog loaded every download looks like an import. Rather than risk
+    /// deleting wallpapers the user could not get back by mistake, the action
+    /// stands down until Explore has answered.
+    var canDeleteCustom: Bool { !catalog.isEmpty && !customEntries.isEmpty }
+
+    func deleteAllCustomWallpapers() {
+        guard canDeleteCustom else { return }
+        let entries = customEntries
+        Task { await performDelete(entries) }
+    }
+
+    /// Only the user's own imports. Catalog wallpapers have the reversible
+    /// `removeDownload` instead, and the bundled wallpaper ships inside the
+    /// app rather than the library — it reads as an import for as long as the
+    /// catalog has not loaded, so exclude it by id rather than by shape.
+    func isDeletable(_ item: WallpaperItem) -> Bool {
+        item.isDownloaded && item.remote == nil && item.id != BundledWallpaper.id
+    }
+
+    /// Batched so deleting one wallpaper and emptying the whole custom library
+    /// travel the same path — config, lock screen, playlists and manifest are
+    /// each rewritten once no matter how many wallpapers go.
+    private func performDelete(_ entries: [WallpaperEntry]) async {
+        let ids = Set(entries.map(\.id))
+        guard !ids.isEmpty else { return }
+
+        // Unassign before unlinking. Saving config.json trips the engine's
+        // directory watch, so the wallpaper window is torn down while its
+        // file is still present instead of after it disappears.
+        if let all = config.allDisplays?.wallpaperID, ids.contains(all) {
+            config.allDisplays = nil
+        }
+        config.perDisplay = config.perDisplay.filter { !ids.contains($0.value.wallpaperID) }
+        saveConfig()
+
+        for id in ids where lockScreen.activeWallpaperIDs.contains(id) {
+            await clearLockScreenSelections(for: id)
+        }
+
+        for index in playlists.indices {
+            playlists[index].wallpaperIDs.removeAll { ids.contains($0) }
+        }
+        savePlaylists()
+
+        for entry in entries {
+            for relative in [entry.file, entry.efficientFile, entry.previewFile, entry.thumbnail].compactMap({ $0 }) {
+                try? FileManager.default.removeItem(at: root.appendingPathComponent(relative))
+            }
+        }
+        manifest.wallpapers.removeAll { ids.contains($0.id) }
+        try? manifest.save(root: root)
+
+        recentIDs.removeAll { ids.contains($0) }
+        defaults.set(recentIDs, forKey: "recents")
+        if let hero = heroID, ids.contains(hero) { heroID = nil }
+        if let preview = previewItem?.id, ids.contains(preview) { previewItem = nil }
+        recomputeSize()
+    }
+
+    /// Drops any lock-screen selection naming this wallpaper, using only the
+    /// targeted `remove` calls LockScreenService already exposes — nothing
+    /// here touches Apple's wallpaper store directly. The closing sweep is
+    /// deliberately blunt: if a selection still names the wallpaper (a stale
+    /// all-displays entry, or a mix of all-displays and per-display picks),
+    /// clearing every selection beats leaving the lock screen pointed at a
+    /// file that no longer exists.
+    private func clearLockScreenSelections(for id: String) async {
+        guard lockScreen.activeWallpaperIDs.contains(id) else { return }
+        do {
+            if lockScreen.isApplied(wallpaperID: id, target: .all) {
+                try await lockScreen.remove(target: .all)
+            } else {
+                for display in displays
+                where lockScreen.isApplied(wallpaperID: id, target: .display(display.id)) {
+                    try await lockScreen.remove(target: .display(display.id))
+                }
+                if lockScreen.activeWallpaperIDs.contains(id) {
+                    try await lockScreen.remove(target: .all)
+                }
+            }
+        } catch {
+            applyError = error.localizedDescription
+        }
+    }
+
     // MARK: - Files
+
+    /// Where the wallpaper videos themselves live. `Masters/` rather than the
+    /// library root: the root is mostly bookkeeping (library.json,
+    /// config.json, thumbnails), and someone opening this folder is looking
+    /// for the videos.
+    var mastersFolderURL: URL {
+        root.appendingPathComponent("Masters", isDirectory: true)
+    }
+
+    /// Opens Masters/ in Finder, creating it first — a fresh install has no
+    /// Masters folder until the first download or import, and opening a
+    /// missing path just fails silently.
+    func revealWallpapersFolder() {
+        let url = mastersFolderURL
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(url)
+    }
 
     func videoURL(for item: WallpaperItem, mode: String) -> URL? {
         guard let entry = item.local else { return nil }

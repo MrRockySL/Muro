@@ -38,6 +38,7 @@ struct PreviewView: View {
     let itemID: String
 
     @State private var showDisplayPopover = false
+    @State private var confirmDelete = false
     @StateObject private var loader = PreviewLoader()
 
     /// Live item — refreshes as downloads/likes/manifest change.
@@ -134,6 +135,19 @@ struct PreviewView: View {
                 fpsToggle(item)
             }
 
+            // Only the user's own imports: a catalog wallpaper is removed
+            // from disk through Library's Remove Download instead, which is
+            // reversible. Grouped with the other utility icons and kept a
+            // button away from Set Wallpaper, so the destructive action is
+            // never flush against the one people reach for by reflex.
+            if store.isDeletable(item) {
+                Button { confirmDelete = true } label: {
+                    barIcon("trash")
+                }
+                .buttonStyle(.plain)
+                .help("Delete this wallpaper from your library")
+            }
+
             HeartButton(item: item, size: 40)
 
             setButton(item)
@@ -156,6 +170,23 @@ struct PreviewView: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
         )
+        .alert("Delete \(item.title)?", isPresented: $confirmDelete) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) { store.deleteWallpaper(item) }
+        } message: {
+            Text(deleteWarning(item))
+        }
+    }
+
+    /// Deleting the previewed wallpaper closes this view on its own, because
+    /// the store clears `previewItem` for anything it removes.
+    private func deleteWarning(_ item: WallpaperItem) -> String {
+        let base = "This deletes the video from your Muro library for good. "
+            + "It came from your own import, so Muro has no copy to restore — "
+            + "re-import the original file if you want it back."
+        guard store.protectedWallpaperIDs.contains(item.id) else { return base }
+        return base + " It's in use right now, so Muro will also take it off "
+            + "your displays, playlists and lock screen."
     }
 
     private var backButton: some View {

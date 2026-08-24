@@ -406,6 +406,7 @@ struct WallpaperCard: View {
 
     @State private var hovering = false
     @State private var showMenu = false
+    @State private var confirmDelete = false
 
     var body: some View {
         Color.black
@@ -425,14 +426,15 @@ struct WallpaperCard: View {
             .onHover { hovering = $0 }
             .contentShape(RoundedRectangle(cornerRadius: 16))
             .onTapGesture { store.openPreview(item) }
-            .overlay { if removableDownload { RightClickCatcher { showMenu = true } } }
+            .overlay { if hasContextMenu { RightClickCatcher { showMenu = true } } }
             .popover(isPresented: $showMenu, arrowEdge: .bottom) {
-                GlassMenuList(width: 200, options: [
-                    MenuOption(
-                        title: "Remove Download (\(formatSize(item.sizeBytes)))",
-                        destructive: true
-                    ) { store.removeDownload(item) }
-                ]) { showMenu = false }
+                GlassMenuList(width: 220, options: contextMenuOptions) { showMenu = false }
+            }
+            .alert("Delete \(item.title)?", isPresented: $confirmDelete) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) { store.deleteWallpaper(item) }
+            } message: {
+                Text(deleteWarning)
             }
     }
 
@@ -442,6 +444,43 @@ struct WallpaperCard: View {
     private var removableDownload: Bool {
         item.isDownloaded && item.remote != nil
             && !store.protectedWallpaperIDs.contains(item.id)
+    }
+
+    private var hasContextMenu: Bool { removableDownload || store.isDeletable(item) }
+
+    /// Removing a download and deleting an import are different promises, so
+    /// they stay separate entries rather than one "Remove": the first is a
+    /// space reclaim the user can undo from Explore, the second is permanent.
+    private var contextMenuOptions: [MenuOption] {
+        var options: [MenuOption] = []
+        if removableDownload {
+            options.append(MenuOption(
+                title: "Remove Download (\(formatSize(item.sizeBytes)))",
+                destructive: true
+            ) { store.removeDownload(item) })
+        }
+        if store.isDeletable(item) {
+            options.append(MenuOption(
+                title: "Delete (\(formatSize(item.sizeBytes)))",
+                destructive: true
+            ) {
+                // GlassMenuRow dismisses the popover and runs the action in
+                // the same update, and an alert raised inside that turn races
+                // the popover teardown and gets dropped. The next turn always
+                // presents it.
+                DispatchQueue.main.async { confirmDelete = true }
+            })
+        }
+        return options
+    }
+
+    private var deleteWarning: String {
+        let base = "This deletes the video from your Muro library for good. "
+            + "It came from your own import, so Muro has no copy to restore — "
+            + "re-import the original file if you want it back."
+        guard store.protectedWallpaperIDs.contains(item.id) else { return base }
+        return base + " It's in use right now, so Muro will also take it off "
+            + "your displays, playlists and lock screen."
     }
 
     @ViewBuilder private var titleOverlay: some View {
