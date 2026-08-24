@@ -111,5 +111,8 @@ struct RootView: View {
         } message: {
             Text(store.deleteNotice ?? "")
         }
+        // Every dropdown and right-click menu in the main window draws here
+        // rather than in a popover of its own.
+        .menuHost()
     }
 }

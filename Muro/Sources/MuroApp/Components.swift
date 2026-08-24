@@ -76,22 +76,37 @@ struct ThumbImage: View {
     var body: some View {
         let path = store.thumbnailPath(for: item)
         let ready = image ?? path.flatMap { ImageCache.cached(path: $0, maxPixels: maxPixels) }
-        Group {
-            if let ready {
-                Image(nsImage: ready).resizable().scaledToFill()
-            } else if path == nil, let url = item.remote?.thumbnail {
-                AsyncImage(url: url) { phase in
-                    if let remote = phase.image {
-                        remote.resizable().scaledToFill()
-                    } else {
-                        Color.white.opacity(0.04)
+        // The size comes from `Color.clear`, not from the picture.
+        //
+        // `scaledToFill` reports whatever size is needed to COVER what it was
+        // offered, and that can be far larger than the offer. A timeline window
+        // is about sixteen to one and a thumbnail is sixteen to nine, so a
+        // full-width window 44 points tall asked for a picture 396 points tall.
+        // Clipping the drawing hid it, but nothing clipped the layout, so the
+        // picture's hit region reached a couple of hundred points above the
+        // timeline and quietly swallowed every click in the wallpaper grid
+        // overhead. Taking the size from a flexible view and clipping the
+        // picture inside it keeps the whole thing the size it was offered.
+        Color.clear
+            .overlay {
+                if let ready {
+                    Image(nsImage: ready).resizable().scaledToFill()
+                } else if path == nil, let url = item.remote?.thumbnail {
+                    AsyncImage(url: url) { phase in
+                        if let remote = phase.image {
+                            remote.resizable().scaledToFill()
+                        } else {
+                            Color.white.opacity(0.04)
+                        }
                     }
+                } else {
+                    Color.white.opacity(0.04)
                 }
-            } else {
-                Color.white.opacity(0.04)
             }
-        }
-        .task(id: path) { await load(path: path) }
+            .clipped()
+            // Decoration only. Whatever it sits in owns the click.
+            .allowsHitTesting(false)
+            .task(id: path) { await load(path: path) }
     }
 
     private func load(path: String?) async {
@@ -195,7 +210,9 @@ struct ImportButton: View {
     @State private var showImporter = false
 
     var body: some View {
-        IconCircleButton(systemName: "plus") { showImporter = true }
+        IconCircleButton(systemName: "plus", glyph: { size in
+            PlusGlyph(span: size * 0.38, thickness: size * 0.058)
+        }) { showImporter = true }
             .fileImporter(
                 isPresented: $showImporter,
                 allowedContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie],
@@ -222,21 +239,39 @@ final class SettingsWindowOpener {
     var open: (() -> Void)?
 }
 
-struct IconCircleButton: View {
+struct IconCircleButton<Glyph: View>: View {
     let systemName: String
     var size: CGFloat = 38
+    /// Lets a caller supply drawn artwork instead of an SF Symbol, for the
+    /// glyphs where the symbol's text box will not centre (see `PlusGlyph`).
+    var glyph: ((CGFloat) -> Glyph)?
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: size * 0.37, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: size, height: size)
-                .glassCapsule(fill: 0.08, stroke: 0.14)
-                .contentShape(Circle())
+            Group {
+                if let glyph {
+                    glyph(size)
+                } else {
+                    Image(systemName: systemName)
+                        .font(.system(size: size * 0.37, weight: .medium))
+                }
+            }
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .glassCapsule(fill: 0.08, stroke: 0.14)
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+extension IconCircleButton where Glyph == EmptyView {
+    init(systemName: String, size: CGFloat = 38, action: @escaping () -> Void) {
+        self.systemName = systemName
+        self.size = size
+        self.glyph = nil
+        self.action = action
     }
 }
 
@@ -267,18 +302,18 @@ struct GlassMenuList: View {
             ForEach(options) { option in
                 if option.isDivider {
                     Rectangle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.white.opacity(0.09))
                         .frame(height: 1)
-                        .padding(.vertical, 3)
+                        .padding(.vertical, 4)
                         .padding(.horizontal, 4)
                 } else {
                     GlassMenuRow(option: option, dismiss: dismiss)
                 }
             }
         }
-        .padding(5)
+        .padding(7)
         .frame(width: width)
-        .background(Color(hex: 0x14171D))
+        .glassCard()
     }
 }
 
@@ -294,22 +329,26 @@ private struct GlassMenuRow: View {
         } label: {
             HStack(spacing: 8) {
                 Text(option.title)
-                    .font(.system(size: 12.5, weight: option.checked ? .semibold : .regular))
-                    .foregroundStyle(option.destructive ? Color(hex: 0xFF6B6B) : .white)
+                    .font(.system(size: 12.5, weight: option.checked ? .semibold : .medium))
+                    .foregroundStyle(option.destructive ? Color.muroDanger : .white.opacity(0.92))
                 Spacer(minLength: 12)
                 if option.checked {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9.5, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Color.muroAccent)
                 }
             }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .frame(height: 34)
             .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.white.opacity(hovering ? 0.1 : 0))
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(
+                        option.destructive
+                            ? Color.muroDanger.opacity(hovering ? 0.12 : 0)
+                            : Color.white.opacity(hovering || option.checked ? 0.10 : 0)
+                    )
             )
-            .contentShape(RoundedRectangle(cornerRadius: 7))
+            .contentShape(RoundedRectangle(cornerRadius: 11))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -320,22 +359,14 @@ private struct GlassMenuRow: View {
 /// open so checkmarks always reflect current state.
 struct GlassDropdown<Label: View>: View {
     var width: CGFloat = 170
+    /// Kept for the menu bar panel, which still falls back to a real popover.
+    /// Inside a window the menu places itself.
     var arrowEdge: Edge = .bottom
     var options: () -> [MenuOption]
     @ViewBuilder var label: () -> Label
 
-    @State private var open = false
-
     var body: some View {
-        Button {
-            open.toggle()
-        } label: {
-            label().contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .popover(isPresented: $open, arrowEdge: arrowEdge) {
-            GlassMenuList(width: width, options: options()) { open = false }
-        }
+        MenuButton(width: width, options: options, label: label)
     }
 }
 
@@ -550,7 +581,6 @@ struct WallpaperCard: View {
     var selection: Binding<Set<String>>?
 
     @State private var hovering = false
-    @State private var showMenu = false
 
     /// The two hover controls rise and spring into place rather than blinking
     /// on. Deliberately quicker than the card's own 1.015 hover scale, so the
@@ -597,12 +627,7 @@ struct WallpaperCard: View {
                     store.openPreview(item)
                 }
             }
-            .overlay {
-                if !selecting, !menuOptions.isEmpty { RightClickCatcher { showMenu = true } }
-            }
-            .popover(isPresented: $showMenu, arrowEdge: .bottom) {
-                GlassMenuList(width: 210, options: menuOptions) { showMenu = false }
-            }
+            .glassContextMenu(width: 210) { selecting ? [] : menuOptions }
     }
 
     /// In the Library a wallpaper can go for good, so the menu says Delete and

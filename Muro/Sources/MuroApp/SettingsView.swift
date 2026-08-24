@@ -125,7 +125,7 @@ struct SettingsView: View {
                             .padding(.vertical, 5.5)
                             .glassCapsule(fill: 0.09, stroke: 0.15)
                         }
-                        .popover(isPresented: $customPauseAfter) {
+                        .anchoredCard(isPresented: $customPauseAfter, width: 272) {
                             CustomDurationPicker(seconds: Binding(
                                 get: { max(10, store.pauseAfterSeconds) },
                                 set: { store.setPauseAfter($0) }
@@ -245,6 +245,7 @@ struct SettingsView: View {
             }
         }
         .frame(width: 560, height: 600)
+        .menuHost()
         .background(SettingsWindowConfigurator())
         .alert("Clear the library?", isPresented: $confirmClear) {
             Button("Cancel", role: .cancel) {}

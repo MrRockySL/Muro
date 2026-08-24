@@ -812,8 +812,12 @@ final class AppStore: ObservableObject {
             var failures: [String] = []
             for (index, url) in videos.enumerated() {
                 await MainActor.run {
-                    AppStore.shared.importStatus =
-                        "Importing \(url.lastPathComponent) (\(index + 1)/\(videos.count)), transcoding to HEVC…"
+                    // The file name and the codec are not news to the person
+                    // who just dropped the file. One word plus a count is the
+                    // whole of what they need while they wait.
+                    AppStore.shared.importStatus = videos.count == 1
+                        ? "Importing…"
+                        : "Importing \(index + 1) of \(videos.count)…"
                 }
                 do {
                     _ = try importVideo(source: url, root: root)
