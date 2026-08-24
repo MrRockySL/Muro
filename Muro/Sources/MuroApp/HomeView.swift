@@ -201,16 +201,12 @@ struct HomeView: View {
         }
     }
 
+    /// The same glass bubble as the top bar's controls. Home had the last two
+    /// flat 8% circles left in the app, and next to a lit bubble a flat one
+    /// reads as a control that is switched off.
     private func pagerButton(systemName: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 32, height: 32)
-                .glassCapsule(fill: 0.08, stroke: 0.14)
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .opacity(enabled ? 1 : 0.35)
+        GlassBubbleButton(systemName: systemName, size: 34, glyphScale: 0.33, action: action)
+            .disabled(!enabled)
+            .opacity(enabled ? 1 : 0.35)
     }
 }

@@ -103,6 +103,10 @@ struct RootView: View {
             ConfirmDeleteView(request: request)
                 .environmentObject(store)
         }
+        .sheet(isPresented: $store.whatsNewOpen) {
+            WhatsNewView()
+                .environmentObject(store)
+        }
         .alert("Playlist stopped", isPresented: Binding(
             get: { store.deleteNotice != nil },
             set: { if !$0 { store.deleteNotice = nil } }

@@ -39,6 +39,7 @@ struct PreviewView: View {
     let itemID: String
 
     @State private var showDisplayPopover = false
+    @State private var customPauseAfter = false
     @StateObject private var loader = PreviewLoader()
 
     /// Live item — refreshes as downloads/likes/manifest change.
@@ -142,7 +143,11 @@ struct PreviewView: View {
             HeartButton(item: item, size: 40)
 
             setButton(item)
-                .popover(isPresented: $showDisplayPopover, arrowEdge: .top) {
+                // Drawn in the window like every other menu, not in a popover.
+                // A popover paints its own square grey sheet behind whatever
+                // it is given, which is what made this the one panel in the
+                // app that was a flat dark box (owner, 2026-08-24).
+                .anchoredCard(isPresented: $showDisplayPopover, width: 330, align: .trailing) {
                     ChooseDisplayPopover(item: item)
                         .environmentObject(store)
                 }
@@ -220,7 +225,9 @@ struct PreviewView: View {
     private func pauseAfterPill(_ item: WallpaperItem) -> some View {
         let value = store.effectivePauseAfter(for: item)
         let overridden = store.hasPauseAfterOverride(item)
-        return GlassDropdown(width: 190, arrowEdge: .top, options: {
+        // Centred on the pill: it sits in the middle of the bottom bar, so a
+        // menu hanging off either edge of it looks like a mistake.
+        return GlassDropdown(width: 190, arrowEdge: .top, align: .center, options: {
             [MenuOption(title: "Use setting (\(SettingsView.pauseAfterLabel(store.pauseAfterSeconds)))",
                         checked: !overridden) {
                 store.setPauseAfter(nil, for: item)
@@ -231,6 +238,9 @@ struct PreviewView: View {
                     checked: overridden && value == seconds
                 ) { store.setPauseAfter(seconds == 0 ? -1 : seconds, for: item) }
             }
+            // The list stops at an hour. Anything else this wallpaper wants
+            // is set here, the same way Settings does it.
+            + [.divider, MenuOption(title: "Custom…") { customPauseAfter = true }]
         }) {
             HStack(spacing: 6) {
                 Image(systemName: "pause.circle")
@@ -247,6 +257,12 @@ struct PreviewView: View {
                 overridden ? Color.muroAccent.opacity(0.4) : Color.white.opacity(0.14),
                 lineWidth: 1
             ))
+        }
+        .anchoredCard(isPresented: $customPauseAfter, width: 300, align: .center) {
+            CustomDurationPicker(seconds: Binding(
+                get: { max(10, store.effectivePauseAfter(for: item)) },
+                set: { store.setPauseAfter($0, for: item) }
+            )) { customPauseAfter = false }
         }
         .help("Pause after: how long this wallpaper moves before holding on a frame")
     }
@@ -399,12 +415,10 @@ struct ChooseDisplayPopover: View {
                 }
             }
         }
-        .padding(16)
-        .frame(width: 330)
-        .background(Color(hex: 0x14171D))
-        // Colors the popover chrome itself (arrow + any filler drawn during
-        // resize) — without this the system paints those white.
-        .presentationBackground(Color(hex: 0x14171D))
+        .padding(18)
+        // No background of its own: `anchoredCard` draws it on the same glass
+        // as every dropdown, with the same corner radius.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Applies without dismissing — people with several displays apply to
@@ -536,14 +550,14 @@ struct ChooseDisplayPopover: View {
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 13)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(Color.white.opacity(0.06)))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(.glassSheen(0.12, 0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
             .strokeBorder(
-                appliedHere ? Color.muroGreen.opacity(0.55) : Color.white.opacity(0.1),
+                appliedHere ? Color.muroGreen.opacity(0.55) : Color.white.opacity(0.14),
                 lineWidth: appliedHere ? 1.5 : 1
             ))
-        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .contentShape(RoundedRectangle(cornerRadius: 16))
         .accessibilityLabel(
             appliedHere
                 ? "Remove \(item.title) from \(display.name)"

@@ -189,37 +189,72 @@ struct TopBar: View {
         .animation(.easeOut(duration: 0.22), value: store.tab)
     }
 
+    /// Search, What's New, import and settings.
+    ///
+    /// All four are the Library's import bubble: same glass, same accent
+    /// light, same lift under the pointer and dip on the press. They used to
+    /// be flat 8% circles with a grey SF Symbol in them, which is the one
+    /// piece of 2.0 chrome the 3.0 pages had left standing.
     private var actions: some View {
-        HStack(spacing: 10) {
-            IconCircleButton(systemName: "magnifyingglass") {
+        HStack(spacing: 12) {
+            GlassBubbleButton(
+                systemName: "magnifyingglass",
+                glyphScale: 0.42,
+                active: store.searchActive,
+                help: "Search wallpapers"
+            ) {
                 store.searchActive.toggle()
                 if store.searchActive, store.tab == .home { store.switchTab(.explore) }
                 if !store.searchActive { store.searchText = "" }
             }
+            GlassBubbleButton(
+                systemName: "sparkles",
+                glyphScale: 0.44,
+                active: store.whatsNewOpen,
+                help: "What's New in Muro"
+            ) {
+                store.whatsNewOpen = true
+            }
             ImportButton()
-            IconCircleButton(systemName: "gearshape") {
+            GlassBubbleButton(
+                systemName: "gearshape",
+                glyphScale: 0.44,
+                turns: true,
+                help: "Settings"
+            ) {
                 openSettingsWindow()
             }
         }
     }
 }
 
-/// The + button: file importer for the user's own videos.
+/// The + button: file importer for the user's own videos. The same bubble as
+/// the Library's drop zone, so importing looks like one gesture wherever it
+/// is offered.
 struct ImportButton: View {
     @EnvironmentObject var store: AppStore
+    var size: CGFloat = 42
+
     @State private var showImporter = false
+    @State private var hovering = false
 
     var body: some View {
-        IconCircleButton(systemName: "plus", glyph: { size in
-            PlusGlyph(span: size * 0.38, thickness: size * 0.058)
-        }) { showImporter = true }
-            .fileImporter(
-                isPresented: $showImporter,
-                allowedContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie],
-                allowsMultipleSelection: true
-            ) { result in
-                if case .success(let urls) = result { store.importFiles(urls) }
-            }
+        Button { showImporter = true } label: {
+            // White here, accent in the Library. Same bubble, but the top bar
+            // is chrome and the Library's is the page's own call to action.
+            PlusGlyph(span: size * 0.36, thickness: size * 0.054, colour: .white)
+                .shadow(color: Color.white.opacity(0.45), radius: hovering ? 5 : 3)
+        }
+        .buttonStyle(BubbleButtonStyle(size: size, hovering: hovering, active: false, tint: .white))
+        .onHover { hovering = $0 }
+        .help("Import your own video")
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie],
+            allowsMultipleSelection: true
+        ) { result in
+            if case .success(let urls) = result { store.importFiles(urls) }
+        }
     }
 }
 
@@ -237,42 +272,6 @@ func openSettingsWindow() {
 final class SettingsWindowOpener {
     static let shared = SettingsWindowOpener()
     var open: (() -> Void)?
-}
-
-struct IconCircleButton<Glyph: View>: View {
-    let systemName: String
-    var size: CGFloat = 38
-    /// Lets a caller supply drawn artwork instead of an SF Symbol, for the
-    /// glyphs where the symbol's text box will not centre (see `PlusGlyph`).
-    var glyph: ((CGFloat) -> Glyph)?
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Group {
-                if let glyph {
-                    glyph(size)
-                } else {
-                    Image(systemName: systemName)
-                        .font(.system(size: size * 0.37, weight: .medium))
-                }
-            }
-            .foregroundStyle(.white)
-            .frame(width: size, height: size)
-            .glassCapsule(fill: 0.08, stroke: 0.14)
-            .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-extension IconCircleButton where Glyph == EmptyView {
-    init(systemName: String, size: CGFloat = 38, action: @escaping () -> Void) {
-        self.systemName = systemName
-        self.size = size
-        self.glyph = nil
-        self.action = action
-    }
 }
 
 // MARK: - Styled dropdown menus
@@ -359,14 +358,16 @@ private struct GlassMenuRow: View {
 /// open so checkmarks always reflect current state.
 struct GlassDropdown<Label: View>: View {
     var width: CGFloat = 170
-    /// Kept for the menu bar panel, which still falls back to a real popover.
-    /// Inside a window the menu places itself.
+    /// Kept for the menu bar panel, which opens its menus in a panel of their
+    /// own. Inside a window the menu places itself.
     var arrowEdge: Edge = .bottom
+    /// Which edge of the menu lines up with this control. See `MenuAlign`.
+    var align: MenuAlign = .leading
     var options: () -> [MenuOption]
     @ViewBuilder var label: () -> Label
 
     var body: some View {
-        MenuButton(width: width, options: options, label: label)
+        MenuButton(width: width, align: align, options: options, label: label)
     }
 }
 
@@ -630,19 +631,21 @@ struct WallpaperCard: View {
             .glassContextMenu(width: 210) { selecting ? [] : menuOptions }
     }
 
-    /// In the Library a wallpaper can go for good, so the menu says Delete and
-    /// matches the trash button beside it. Elsewhere it is usually only about
-    /// reclaiming space on a wallpaper that stays a download away.
+    /// Outside the Library a wallpaper is usually only about reclaiming space
+    /// on something that stays a download away, so the menu says Remove
+    /// Download.
+    ///
+    /// The Library itself has no menu at all. Every card there already carries
+    /// a trash button, and a right-click offering the same delete is a second
+    /// way to do a thing that is already one click away (owner, 2026-08-24).
     ///
     /// The exception is a video the user imported themselves. It appears in
     /// Explore alongside the catalog, but there is no copy of it anywhere to
-    /// download again, so "Remove Download" would be a lie. It used to fall
-    /// through both branches and offer nothing at all, which left an imported
-    /// video as the one wallpaper in the app with no right-click menu. It gets
-    /// the Delete wording wherever it is shown.
+    /// download again, so "Remove Download" would be a lie. It gets the Delete
+    /// wording wherever it is shown outside the Library.
     private var menuOptions: [MenuOption] {
-        guard item.isDownloaded else { return [] }
-        if showsDelete || item.remote == nil {
+        guard item.isDownloaded, !showsDelete else { return [] }
+        if item.remote == nil {
             return [MenuOption(
                 title: "Delete Wallpaper (\(formatSize(item.sizeBytes)))",
                 destructive: true

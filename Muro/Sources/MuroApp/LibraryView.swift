@@ -841,7 +841,7 @@ struct PlaylistEditorView: View {
                     let slot = segmentFrames["custom"] ?? .zero
                     Color.clear
                         .frame(width: max(slot.width, 1), height: max(slot.height, 1))
-                        .anchoredCard(isPresented: $showCustomInterval, width: 272) {
+                        .anchoredCard(isPresented: $showCustomInterval, width: 272, align: .center) {
                             CustomIntervalPicker(minutes: $intervalMinutes) {
                                 showCustomInterval = false
                             }

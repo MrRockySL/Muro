@@ -118,6 +118,7 @@ final class StatusBarController: NSObject {
     }
 
     func closePanel() {
+        MenuBarMenuPanel.shared.close()
         guard panel.isVisible else { return }
         panel.orderOut(nil)
         lastCloseAt = Date()
@@ -150,6 +151,7 @@ final class StatusBarController: NSObject {
                 // GlassDropdown popovers present in their own popover windows.
                 || (window.map { String(describing: type(of: $0)).contains("Popover") } ?? false)
             let onStatusButton = window === self.statusItem?.button?.window
+            if window === self.panel { MenuBarMenuPanel.shared.close() }
             if !inPanel && !onStatusButton { self.closePanel() }
             return event
         }
@@ -162,15 +164,15 @@ final class StatusBarController: NSObject {
     }
 }
 
-/// Borderless panels refuse key status by default; the dropdown needs it so
-/// buttons, hover and popovers inside react without activating the app.
-private final class KeyablePanel: NSPanel {
+/// Borderless panels refuse key status by default; the panel and its menus
+/// need it so buttons and hover react without activating the app.
+final class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
 }
 
 /// The panel never activates the app, so without this the first click on any
 /// control is swallowed by click-through protection.
-private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
@@ -186,4 +188,100 @@ struct MenuBarPanelRoot: View {
             .background(Color.black.opacity(0.25))
             .preferredColorScheme(.dark)
     }
+}
+
+
+/// A menu opened from the menu bar panel, in a transparent window of its own.
+///
+/// These used to be `NSPopover`s, and a popover paints its own background in
+/// the window frame's draw pass, above anything SwiftUI hands it and out of
+/// reach of `presentationBackground(.clear)`. So every menu in the panel sat
+/// on a second, larger, lighter glass sheet (owner, 2026-08-24). Inside the
+/// main window that was solved by drawing menus as an overlay (`menuHost`),
+/// but the panel is a small window clipped to its own corner radius, so a menu
+/// has to leave it.
+///
+/// This is that overlay as a window: borderless, transparent, no chrome of its
+/// own, and a child of the panel so a click inside it is not read as a click
+/// outside the panel.
+@MainActor
+final class MenuBarMenuPanel {
+    static let shared = MenuBarMenuPanel()
+
+    /// Transparent margin around the card, so the card's own shadow has room
+    /// instead of being clipped flush against the window edge.
+    private static let pad: CGFloat = 22
+
+    private var panel: NSPanel?
+
+    func show(options: [MenuOption], width: CGFloat, anchor: NSRect, parent: NSWindow?) {
+        show(width: width, anchor: anchor, parent: parent) {
+            GlassMenuList(width: width, options: options) {
+                MenuBarMenuPanel.shared.close()
+            }
+        }
+    }
+
+    func show<Content: View>(
+        width: CGFloat,
+        anchor: NSRect,
+        parent: NSWindow?,
+        @ViewBuilder content: () -> Content
+    ) {
+        close()
+        let body = content()
+            .frame(width: width)
+            .padding(Self.pad)
+            .preferredColorScheme(.dark)
+
+        let hosting = FirstMouseHostingView(rootView: body)
+        let size = hosting.fittingSize
+        let panel = KeyablePanel(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: true
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        // The card draws its own shadow; a window shadow as well would trace
+        // the transparent rectangle around it.
+        panel.hasShadow = false
+        panel.level = .popUpMenu
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isReleasedWhenClosed = false
+        panel.hidesOnDeactivate = false
+        panel.animationBehavior = .none
+        panel.appearance = NSAppearance(named: .darkAqua)
+        hosting.autoresizingMask = [.width, .height]
+        panel.contentView = hosting
+
+        // Under the control with their right edges in line, since these
+        // controls sit at the right of their row and the menu is wider than
+        // they are.
+        var x = anchor.maxX - size.width + Self.pad
+        var y = anchor.minY - 6 + Self.pad - size.height
+        if let screen = parent?.screen ?? NSScreen.main {
+            let visible = screen.visibleFrame
+            x = min(max(x, visible.minX + 8 - Self.pad), visible.maxX - size.width + Self.pad - 8)
+            // No room below: flip it above the control rather than off screen.
+            if y + Self.pad < visible.minY + 8 { y = anchor.maxY + 6 - Self.pad }
+        }
+        panel.setFrameOrigin(NSPoint(x: x, y: y))
+        parent?.addChildWindow(panel, ordered: .above)
+        panel.makeKeyAndOrderFront(nil)
+        self.panel = panel
+    }
+
+    func close() {
+        guard let panel else { return }
+        let parent = panel.parent
+        parent?.removeChildWindow(panel)
+        panel.orderOut(nil)
+        self.panel = nil
+        // Hand key status back, or Esc stops closing the panel behind it.
+        if let parent, parent.isVisible { parent.makeKey() }
+    }
+
+    var isOpen: Bool { panel != nil }
 }

@@ -74,6 +74,10 @@ final class AppStore: ObservableObject {
     @Published var importStatus: String?
     @Published var searchText = ""
     @Published var searchActive = false
+    /// The What's New sheet. On the store rather than in the top bar so
+    /// anything else that should open it later (the menu bar, a first run
+    /// after an update) has one switch to flip.
+    @Published var whatsNewOpen = false
     @Published var previewItem: WallpaperItem?
     @Published var previewMode = "smooth"
     @Published var applySurface: ApplySurface = .both

@@ -537,7 +537,8 @@ struct AutomationEditorView: View {
                 get: { customFor == id },
                 set: { if !$0 { customFor = nil } }
             ),
-            width: 272
+            width: 300,
+            align: .trailing
         ) {
             CustomDurationPicker(
                 seconds: stepValue(id, get: { $0.duration }, set: { $0.seconds = $1 })
@@ -756,7 +757,7 @@ struct DurationStepper: View {
         HStack(spacing: 0) {
             side("minus") { seconds = step(down: true) }
             Rectangle().fill(Color.white.opacity(0.1)).frame(width: 1, height: 20)
-            MenuButton(width: 160) {
+            MenuButton(width: 160, align: .center) {
                 presets.map { value in
                     MenuOption(title: durationLabel(value), checked: seconds == value) { seconds = value }
                 } + [.divider, MenuOption(title: "Custom…") { onCustom() }]
@@ -822,7 +823,11 @@ struct CustomDurationPicker: View {
         CustomValueCard(
             title: "Custom duration",
             amount: $amount,
-            applyLabel: "Set \(durationLabel(resolved))"
+            applyLabel: "Set \(durationLabel(resolved))",
+            // Wider than the playlist's card because this one has three units
+            // rather than two, and at 272 the row filled the card edge to edge
+            // and could not look centred however it was aligned.
+            width: 300
         ) {
             PillSegments(
                 options: [PillOption("1", "sec"), PillOption("60", "min"), PillOption("3600", "hr")],
