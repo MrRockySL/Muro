@@ -1195,16 +1195,61 @@ func directorySize(_ root: URL) -> Int64 {
 
 // MARK: - Download worker (off the main actor)
 
-/// Progress for a running download. `URLSession.download(from:delegate:)`
-/// reports byte counts through a delegate. Iterating `URLSession.bytes`
-/// instead yields one `UInt8` at a time, which turned a 60 MB master into
-/// 60 million async iterations and held the transfer far below whatever the
-/// connection could actually do.
-private final class DownloadProgressDelegate: NSObject, URLSessionDownloadDelegate {
+/// Runs one master download and reports how far along it is.
+///
+/// Two things about `URLSession` shape this class. Iterating
+/// `URLSession.bytes` yields one `UInt8` at a time, which turned a 60 MB
+/// master into 60 million async iterations and held the transfer far below
+/// what the connection could do, so the byte counts have to come from a
+/// delegate. And a delegate handed to `download(from:delegate:)` is never
+/// asked for them: `URLSession.shared` ignores per-task delegates entirely,
+/// and even a session of our own only routes `didWriteData` to the delegate
+/// it was **created** with. That is why the ring on the card sat at zero for
+/// a whole download and then vanished. So this owns its session, is the
+/// session's delegate, and bridges the classic callbacks back to `async`.
+private final class MasterDownload: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let destination: URL
     private let onProgress: (Double) -> Void
 
-    init(onProgress: @escaping (Double) -> Void) {
+    /// Guards `continuation`, `settled` and `failure`, which the delegate
+    /// queue and the awaiting task both touch.
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var settled = false
+    private var failure: Error?
+
+    /// Progress is published to the main actor, and a 60 MB file produces
+    /// roughly a thousand callbacks. Publishing every one would redraw the
+    /// grid a hundred times a second for a bar a hundred pixels wide, so a
+    /// step of 1% is the most anyone can see anyway.
+    private var lastReported = -1.0
+
+    init(destination: URL, onProgress: @escaping (Double) -> Void) {
+        self.destination = destination
         self.onProgress = onProgress
+    }
+
+    /// Downloads `url` and leaves the file at `destination`.
+    func run(url: URL) async throws {
+        let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+        // The session holds its delegate strongly until it is invalidated,
+        // so without this every download leaks a session and a delegate.
+        defer { session.finishTasksAndInvalidate() }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            lock.lock()
+            self.continuation = continuation
+            lock.unlock()
+            session.downloadTask(with: url).resume()
+        }
+    }
+
+    private func settle(_ result: Result<Void, Error>) {
+        lock.lock()
+        guard !settled, let waiting = continuation else { lock.unlock(); return }
+        settled = true
+        continuation = nil
+        lock.unlock()
+        waiting.resume(with: result)
     }
 
     func urlSession(
@@ -1217,16 +1262,44 @@ private final class DownloadProgressDelegate: NSObject, URLSessionDownloadDelega
         guard totalBytesExpectedToWrite > 0 else { return }
         // Capped below 1 so the bar never reads finished while the file is
         // still being moved into place and the thumbnail fetched.
-        onProgress(min(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite), 0.99))
+        let value = min(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite), 0.99)
+        guard value - lastReported >= 0.01 || lastReported < 0 else { return }
+        lastReported = value
+        onProgress(value)
     }
 
-    /// Required by the protocol. The async `download` API hands the finished
-    /// file back through its own return value, so there is nothing to do here.
+    /// The temporary file is deleted the moment this returns, so the move has
+    /// to happen here rather than after the download is awaited.
     func urlSession(
         _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
-    ) {}
+    ) {
+        let manager = FileManager.default
+        // Without this an error page would be written straight into Masters
+        // as a .mov and only fail later, when something tried to play it.
+        if let http = downloadTask.response as? HTTPURLResponse,
+           !(200..<300).contains(http.statusCode) {
+            failure = URLError(.badServerResponse)
+            return
+        }
+        do {
+            try? manager.removeItem(at: destination)
+            try manager.moveItem(at: location, to: destination)
+        } catch {
+            failure = error
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error {
+            settle(.failure(error))
+        } else if let failure {
+            settle(.failure(failure))
+        } else {
+            settle(.success(()))
+        }
+    }
 }
 
 /// Puts the master at `destination`: a copy for the bundled wallpaper's
@@ -1247,22 +1320,7 @@ private func fetchMaster(
         return
     }
 
-    let delegate = DownloadProgressDelegate(onProgress: progress)
-    let (temporary, response) = try await URLSession.shared.download(
-        from: source, delegate: delegate
-    )
-    // Without this an error page would be written straight into Masters as a
-    // .mov and only fail later, when something tried to play it.
-    if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-        try? manager.removeItem(at: temporary)
-        throw URLError(.badServerResponse)
-    }
-    do {
-        try manager.moveItem(at: temporary, to: destination)
-    } catch {
-        try? manager.removeItem(at: temporary)
-        throw error
-    }
+    try await MasterDownload(destination: destination, onProgress: progress).run(url: source)
 }
 
 /// Small reader that also works for the bundled wallpaper's `file://` URLs.
