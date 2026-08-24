@@ -606,10 +606,18 @@ struct WallpaperCard: View {
     }
 
     /// In the Library a wallpaper can go for good, so the menu says Delete and
-    /// matches the trash button beside it. Elsewhere it is still only about
+    /// matches the trash button beside it. Elsewhere it is usually only about
     /// reclaiming space on a wallpaper that stays a download away.
+    ///
+    /// The exception is a video the user imported themselves. It appears in
+    /// Explore alongside the catalog, but there is no copy of it anywhere to
+    /// download again, so "Remove Download" would be a lie. It used to fall
+    /// through both branches and offer nothing at all, which left an imported
+    /// video as the one wallpaper in the app with no right-click menu. It gets
+    /// the Delete wording wherever it is shown.
     private var menuOptions: [MenuOption] {
-        if showsDelete, item.isDownloaded {
+        guard item.isDownloaded else { return [] }
+        if showsDelete || item.remote == nil {
             return [MenuOption(
                 title: "Delete Wallpaper (\(formatSize(item.sizeBytes)))",
                 destructive: true
@@ -624,12 +632,12 @@ struct WallpaperCard: View {
         return []
     }
 
-    /// Manual space control (owner decision 2026-07-18): only catalog
-    /// wallpapers that aren't applied or in a playlist can be removed —
-    /// user imports have no remote copy to re-download.
+    /// Manual space control (owner decision 2026-07-18): outside the Library
+    /// only catalog wallpapers that aren't applied or in a playlist offer
+    /// this, because it is framed as freeing space rather than losing
+    /// anything. Imports are handled by the Delete branch above.
     private var removableDownload: Bool {
-        item.isDownloaded && item.remote != nil
-            && !store.protectedWallpaperIDs.contains(item.id)
+        item.remote != nil && !store.protectedWallpaperIDs.contains(item.id)
     }
 
     @ViewBuilder private var titleOverlay: some View {

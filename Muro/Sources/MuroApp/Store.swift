@@ -1138,9 +1138,11 @@ final class AppStore: ObservableObject {
     /// catalog wallpaper (it stays in Explore, re-downloadable anytime).
     /// It only removes the download, so it is the same job as a delete and
     /// goes through the same path rather than keeping a second, thinner one.
+    /// That includes the confirmation: this was the last way to destroy a
+    /// wallpaper without being asked first.
     func removeDownload(_ item: WallpaperItem) {
         guard item.remote != nil, item.local != nil else { return }
-        deleteWallpaper(item)
+        requestDelete([item])
     }
 
     // MARK: - Files
