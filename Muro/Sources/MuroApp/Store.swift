@@ -95,6 +95,10 @@ final class AppStore: ObservableObject {
     /// Set when a delete had a consequence the user did not ask for and
     /// cannot see, such as a running playlist losing its last wallpaper.
     @Published var deleteNotice: String?
+    /// The lock screen is applied and every file is in place, but macOS has
+    /// not picked it up yet. Its own alert, with the one step that finishes
+    /// the job, rather than the old dead-end error.
+    @Published var lockScreenNeedsSystemSettings = false
     /// A delete waiting on the confirmation sheet.
     @Published var pendingDelete: DeleteRequest?
 
@@ -548,12 +552,13 @@ final class AppStore: ObservableObject {
             applyingLockScreen = true
             defer { applyingLockScreen = false }
             do {
-                try await lockScreen.apply(
+                let outcome = try await lockScreen.apply(
                     entry: entry,
                     videoURL: videoURL,
                     thumbnailURL: thumbnailURL,
                     target: target
                 )
+                if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
                 if surface == .both {
                     applyAssignment(id: entry.id, mode: resolvedMode, target: target)
                 } else {
@@ -1114,7 +1119,16 @@ final class AppStore: ObservableObject {
     func clearDownloadedCache() {
         let doomed = clearPlan.removed.map(\.id)
         Task {
-            await lockScreen.clearAll()
+            // Clear keeps whatever is playing, and the lock-screen wallpaper
+            // is in that set. Tearing the lock screen down here contradicted
+            // that: the file was spared and the wallpaper disappeared anyway,
+            // because clearAll restores Apple's stores and unregisters the
+            // extension. So it only runs when there is no selection to lose,
+            // where its job is sweeping leftovers rather than undoing a
+            // wallpaper the user is still using.
+            if lockScreen.activeWallpaperIDs.isEmpty {
+                await lockScreen.clearAll()
+            }
             // Re-downloadable and never counted in the library size, so it is
             // never mentioned anywhere: 20 MB of streamed previews that only
             // Clear can reach.

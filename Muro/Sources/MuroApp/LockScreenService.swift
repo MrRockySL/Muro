@@ -4,6 +4,8 @@ import MuroKit
 enum LockScreenServiceError: LocalizedError {
     case requiresTahoe
     case extensionMissing
+    case extensionNotRegistered
+    case translocated
     case wallpaperStoreMissing
     case operationFailed(String)
 
@@ -13,12 +15,34 @@ enum LockScreenServiceError: LocalizedError {
             return "Lock-screen live wallpapers require macOS 26 or later."
         case .extensionMissing:
             return "Muro’s lock-screen extension is missing. Reinstall this build of Muro."
+        case .extensionNotRegistered:
+            return """
+            macOS would not load Muro’s lock-screen extension. \
+            Move Muro to your Applications folder, open it once from there, and try again.
+            """
+        case .translocated:
+            return """
+            macOS is running Muro from a temporary copy, so the lock screen cannot be set. \
+            Drag Muro into your Applications folder, then open it from there.
+            """
         case .wallpaperStoreMissing:
             return "The macOS wallpaper store could not be found."
         case .operationFailed(let message):
             return message
         }
     }
+}
+
+/// What `apply` settled on.
+///
+/// A lock-screen apply is really a request to WallpaperAgent, and the agent
+/// answers on its own schedule. `.needsSystemSettings` means every file and
+/// record Muro owns is in place but the agent has not acknowledged it yet.
+/// That is a message, not a failure: the old code treated it as one and threw
+/// away a selection that was usually about to settle a second later.
+enum LockScreenApplyOutcome {
+    case applied
+    case needsSystemSettings
 }
 
 /// Owns the Apple-managed half of Muro playback. It stages only wallpapers
@@ -85,6 +109,12 @@ final class LockScreenService {
     /// process spawn. It is a background job now, and the only thing it
     /// changes in the interface is an "Applied" badge that was already wrong.
     func healIfNeeded() async {
+        // Before anything else, and on every launch rather than only when a
+        // lock-screen wallpaper is set: an app that is still quarantined has an
+        // extension macOS will not load, and the user finds out at the worst
+        // moment. Cheap when there is nothing to clear (two `getxattr` calls).
+        await Task.detached(priority: .utility) { Self.clearQuarantine() }.value
+
         guard !activeWallpaperIDs.isEmpty else { return }
         let root = self.root
         let extensionURL = extensionBundleURL
@@ -142,12 +172,13 @@ final class LockScreenService {
         }
     }
 
+    @discardableResult
     func apply(
         entry: WallpaperEntry,
         videoURL: URL,
         thumbnailURL: URL,
         target: ApplyTarget
-    ) async throws {
+    ) async throws -> LockScreenApplyOutcome {
         try validateAvailability()
         let targetKey = Self.targetKey(target)
         let previousState = state
@@ -160,33 +191,60 @@ final class LockScreenService {
 
         let extensionURL = extensionBundleURL
         let root = root
-        try await Task.detached(priority: .userInitiated) {
+        let outcome = try await Task.detached(priority: .userInitiated) {
+            () -> LockScreenApplyOutcome in
             let storeSnapshots = Self.wallpaperStoreURLs.map {
                 StoreSnapshot(url: $0, data: try? Data(contentsOf: $0))
             }
             do {
                 try Self.stage(entry: entry, videoURL: videoURL, thumbnailURL: thumbnailURL)
                 try Self.writePreferences()
-                try Self.registerExtension(at: extensionURL)
-                try await Self.updateWallpaperStores(
-                    wallpaperID: entry.id,
-                    videoURL: Self.stagedVideoURL(id: entry.id),
-                    targetKey: targetKey,
-                    root: root
-                )
-                try Self.saveState(nextState, root: root)
-                Self.notifyLibraryChanged()
-                Self.restartWallpaperAgent()
-                try await Task.sleep(nanoseconds: 1_250_000_000)
-                guard Self.wallpaperStoresHaveSelection() else {
-                    throw LockScreenServiceError.operationFailed(
-                        "macOS did not retain Muro’s lock-screen selection."
+                try await Self.registerExtension(at: extensionURL)
+
+                // WallpaperAgent restarts asynchronously and rewrites the store
+                // from its own state, so a single write followed by a fixed
+                // sleep was a coin toss: that race is what made this fail on
+                // some machines and not others. Write, kick the agent, then
+                // watch for the selection to appear; if the agent clobbered it,
+                // write again. Three passes, about ten seconds in the worst
+                // case, and almost always settled on the first.
+                var settled = false
+                for attempt in 1...3 {
+                    try await Self.updateWallpaperStores(
+                        wallpaperID: entry.id,
+                        videoURL: Self.stagedVideoURL(id: entry.id),
+                        targetKey: targetKey,
+                        root: root
                     )
+                    Self.notifyLibraryChanged()
+                    Self.restartWallpaperAgent()
+                    if await Self.awaitSelection(timeout: attempt == 1 ? 4 : 3) {
+                        settled = true
+                        break
+                    }
                 }
+
+                try Self.saveState(nextState, root: root)
                 try Self.pruneStagedLibrary(
                     keeping: Set(nextState.selections.values).subtracting([Self.removedSelection])
                 )
+                if !settled {
+                    // Everything Muro owns is written and the extension is
+                    // registered. Only macOS has not acknowledged it. Keep the
+                    // lot and tell the user the one step that finishes it.
+                    Self.recordDiagnostics(
+                        root: root,
+                        wallpaperID: entry.id,
+                        targetKey: targetKey,
+                        registered: true,
+                        settled: false
+                    )
+                }
+                return settled ? .applied : .needsSystemSettings
             } catch {
+                // Only a real failure rolls back: the extension would not
+                // register, or a store write threw. A slow agent no longer
+                // costs the user their selection.
                 for snapshot in storeSnapshots {
                     if let data = snapshot.data {
                         try? data.write(to: snapshot.url, options: .atomic)
@@ -202,10 +260,19 @@ final class LockScreenService {
                     try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
                     try? FileManager.default.removeItem(at: Self.legacyBackupURL(root: root))
                 }
+                Self.recordDiagnostics(
+                    root: root,
+                    wallpaperID: entry.id,
+                    targetKey: targetKey,
+                    registered: Self.extensionIsRegistered(),
+                    settled: false,
+                    error: error
+                )
                 throw error
             }
         }.value
         state = nextState
+        return outcome
     }
 
     func remove(target: ApplyTarget) async throws {
@@ -260,9 +327,26 @@ final class LockScreenService {
         guard ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26 else {
             throw LockScreenServiceError.requiresTahoe
         }
+        guard !Self.isTranslocated else {
+            throw LockScreenServiceError.translocated
+        }
         guard FileManager.default.fileExists(atPath: extensionBundleURL.path) else {
             throw LockScreenServiceError.extensionMissing
         }
+    }
+
+    /// Gatekeeper path randomisation: macOS runs a quarantined app from a
+    /// read-only copy under `/private/var/.../AppTranslocation/`, and
+    /// `Bundle.main` points at that copy rather than at the install.
+    ///
+    /// Found while testing the quarantine fix, and it defeats the whole
+    /// feature quietly: clearing quarantine writes to a throwaway copy, and
+    /// the extension registers from a path that vanishes when the app quits,
+    /// so WallpaperAgent is left holding a provider that no longer exists.
+    /// There is nothing an app can do about its own translocation from the
+    /// inside, so say what the user has to do instead of failing vaguely.
+    static var isTranslocated: Bool {
+        Bundle.main.bundleURL.path.contains("/AppTranslocation/")
     }
 
     private var extensionBundleURL: URL {
@@ -328,10 +412,26 @@ final class LockScreenService {
         return try? PropertyListSerialization.propertyList(from: data, format: nil)
     }
 
+    /// One store holding the selection is enough.
+    ///
+    /// This used to demand both. `Index.plist` and `Index2.plist` are plainly
+    /// not maintained together: on the owner's own Mac `Index2.plist` had not
+    /// been touched in a month while `Index.plist` was live. Requiring both
+    /// meant a correct apply reported itself as a failure.
     private static func wallpaperStoresHaveSelection() -> Bool {
-        wallpaperStoreURLs.allSatisfy {
+        wallpaperStoreURLs.contains {
             containsMuroSurface(named: "Desktop", in: loadWallpaperStore(at: $0))
         }
+    }
+
+    /// Watch for the selection instead of guessing how long the agent takes.
+    private static func awaitSelection(timeout: TimeInterval) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if wallpaperStoresHaveSelection() { return true }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        return wallpaperStoresHaveSelection()
     }
 
     private static func containsMuroSurface(named name: String, in value: Any?) -> Bool {
@@ -517,6 +617,18 @@ final class LockScreenService {
                     fallback: firstSurface(named: "Desktop", in: store) ?? defaultSurface(),
                     root: &store
                 )
+            } else if targetKey == "all", changed == 0 {
+                // A real store can carry no `Desktop` key at all: on this Mac
+                // the top-level `AllSpacesAndDisplays` node held only `Idle`,
+                // so an all-displays apply matched nothing and wrote nothing.
+                // Create the node that means "everywhere" rather than
+                // succeeding silently against an empty tree.
+                ensureAllSpacesSurface(
+                    named: "Desktop",
+                    choice: choice,
+                    fallback: firstSurface(named: "Desktop", in: store) ?? defaultSurface(),
+                    root: &store
+                )
             }
 
             try writePropertyList(store, to: storeURL)
@@ -693,6 +805,19 @@ final class LockScreenService {
         root = rootDictionary
     }
 
+    private static func ensureAllSpacesSurface(
+        named name: String,
+        choice: [String: Any],
+        fallback: [String: Any],
+        root: inout Any
+    ) {
+        guard var rootDictionary = root as? [String: Any] else { return }
+        var node = rootDictionary["AllSpacesAndDisplays"] as? [String: Any] ?? [:]
+        node[name] = surfaceApplying(choice: choice, to: fallback)
+        rootDictionary["AllSpacesAndDisplays"] = node
+        root = rootDictionary
+    }
+
     private static func defaultSurface() -> [String: Any] {
         [
             "Content": [
@@ -710,11 +835,103 @@ final class LockScreenService {
 
     // MARK: - Process lifecycle
 
-    private static func registerExtension(at url: URL) throws {
-        let status = run("/usr/bin/pluginkit", ["-a", url.path])
-        guard status == 0 else {
-            throw LockScreenServiceError.operationFailed("Muro’s lock-screen extension could not be registered.")
+    /// `pluginkit -a` exits 0 even when it rejects the bundle, so its status
+    /// says nothing. The registry is the only honest answer: register, then
+    /// wait for the extension to actually appear in it.
+    private static func registerExtension(at url: URL) async throws {
+        clearQuarantine()
+        _ = run("/usr/bin/pluginkit", ["-a", url.path])
+        for _ in 0..<12 {
+            if extensionIsRegistered() { return }
+            try? await Task.sleep(nanoseconds: 250_000_000)
         }
+        throw LockScreenServiceError.extensionNotRegistered
+    }
+
+    static func extensionIsRegistered() -> Bool {
+        runCapturing("/usr/bin/pluginkit", ["-m", "-i", extensionBundleID])
+            .contains(extensionBundleID)
+    }
+
+    /// Strip `com.apple.quarantine` from Muro and its embedded extension.
+    ///
+    /// This is the fix for the failure people reported. A DMG downloaded in a
+    /// browser is quarantined, the flag is inherited by everything copied out
+    /// of it, and "Open Anyway" clears just enough to launch the app while the
+    /// embedded appex stays flagged. macOS then refuses to load the extension,
+    /// so WallpaperAgent has no provider to acquire and the lock-screen choice
+    /// never sticks. It works when the owner builds locally because a local
+    /// build is never quarantined, which is exactly why this went unnoticed.
+    ///
+    /// Muro is not sandboxed, so it can clear its own bundle. `removexattr`
+    /// directly rather than shelling out to `xattr`: one syscall per file, no
+    /// process spawn, and nothing to quote.
+    static func clearQuarantine() {
+        let bundle = Bundle.main.bundleURL
+        guard isQuarantined(bundle)
+            || isQuarantined(bundle.appendingPathComponent("Contents/Extensions/MuroWallpaperExtension.appex"))
+        else { return }
+
+        var urls = [bundle]
+        if let walker = FileManager.default.enumerator(
+            at: bundle,
+            includingPropertiesForKeys: nil,
+            options: []
+        ) {
+            for case let child as URL in walker { urls.append(child) }
+        }
+        for url in urls {
+            _ = url.withUnsafeFileSystemRepresentation { path -> Int32 in
+                guard let path else { return 0 }
+                return removexattr(path, "com.apple.quarantine", XATTR_NOFOLLOW)
+            }
+        }
+    }
+
+    private static func isQuarantined(_ url: URL) -> Bool {
+        url.withUnsafeFileSystemRepresentation { path -> Bool in
+            guard let path else { return false }
+            return getxattr(path, "com.apple.quarantine", nil, 0, 0, XATTR_NOFOLLOW) >= 0
+        }
+    }
+
+    /// A line per failed apply, so the next bug report is answerable instead of
+    /// being one screenshot of an alert. Capped, because a log nobody rotates
+    /// is a disk leak.
+    private static func recordDiagnostics(
+        root: URL,
+        wallpaperID: String,
+        targetKey: String,
+        registered: Bool,
+        settled: Bool,
+        error: Error? = nil
+    ) {
+        let version = ProcessInfo.processInfo.operatingSystemVersionString
+        let stores = wallpaperStoreURLs.map { url -> String in
+            let has = containsMuroSurface(named: "Desktop", in: loadWallpaperStore(at: url))
+            return "\(url.lastPathComponent)=\(has ? "ok" : "no")"
+        }.joined(separator: " ")
+        let line = [
+            ISO8601DateFormatter().string(from: Date()),
+            "macOS \(version)",
+            "wallpaper=\(wallpaperID)",
+            "target=\(targetKey)",
+            "registered=\(registered)",
+            "settled=\(settled)",
+            stores,
+            error.map { "error=\($0.localizedDescription)" } ?? "",
+        ].filter { !$0.isEmpty }.joined(separator: " | ")
+
+        EngineLog.log("[lockscreen] \(line)")
+
+        let url = root.appendingPathComponent("lockscreen-diagnostics.log")
+        var text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        text += line + "\n"
+        if text.utf8.count > 32_768 {
+            text = String(text.suffix(400))
+        }
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try? text.write(to: url, atomically: true, encoding: .utf8)
     }
 
     private static func unregisterExtension(at url: URL) {
@@ -724,6 +941,23 @@ final class LockScreenService {
 
     private static func restartWallpaperAgent() {
         _ = run("/usr/bin/killall", ["WallpaperAgent"])
+    }
+
+    private static func runCapturing(_ executable: String, _ arguments: [String]) -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            return String(data: data, encoding: .utf8) ?? ""
+        } catch {
+            return ""
+        }
     }
 
     @discardableResult
