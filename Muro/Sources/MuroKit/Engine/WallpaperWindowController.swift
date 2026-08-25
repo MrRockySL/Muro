@@ -237,7 +237,7 @@ public final class WallpaperWindowController {
     /// sleep, occlusion and the user pause exactly like the rest, and the
     /// wallpaper only actually resumes when every hold is gone.
     public func setPauseAfter(_ seconds: Int?) {
-        let normalized = (seconds ?? 0) > 0 ? seconds : nil
+        let normalized = PauseAfter.normalise(seconds)
         guard normalized != pauseAfterSeconds else { return }
         pauseAfterSeconds = normalized
         armSettleTimer()
