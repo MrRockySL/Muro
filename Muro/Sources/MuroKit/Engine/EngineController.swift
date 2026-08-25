@@ -70,8 +70,13 @@ public final class EngineController {
                 NSStringFromRect(screen.frame),
                 "\(entry.id)|\(assignment.mode)",
                 // A wallpaper may carry its own "pause after"; otherwise the
-                // one global setting applies.
-                entry.pauseAfterSeconds ?? config.pauseAfterSeconds
+                // one global setting applies. `PauseAfter` owns the rule,
+                // including the part that is easy to get wrong: a wallpaper
+                // set to zero never freezes and does not fall back.
+                PauseAfter.resolve(
+                    wallpaper: entry.pauseAfterSeconds,
+                    global: config.pauseAfterSeconds
+                )
             )
         }
 
