@@ -78,6 +78,15 @@ public enum LibraryWriter {
     /// other writer takes, and cannot race a row being appended.
     @discardableResult
     public static func sweepOrphans(root: URL, grace: TimeInterval = 900) throws -> Int64 {
+        // Every file is unreferenced when there is nothing to reference it,
+        // so a manifest that failed to open reads exactly like a library
+        // holding nothing and this would take all of it. Checked before
+        // `update`, which would otherwise write an empty manifest over the
+        // unreadable one and destroy the only copy of what was in it. A
+        // library with no manifest yet is one import old at most and has
+        // nothing worth sweeping.
+        guard LibraryManifest.loadIfPresent(root: root) != nil else { return 0 }
+
         let manager = FileManager.default
         var freed: Int64 = 0
         _ = try update(root: root) { manifest in

@@ -290,6 +290,7 @@ final class LibraryTests: XCTestCase {
     /// appends the manifest row, so a crash in between leaves files that no id
     /// names and therefore nothing can ever reach again.
     func testSweepRemovesUnreferencedFiles() throws {
+        try LibraryManifest().save(root: root)
         let old = Date().addingTimeInterval(-3600)
         try write("Masters/stranded.mov", bytes: 2048, modified: old)
         try write("Thumbnails/stranded.jpg", bytes: 512, modified: old)
@@ -325,6 +326,7 @@ final class LibraryTests: XCTestCase {
     /// in another process, which this one cannot see. Recent files are spared
     /// so the sweep cannot delete the very file it is meant to stop leaking.
     func testSweepSparesFilesStillBeingWritten() throws {
+        try LibraryManifest().save(root: root)
         try write("Masters/in-progress.mov", bytes: 4096)
 
         let freed = try LibraryWriter.sweepOrphans(root: root)
@@ -336,6 +338,7 @@ final class LibraryTests: XCTestCase {
     /// A shorter grace must still hold the line: the file ages past the cutoff
     /// and only then becomes sweepable.
     func testSweepGraceIsRespected() throws {
+        try LibraryManifest().save(root: root)
         try write("Masters/aging.mov", bytes: 1024, modified: Date().addingTimeInterval(-30))
 
         XCTAssertEqual(try LibraryWriter.sweepOrphans(root: root, grace: 60), 0)
@@ -343,5 +346,33 @@ final class LibraryTests: XCTestCase {
 
         XCTAssertEqual(try LibraryWriter.sweepOrphans(root: root, grace: 10), 1024)
         XCTAssertFalse(exists("Masters/aging.mov"))
+    }
+
+    /// The whole library, one button press, from one unreadable file. Nothing
+    /// references anything when the manifest does not decode, so every file
+    /// looks stranded. Reading the library has to succeed before deleting
+    /// from it is allowed.
+    func testSweepRefusesToRunOnAManifestThatDidNotLoad() throws {
+        try write("Masters/real.mov", bytes: 4096, modified: Date().addingTimeInterval(-3600))
+        try Data("{ not json".utf8)
+            .write(to: LibraryManifest.manifestURL(root: root))
+
+        XCTAssertEqual(try LibraryWriter.sweepOrphans(root: root), 0)
+        XCTAssertTrue(exists("Masters/real.mov"))
+        // And the unreadable manifest is still there to be repaired by hand,
+        // rather than overwritten with an empty one on the way past.
+        XCTAssertEqual(
+            try Data(contentsOf: LibraryManifest.manifestURL(root: root)).count, 10
+        )
+    }
+
+    /// Same reasoning for a manifest that is missing rather than broken. It
+    /// costs almost nothing: the first import that finishes writes one, and
+    /// the next sweep picks up anything an earlier crash left behind.
+    func testSweepRefusesToRunWithNoManifestAtAll() throws {
+        try write("Masters/real.mov", bytes: 4096, modified: Date().addingTimeInterval(-3600))
+
+        XCTAssertEqual(try LibraryWriter.sweepOrphans(root: root), 0)
+        XCTAssertTrue(exists("Masters/real.mov"))
     }
 }
