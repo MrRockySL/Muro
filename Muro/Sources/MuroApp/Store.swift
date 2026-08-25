@@ -83,6 +83,9 @@ final class AppStore: ObservableObject {
     @Published var applySurface: ApplySurface = .both
     @Published var heroID: String?
     @Published var libraryBytes: Int64 = 0
+    /// What the last Clear actually did. Shown in Settings, because a Clear
+    /// that frees nothing otherwise looks identical to one that never ran.
+    @Published var clearStatus: String?
     @Published var recentIDs: [String] = []
     @Published var automations: [Automation] = []
     @Published var activePlaylistID: String?
@@ -1164,7 +1167,8 @@ final class AppStore: ObservableObject {
     }
 
     func clearDownloadedCache() {
-        let doomed = clearPlan.removed.map(\.id)
+        let plan = clearPlan
+        let doomed = plan.removed.map(\.id)
         Task {
             // Clear keeps whatever is playing, and the lock-screen wallpaper
             // is in that set. Tearing the lock screen down here contradicted
@@ -1198,9 +1202,31 @@ final class AppStore: ObservableObject {
             recentIDs.removeAll { doomed.contains($0) }
             defaults.set(recentIDs, forKey: "recents")
             if let heroID, doomed.contains(heroID) { self.heroID = nil }
+            // After the delete, so files it has just released are seen as
+            // unreferenced in the same pass.
+            let swept = (try? await Task.detached(priority: .utility, operation: {
+                [root] in try LibraryWriter.sweepOrphans(root: root)
+            }).value) ?? 0
+            clearStatus = Self.clearSummary(plan: plan, swept: swept)
             recomputeSize()
             objectWillChange.send()
         }
+    }
+
+    /// Clear says what it is about to do, but the confirmation cannot predict
+    /// the swept leftovers: those files are not in the manifest, so nothing
+    /// knows their size until they are found. Saying what actually happened is
+    /// the only way that part is ever visible.
+    private static func clearSummary(plan: ClearPlan, swept: Int64) -> String {
+        var parts: [String] = []
+        if !plan.removed.isEmpty {
+            let count = plan.removed.count
+            parts.append("\(count) \(count == 1 ? "wallpaper" : "wallpapers") removed")
+            parts.append("about \(formatSize(plan.bytes + swept)) freed")
+        } else if swept > 0 {
+            parts.append("\(formatSize(swept)) of leftovers swept")
+        }
+        return parts.isEmpty ? "Nothing to clear" : parts.joined(separator: " · ")
     }
 
     /// Manual per-wallpaper space control: delete the local copy of one
