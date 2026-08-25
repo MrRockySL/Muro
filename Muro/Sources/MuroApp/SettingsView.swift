@@ -179,7 +179,7 @@ struct SettingsView: View {
 
                 section("STORAGE") {
                     row(icon: "internaldrive", tint: .gray, title: "Library & Cache",
-                        subtitle: "Everything goes except the wallpaper in use") {
+                        subtitle: store.clearStatus ?? "Everything goes except the wallpaper in use") {
                         HStack(spacing: 10) {
                             Text(formatSize(store.libraryBytes))
                                 .font(.system(size: 12, weight: .medium))

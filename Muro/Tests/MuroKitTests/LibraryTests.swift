@@ -266,4 +266,82 @@ final class LibraryTests: XCTestCase {
         let playlists = [Playlist(id: "p1", name: "Empty", wallpaperIDs: [])]
         XCTAssertTrue(PlaylistStore.pruned(playlists, removing: ["a"]).emptied.isEmpty)
     }
+
+    // MARK: - Orphan sweep
+
+    private func write(_ relative: String, bytes: Int, modified: Date? = nil) throws {
+        let url = root.appendingPathComponent(relative)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        try Data(count: bytes).write(to: url)
+        if let modified {
+            try FileManager.default.setAttributes(
+                [.modificationDate: modified], ofItemAtPath: url.path
+            )
+        }
+    }
+
+    private func exists(_ relative: String) -> Bool {
+        FileManager.default.fileExists(atPath: root.appendingPathComponent(relative).path)
+    }
+
+    /// The leak this exists to plug: importing writes the video before it
+    /// appends the manifest row, so a crash in between leaves files that no id
+    /// names and therefore nothing can ever reach again.
+    func testSweepRemovesUnreferencedFiles() throws {
+        let old = Date().addingTimeInterval(-3600)
+        try write("Masters/stranded.mov", bytes: 2048, modified: old)
+        try write("Thumbnails/stranded.jpg", bytes: 512, modified: old)
+
+        let freed = try LibraryWriter.sweepOrphans(root: root)
+
+        XCTAssertEqual(freed, 2560)
+        XCTAssertFalse(exists("Masters/stranded.mov"))
+        XCTAssertFalse(exists("Thumbnails/stranded.jpg"))
+    }
+
+    /// The sweep must never touch a wallpaper that is actually in the library,
+    /// including its optional efficient and preview files.
+    func testSweepKeepsReferencedFiles() throws {
+        var kept = entry(id: "keep")
+        kept.efficientFile = "Masters/keep-eff.mov"
+        kept.previewFile = "Previews/keep-p720.mov"
+        var manifest = LibraryManifest()
+        manifest.wallpapers = [kept]
+        try manifest.save(root: root)
+
+        let old = Date().addingTimeInterval(-3600)
+        for relative in kept.relativeFiles { try write(relative, bytes: 128, modified: old) }
+
+        let freed = try LibraryWriter.sweepOrphans(root: root)
+
+        XCTAssertEqual(freed, 0)
+        for relative in kept.relativeFiles { XCTAssertTrue(exists(relative), relative) }
+    }
+
+    /// The dangerous case. A file with no manifest row yet is indistinguishable
+    /// from an import still writing it — and that import can be `muro-import`
+    /// in another process, which this one cannot see. Recent files are spared
+    /// so the sweep cannot delete the very file it is meant to stop leaking.
+    func testSweepSparesFilesStillBeingWritten() throws {
+        try write("Masters/in-progress.mov", bytes: 4096)
+
+        let freed = try LibraryWriter.sweepOrphans(root: root)
+
+        XCTAssertEqual(freed, 0)
+        XCTAssertTrue(exists("Masters/in-progress.mov"))
+    }
+
+    /// A shorter grace must still hold the line: the file ages past the cutoff
+    /// and only then becomes sweepable.
+    func testSweepGraceIsRespected() throws {
+        try write("Masters/aging.mov", bytes: 1024, modified: Date().addingTimeInterval(-30))
+
+        XCTAssertEqual(try LibraryWriter.sweepOrphans(root: root, grace: 60), 0)
+        XCTAssertTrue(exists("Masters/aging.mov"))
+
+        XCTAssertEqual(try LibraryWriter.sweepOrphans(root: root, grace: 10), 1024)
+        XCTAssertFalse(exists("Masters/aging.mov"))
+    }
 }

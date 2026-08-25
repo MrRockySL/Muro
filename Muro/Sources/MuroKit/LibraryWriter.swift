@@ -58,6 +58,50 @@ public enum LibraryWriter {
     /// The files are read from the manifest on disk rather than from the
     /// caller's copy of the entry, so a variant or preview generated since
     /// that copy was made is deleted too instead of being left behind.
+    /// Deletes asset files that no manifest entry references, and reports how
+    /// many bytes that freed.
+    ///
+    /// Importing writes the video, thumbnail and preview and appends the
+    /// manifest row only at the end, and a download writes its master straight
+    /// to its final path. A crash or a quit in between strands files nothing
+    /// can reach again: no id anywhere names them, so no delete and no Clear
+    /// will ever find them, and they sit there for the life of the library.
+    ///
+    /// That same ordering is why this cannot simply remove everything
+    /// unreferenced. A file with no row yet may be one an import is still
+    /// writing, and `muro-import` can be that import, in another process this
+    /// one cannot see. A file being written keeps a fresh modification date,
+    /// so anything touched within `grace` is spared and only files old enough
+    /// to have outlived any plausible transcode are swept.
+    ///
+    /// Runs inside `update` so it reads the manifest under the same lock every
+    /// other writer takes, and cannot race a row being appended.
+    @discardableResult
+    public static func sweepOrphans(root: URL, grace: TimeInterval = 900) throws -> Int64 {
+        let manager = FileManager.default
+        var freed: Int64 = 0
+        _ = try update(root: root) { manifest in
+            let referenced = Set(manifest.wallpapers.flatMap(\.relativeFiles))
+            let cutoff = Date().addingTimeInterval(-grace)
+            for folder in ["Masters", "Thumbnails", "Previews"] {
+                let directory = root.appendingPathComponent(folder, isDirectory: true)
+                guard let names = try? manager.contentsOfDirectory(atPath: directory.path)
+                else { continue }
+                for name in names where !name.hasPrefix(".") {
+                    guard !referenced.contains("\(folder)/\(name)") else { continue }
+                    let url = directory.appendingPathComponent(name)
+                    let attributes = try? manager.attributesOfItem(atPath: url.path)
+                    if let modified = attributes?[.modificationDate] as? Date, modified > cutoff {
+                        continue
+                    }
+                    let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+                    if (try? manager.removeItem(at: url)) != nil { freed += size }
+                }
+            }
+        }
+        return freed
+    }
+
     @discardableResult
     public static func delete(ids: Set<String>, root: URL) throws -> LibraryManifest {
         var doomed: [String] = []
