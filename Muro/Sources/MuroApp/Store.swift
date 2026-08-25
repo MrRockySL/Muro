@@ -147,7 +147,7 @@ final class AppStore: ObservableObject {
             try? config.save(root: root)
         }
         Task { await refreshCatalog() }
-        Task { await checkForUpdates() }
+        Task { await checkForUpdatesIfDue() }
         // Reads Apple's wallpaper plists and may run pluginkit and restart
         // WallpaperAgent, so it must never sit on the launch path.
         Task { await lockScreen.healIfNeeded() }
@@ -157,7 +157,10 @@ final class AppStore: ObservableObject {
             forName: NSApplication.didBecomeActiveNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in await self?.refreshCatalog() }
+            Task { @MainActor in
+                await self?.refreshCatalog()
+                await self?.checkForUpdatesIfDue()
+            }
         }
     }
 
@@ -438,6 +441,17 @@ final class AppStore: ObservableObject {
 
     @Published var updateCheck: UpdateCheck = .idle
 
+    /// The newer release GitHub is offering, with its notes and its DMG.
+    /// Nil whenever this build is current. What's New reads it directly.
+    @Published var latestRelease: ReleaseInfo?
+
+    /// The small "New update available" bubble beside the What's New button.
+    /// Shown once per version, not on every launch, because a callout that
+    /// reappears forever stops being news and becomes a nag.
+    @Published var updateCalloutVisible = false
+
+    private static let seenUpdateKey = "seenUpdateVersion"
+
     func checkForUpdates(userInitiated: Bool = false) async {
         // GitHub API latest release vs our version. `/releases/latest` ignores
         // prereleases, so a wallpaper-storage release is never mistaken for an
@@ -450,20 +464,53 @@ final class AppStore: ObservableObject {
               let (data, response) = try? await URLSession.shared.data(from: url),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let tag = json["tag_name"] as? String,
-              let page = (json["html_url"] as? String).flatMap(URL.init)
+              let release = ReleaseInfo.from(json: json)
         else {
             if userInitiated { updateCheck = .failed }
             return
         }
-        let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-        if AppVersion.isNewer(latest, than: AppStore.appVersion) {
-            updateAvailable = page
-            if userInitiated { updateCheck = .available(version: latest, page: page) }
+        if AppVersion.isNewer(release.version, than: AppStore.appVersion) {
+            latestRelease = release
+            updateAvailable = release.page
+            if userInitiated {
+                updateCheck = .available(version: release.version, page: release.page)
+            }
+            let seen = UserDefaults.standard.string(forKey: Self.seenUpdateKey)
+            if seen != release.version, !whatsNewOpen { updateCalloutVisible = true }
         } else {
+            latestRelease = nil
             updateAvailable = nil
+            updateCalloutVisible = false
             if userInitiated { updateCheck = .upToDate }
         }
+    }
+
+    /// Muro is a background app people leave running for weeks, so a check
+    /// that only happens at launch is a check that never happens again. Six
+    /// hours is often enough to hear about a release the day it lands and
+    /// rare enough to stay well inside GitHub's unauthenticated rate limit.
+    private var lastUpdateCheck = Date.distantPast
+
+    func checkForUpdatesIfDue() async {
+        guard Date().timeIntervalSince(lastUpdateCheck) > 6 * 3600 else { return }
+        lastUpdateCheck = Date()
+        await checkForUpdates()
+    }
+
+    /// Opening What's New is how someone acknowledges an update, so the
+    /// callout retires there rather than needing its own dismiss.
+    func markUpdateSeen() {
+        updateCalloutVisible = false
+        guard let version = latestRelease?.version else { return }
+        UserDefaults.standard.set(version, forKey: Self.seenUpdateKey)
+    }
+
+    /// Download the new Muro: the release's DMG when it has one, its release
+    /// page otherwise. Never a dead end.
+    func downloadUpdate() {
+        guard let release = latestRelease else { return }
+        NSWorkspace.shared.open(release.downloadURL ?? release.page)
+        markUpdateSeen()
     }
 
     // MARK: - Apply

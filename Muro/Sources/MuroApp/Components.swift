@@ -207,14 +207,7 @@ struct TopBar: View {
                 if store.searchActive, store.tab == .home { store.switchTab(.explore) }
                 if !store.searchActive { store.searchText = "" }
             }
-            GlassBubbleButton(
-                systemName: "sparkles",
-                glyphScale: 0.44,
-                active: store.whatsNewOpen,
-                help: "What's New in Muro"
-            ) {
-                store.whatsNewOpen = true
-            }
+            whatsNew
             ImportButton()
             GlassBubbleButton(
                 systemName: "gearshape",
@@ -225,6 +218,100 @@ struct TopBar: View {
                 openSettingsWindow()
             }
         }
+    }
+}
+
+extension TopBar {
+    /// What's New, and the two ways an update announces itself: a dot on the
+    /// button that stays until the sheet is opened, and a bubble under it that
+    /// says so in words, once per version.
+    ///
+    /// The bubble is an overlay with a fixed height reservation rather than a
+    /// popover: a popover would steal the click, dim the window behind it, and
+    /// bring back the grey system chrome this release spent a day removing.
+    fileprivate var whatsNew: some View {
+        let update = store.updateAvailable != nil
+        return GlassBubbleButton(
+            systemName: "sparkles",
+            glyphScale: 0.44,
+            active: store.whatsNewOpen,
+            badged: update,
+            help: update ? "A new version of Muro is available" : "What's New in Muro"
+        ) {
+            store.whatsNewOpen = true
+            store.markUpdateSeen()
+        }
+        .overlay(alignment: .top) {
+            UpdateCallout(visible: store.updateCalloutVisible) {
+                store.whatsNewOpen = true
+                store.markUpdateSeen()
+            } dismiss: {
+                store.markUpdateSeen()
+            }
+            // Hangs below the bubble, over the page. Zero-height frame so it
+            // cannot widen the top bar and push the nav pill off centre.
+            .offset(y: 46)
+            .frame(width: 0, height: 0, alignment: .top)
+        }
+    }
+}
+
+/// "New update available", in a small glass bubble with a pointer, under the
+/// What's New button.
+struct UpdateCallout: View {
+    var visible: Bool
+    var open: () -> Void
+    var dismiss: () -> Void
+
+    @State private var hovering = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Triangle()
+                .fill(Color.muroAccent.opacity(0.9))
+                .frame(width: 14, height: 7)
+            HStack(spacing: 9) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("New update available")
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .fixedSize()
+                Button(action: dismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .opacity(0.75)
+                }
+                .buttonStyle(.plain)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                Capsule().fill(Color.muroAccent.opacity(hovering ? 0.98 : 0.9))
+            )
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+            .shadow(color: Color.muroAccent.opacity(0.45), radius: 14, y: 5)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: open)
+        .onHover { hovering = $0 }
+        .opacity(visible ? 1 : 0)
+        .scaleEffect(visible ? 1 : 0.86, anchor: .top)
+        .offset(y: visible ? 0 : -6)
+        .animation(.spring(response: 0.42, dampingFraction: 0.72), value: visible)
+        .allowsHitTesting(visible)
+    }
+}
+
+/// The callout's pointer.
+struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -256,6 +343,20 @@ struct ImportButton: View {
             if case .success(let urls) = result { store.importFiles(urls) }
         }
     }
+}
+
+/// Bring the gallery forward and open What's New on it. The menu bar and
+/// Settings both point their "update available" line here, so there is one
+/// place in the app where an update is read about and downloaded.
+@MainActor
+func openWhatsNew(_ store: AppStore) {
+    StatusBarController.shared?.closePanel()
+    NSApp.activate(ignoringOtherApps: true)
+    for window in NSApp.windows where window.title == "Muro" {
+        window.makeKeyAndOrderFront(nil)
+    }
+    store.whatsNewOpen = true
+    store.markUpdateSeen()
 }
 
 @MainActor
