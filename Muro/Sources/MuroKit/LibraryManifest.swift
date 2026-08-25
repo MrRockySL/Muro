@@ -79,13 +79,23 @@ public struct LibraryManifest: Codable {
     // MARK: - Load / save
 
     public static func load(root: URL) -> LibraryManifest {
+        loadIfPresent(root: root) ?? LibraryManifest()
+    }
+
+    /// `nil` when there is no manifest to read: none written yet, or one on
+    /// disk that does not decode.
+    ///
+    /// `load` answers both with an empty manifest, which is what a caller
+    /// about to add a wallpaper wants and the opposite of what a caller
+    /// wanting to know what is in use wants. To the second kind, "no entries"
+    /// and "I could not read the entries" have to be different answers, or a
+    /// library it simply failed to open looks like a library holding nothing.
+    public static func loadIfPresent(root: URL) -> LibraryManifest? {
         let url = manifestURL(root: root)
-        guard let data = try? Data(contentsOf: url) else {
-            return LibraryManifest()
-        }
+        guard let data = try? Data(contentsOf: url) else { return nil }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode(LibraryManifest.self, from: data)) ?? LibraryManifest()
+        return try? decoder.decode(LibraryManifest.self, from: data)
     }
 
     public func save(root: URL) throws {
