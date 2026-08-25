@@ -107,6 +107,18 @@ struct RootView: View {
             WhatsNewView()
                 .environmentObject(store)
         }
+        // The lock screen is set, macOS just has not noticed. A dead-end
+        // error here is what people reported; this says what finishes it and
+        // offers the button that gets them there.
+        .alert("One more step", isPresented: $store.lockScreenNeedsSystemSettings) {
+            Button("Open System Settings") {
+                store.lockScreenNeedsSystemSettings = false
+                openWallpaperSettings()
+            }
+            Button("Later", role: .cancel) { store.lockScreenNeedsSystemSettings = false }
+        } message: {
+            Text("Muro set your lock screen wallpaper but macOS has not picked it up yet. Open System Settings, go to Wallpaper, and choose Muro to finish it.")
+        }
         .alert("Playlist stopped", isPresented: Binding(
             get: { store.deleteNotice != nil },
             set: { if !$0 { store.deleteNotice = nil } }
@@ -119,4 +131,13 @@ struct RootView: View {
         // rather than in a popover of its own.
         .menuHost()
     }
+}
+
+/// System Settings, Wallpaper pane. The lock screen's manual fallback: the
+/// user picking Muro there is the same acquire WallpaperAgent skipped.
+@MainActor
+func openWallpaperSettings() {
+    let pane = "x-apple.systempreferences:com.apple.Wallpaper-Settings.extension"
+    guard let url = URL(string: pane) else { return }
+    NSWorkspace.shared.open(url)
 }
