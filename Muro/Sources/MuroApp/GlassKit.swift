@@ -178,6 +178,9 @@ struct GlassBubbleButton: View {
     var active = false
     /// The gear turns a little under the pointer. Nothing else does.
     var turns = false
+    /// An accent dot on the shoulder of the bubble. One thing in the app uses
+    /// it: What's New, when there is a newer Muro to install.
+    var badged = false
     var help: String?
     var action: () -> Void
 
@@ -193,10 +196,40 @@ struct GlassBubbleButton: View {
                 .animation(.spring(response: 0.34, dampingFraction: 0.7), value: hovering)
         }
         .buttonStyle(BubbleButtonStyle(size: size, hovering: hovering, active: active, tint: tint))
+        .overlay(alignment: .topTrailing) {
+            // Drawn over the bubble rather than inside the label, so the dot
+            // is not dimmed and scaled by the press state with the glyph.
+            NotificationDot(size: size * 0.235)
+                .offset(x: size * 0.04, y: -size * 0.04)
+                .opacity(badged ? 1 : 0)
+                .scaleEffect(badged ? 1 : 0.4)
+                .animation(.spring(response: 0.4, dampingFraction: 0.62), value: badged)
+                .allowsHitTesting(false)
+        }
         .onHover { hovering = $0 }
         // `.help("")` still arms a tooltip, and an empty one flashing under
         // the pointer is worse than none.
         .modifier(OptionalHelp(text: help))
+    }
+}
+
+/// The unread dot. Accent fill, dark ring so it reads against both the glass
+/// bubble and whatever wallpaper is playing behind it, and a slow breath so it
+/// catches the eye once without ever becoming the loudest thing on screen.
+struct NotificationDot: View {
+    var size: CGFloat = 10
+
+    @State private var breathing = false
+
+    var body: some View {
+        Circle()
+            .fill(Color.muroAccent)
+            .frame(width: size, height: size)
+            .overlay(Circle().strokeBorder(Color.black.opacity(0.55), lineWidth: size * 0.16))
+            .shadow(color: Color.muroAccent.opacity(0.85), radius: breathing ? size * 0.7 : size * 0.3)
+            .scaleEffect(breathing ? 1.06 : 1)
+            .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: breathing)
+            .onAppear { breathing = true }
     }
 }
 

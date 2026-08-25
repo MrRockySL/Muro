@@ -295,11 +295,11 @@ struct SettingsView: View {
             Text("Version \(AppStore.appVersion)")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.muroSecondary)
-            if let update = store.updateAvailable {
+            if let version = store.latestRelease?.version {
                 Button {
-                    NSWorkspace.shared.open(update)
+                    openWhatsNew(store)
                 } label: {
-                    Text("Update available ↗")
+                    Text("Muro \(version) is available. See what's new.")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color.muroAccent)
                 }
@@ -349,10 +349,10 @@ struct SettingsView: View {
             ProgressView()
                 .controlSize(.small)
                 .frame(width: 96)
-        case .available(_, let page):
-            // Muro is distributed as a DMG, not self-updating, so the honest
-            // action is to hand the user the release page they installed from.
-            Button("Download ↗") { NSWorkspace.shared.open(page) }
+        case .available:
+            // Muro is not self-updating, so this hands over the DMG itself
+            // when the release has one and the release page when it does not.
+            Button("Download ↗") { store.downloadUpdate() }
                 .buttonStyle(.plain)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.black)

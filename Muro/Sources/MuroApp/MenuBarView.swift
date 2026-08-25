@@ -64,14 +64,16 @@ struct MenuBarView: View {
                     .frame(height: 70)
                     .glass(cornerRadius: 12)
             }
-            if let update = store.updateAvailable {
+            if let version = store.latestRelease?.version {
                 Button {
-                    StatusBarController.shared?.closePanel()
-                    NSWorkspace.shared.open(update)
+                    openWhatsNew(store)
                 } label: {
-                    Text("Update available ↗")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.muroAccent)
+                    HStack(spacing: 5) {
+                        NotificationDot(size: 6)
+                        Text("Muro \(version) available")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.muroAccent)
+                    }
                 }
                 .buttonStyle(.plain)
             } else {
