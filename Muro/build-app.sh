@@ -5,6 +5,12 @@
 #   --dmg     : also build dist/Muro-<version>.dmg (drag-to-Applications layout)
 set -e
 
+# The one place Muro's version is written. The app bundle, the wallpaper
+# extension and the DMG name are all derived from these two lines, and the
+# build fails below if the app and the extension ever disagree.
+VERSION="3.0"
+BUILD="6"
+
 DIR="$(cd "$(dirname "$0")" && pwd)"
 APP="$DIR/dist/Muro.app"
 
@@ -29,6 +35,8 @@ xcodebuild \
     -configuration Release \
     -destination 'generic/platform=macOS' \
     -derivedDataPath "$EXT_DERIVED" \
+    MARKETING_VERSION="$VERSION" \
+    CURRENT_PROJECT_VERSION="$BUILD" \
     build
 mkdir -p "$APP/Contents/Extensions"
 cp -R "$EXT_DERIVED/Build/Products/Release/MuroWallpaperExtension.appex" "$EXT"
@@ -59,7 +67,7 @@ else
     exit 1
 fi
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -70,8 +78,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIconFile</key>        <string>AppIcon</string>
     <key>CFBundleIconName</key>        <string>AppIcon</string>
     <key>CFBundleIdentifier</key>      <string>com.mrrockysl.muro</string>
-    <key>CFBundleVersion</key>         <string>6</string>
-    <key>CFBundleShortVersionString</key> <string>3.0</string>
+    <key>CFBundleVersion</key>         <string>$BUILD</string>
+    <key>CFBundleShortVersionString</key> <string>$VERSION</string>
     <key>CFBundlePackageType</key>     <string>APPL</string>
     <key>CFBundleInfoDictionaryVersion</key> <string>6.0</string>
     <key>LSMinimumSystemVersion</key>  <string>14.0</string>
@@ -81,6 +89,16 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
+
+# A mismatched app and appex is the kind of thing nobody notices until an
+# install refuses to load the extension, so check it here rather than hope.
+EXT_VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$EXT/Contents/Info.plist")
+EXT_BUILD=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$EXT/Contents/Info.plist")
+if [[ "$EXT_VERSION" != "$VERSION" || "$EXT_BUILD" != "$BUILD" ]]; then
+    echo "ERROR: extension is $EXT_VERSION ($EXT_BUILD), app is $VERSION ($BUILD)" >&2
+    exit 1
+fi
+echo "==> version $VERSION ($BUILD), app and extension agree"
 
 echo "==> ad-hoc codesign"
 codesign --force --sign - \
@@ -97,7 +115,6 @@ for arg in "$@"; do
         echo "==> installed: /Applications/Muro.app"
         ;;
     --dmg)
-        VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")
         DMG="$DIR/dist/Muro-$VERSION.dmg"
         STAGING="$DIR/dist/dmg-staging"
         echo "==> building $DMG"
