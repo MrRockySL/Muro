@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 2.0.x   | Yes |
-| < 2.0   | Please update |
+| 3.0.x   | Yes |
+| < 3.0   | Please update |
 
 Only the latest release receives security fixes. Updates are published on the
 [Releases](https://github.com/MrRockySL/Muro/releases) page.
@@ -52,6 +52,31 @@ While Muro's menu-bar panel is open, it temporarily observes global left-click
 and right-click events so it can close the panel when you click elsewhere. It
 handles the Escape key locally. It does not record or upload those events.
 
+### Quarantine removal on Muro's own bundle
+
+Since 3.0, Muro removes the `com.apple.quarantine` extended attribute from its
+own application bundle and the wallpaper extension inside it. It does this at
+launch, and again before registering the extension, and only when the attribute
+is actually present.
+
+This is disclosed because it is the one thing Muro does that changes state
+outside its own data directories. The reason: a DMG downloaded through a
+browser is quarantined, the flag is inherited by the embedded extension, and
+macOS then refuses to load that extension, so lock-screen wallpapers silently
+fail to apply. Muro is not sandboxed, so it can clear the flag on itself.
+
+The scope is deliberately narrow. Muro only ever touches paths inside its own
+bundle, only that one attribute, and it removes rather than adds. It does not
+alter Gatekeeper settings, system policy, or any other application. Removing
+the attribute does not bypass the first-launch approval you already gave; it
+only stops macOS treating the already-approved bundle's inner components as
+untrusted downloads.
+
+If macOS is running Muro from a translocated read-only copy (Gatekeeper path
+randomisation, which happens when an app is opened from inside a DMG rather
+than from Applications), Muro detects that, changes nothing, and tells you to
+move it to Applications.
+
 ### Lock-screen integration
 
 On macOS 26 or newer, Muro can register its bundled, sandboxed wallpaper
@@ -84,12 +109,17 @@ The catalog URL can be changed through macOS preferences. A custom catalog can
 therefore provide wallpaper URLs on different hosts.
 
 The catalog is checked when Muro launches and when it returns to the foreground.
-The update check runs at launch and when you press **Check for Updates**.
+The update check runs at launch, when Muro returns to the foreground and at
+most once every six hours, and when you press **Check for Updates**. Since 3.0
+it also reads the latest release's notes and asset list so **What's New** can
+show what changed and offer the download.
 Visible catalog thumbnails load automatically. An available preview downloads
 for an undownloaded item the first time you open it or after its cached copy has
 been removed. The full video downloads only when you choose **Preview** or
 **Download**. Muro does not install updates. When one is available, its
-**Download** button opens the GitHub release page.
+**Download** button opens the disk image from that GitHub release in your
+browser, or the release page if that release has no disk image. You install it
+yourself.
 
 Cloudflare and GitHub receive normal connection information such as your IP
 address. Muro has no account system, advertising, analytics, telemetry, or
@@ -108,11 +138,18 @@ Muro stores local data in:
 - The `com.mrrockysl.muro` preferences domain for interface and catalog settings
 - The wallpaper extension's container for staged lock-screen files and its
   local diagnostic log
+- `~/Library/Application Support/Muro/lockscreen-diagnostics.log`, written only
+  when a lock-screen apply fails or is not acknowledged by macOS
 
 The extension log records technical lifecycle events such as process IDs,
-wallpaper and display identifiers, requested dimensions, and errors. It does not
-contain video contents and is not uploaded. The current log is append-only and
-has no automatic rotation or size limit.
+wallpaper and display identifiers, requested dimensions, and errors. Since 3.0
+it is size-capped rather than growing without limit.
+
+The lock-screen diagnostics log records the macOS version, the wallpaper and
+target identifiers, whether the extension was registered, and which wallpaper
+store did not accept the change. It exists so a failure report can be answered.
+It is capped at 32 KB and, like the extension log, contains no video contents
+and is never uploaded.
 
 ### Dependencies and release contents
 
@@ -132,7 +169,7 @@ You can inspect and compile the tagged source:
 ```bash
 git clone https://github.com/MrRockySL/Muro.git
 cd Muro
-git checkout v2.0
+git checkout v3.0
 swift build -c release --package-path Muro
 ```
 
