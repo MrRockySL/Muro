@@ -166,10 +166,10 @@ struct SettingsView: View {
                 section("DISPLAYS") {
                     ForEach(Array(store.displays.enumerated()), id: \.element.id) { index, display in
                         if index > 0 { divider }
-                        row(icon: display.isMain ? "laptopcomputer" : "display",
+                        row(icon: display.symbolName,
                             tint: .cyan,
                             title: display.name,
-                            subtitle: display.isMain ? "Main display" : "External display") {
+                            subtitle: "\(display.kindLabel) display") {
                             Text("\(display.pixelsW) × \(display.pixelsH)")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Color.muroSecondary)

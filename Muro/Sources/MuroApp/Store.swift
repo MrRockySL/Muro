@@ -58,6 +58,18 @@ struct DisplayInfo: Identifiable, Equatable {
     let pixelsW: Int
     let pixelsH: Int
     let isMain: Bool
+    /// The Mac's own panel rather than something plugged into it. Separate
+    /// from `isMain`, because an external monitor can be the main display.
+    let isBuiltIn: Bool
+
+    /// What this display is, for the line under its name. "Main" wins when it
+    /// applies, since that is the more useful thing to know about a display
+    /// you are choosing between; otherwise say what it actually is.
+    var kindLabel: String {
+        isMain ? "Main" : (isBuiltIn ? "Built-in" : "External")
+    }
+
+    var symbolName: String { isBuiltIn ? "laptopcomputer" : "display" }
 
     var chipLabel: String {
         name.localizedCaseInsensitiveContains("built-in") ? "MACBOOK" : name.uppercased()
@@ -296,38 +308,41 @@ final class AppStore: ObservableObject {
     /// How many wallpapers Muro's Pick draws. Three to a page, four pages.
     static let pickCount = 12
 
-    /// The draw, kept as ids so it survives the library and catalog changing
-    /// underneath it.
-    private var pickIDs: [String]?
-
-    /// Muro's Pick: twelve wallpapers at random, drawn once per launch.
+    /// Muro's Pick: twelve wallpapers at random, drawn once a day.
     ///
     /// The row used to be every wallpaper in the catalog split into pages,
     /// which is a list, not a pick. Twelve drawn at random is small enough to
-    /// feel chosen and different enough each launch to be worth opening Home
-    /// for.
+    /// feel chosen, and a new twelve each morning is a reason to open Home
+    /// that a fixed list never gave anyone.
     ///
-    /// Drawn once and held for the session, deliberately. The obvious version
-    /// re-shuffles whenever `items` changes, and `items` changes every time
-    /// the catalog refreshes, which is every time the app comes to the front,
-    /// as well as on every download, import and like. The row would rearrange
-    /// itself under the pointer.
+    /// A day, not a launch. The draw is written to defaults with the day it
+    /// was made, so quitting and reopening five times before lunch shows the
+    /// same twelve, and tomorrow shows a different twelve. It also means the
+    /// row does not depend on how long the app happens to have been running,
+    /// which matters here because Muro stays alive in the menu bar after its
+    /// window closes.
+    ///
+    /// It re-draws only when today's draw came up short of what the pool can
+    /// now supply, which happens when it ran at launch before the catalog had
+    /// arrived. Comparing what was *drawn* rather than what still resolves is
+    /// deliberate: deleting a wallpaper leaves an id that no longer resolves,
+    /// and re-drawing on that would re-shuffle the row on every redraw for
+    /// the rest of the day.
     ///
     /// The latest drop is excluded because it has its own row directly above.
     var pickItems: [WallpaperItem] {
         let drop = Set(latestDropItems.map(\.id))
         let pool = items.filter { !drop.contains($0.id) }
-        if let pickIDs {
-            let resolved = pickIDs.compactMap { item(id: $0) }
-            // Only redrawn when the first draw came up short, which happens
-            // when it ran before the catalog had arrived and there was barely
-            // anything to draw from.
-            if resolved.count >= AppStore.pickCount || pool.count <= resolved.count {
-                return resolved
-            }
+        let today = Calendar.current.startOfDay(for: Date())
+        let drawnIDs = defaults.stringArray(forKey: "pickIDs") ?? []
+        if let drawnDay = defaults.object(forKey: "pickDrawDay") as? Date,
+           drawnDay == today,
+           drawnIDs.count >= min(AppStore.pickCount, pool.count) {
+            return drawnIDs.compactMap { item(id: $0) }
         }
         let drawn = Array(pool.shuffled().prefix(AppStore.pickCount))
-        pickIDs = drawn.map(\.id)
+        defaults.set(today, forKey: "pickDrawDay")
+        defaults.set(drawn.map(\.id), forKey: "pickIDs")
         return drawn
     }
 
@@ -906,7 +921,11 @@ final class AppStore: ObservableObject {
                 name: screen.localizedName,
                 pixelsW: Int(screen.frame.width * screen.backingScaleFactor),
                 pixelsH: Int(screen.frame.height * screen.backingScaleFactor),
-                isMain: screen == NSScreen.screens.first
+                isMain: screen == NSScreen.screens.first,
+                // Ask the window server. If it cannot say, fall back to the
+                // old assumption that the main display is the built-in one,
+                // which is true for most people most of the time.
+                isBuiltIn: displayIsBuiltIn(screen) ?? (screen == NSScreen.screens.first)
             )
         }
     }
