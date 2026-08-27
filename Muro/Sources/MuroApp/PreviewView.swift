@@ -406,12 +406,25 @@ struct ChooseDisplayPopover: View {
                 Spacer()
                 if store.displays.count > 1 { allPill }
             }
-            LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
-                spacing: 10
-            ) {
-                ForEach(store.displays) { display in
-                    displayCard(display)
+            // One display has no second column to sit beside, so the grid
+            // left it hard against the edge with the popover's whole width
+            // empty next to it. On its own it is centred instead, and kept to
+            // about the width it would have had in the grid so it does not
+            // stretch into a banner.
+            if store.displays.count == 1, let only = store.displays.first {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    displayCard(only).frame(maxWidth: 200)
+                    Spacer(minLength: 0)
+                }
+            } else {
+                LazyVGrid(
+                    columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                    spacing: 10
+                ) {
+                    ForEach(store.displays) { display in
+                        displayCard(display)
+                    }
                 }
             }
         }
@@ -520,7 +533,7 @@ struct ChooseDisplayPopover: View {
             }
         } label: {
             VStack(spacing: 6) {
-                Image(systemName: display.isMain ? "laptopcomputer" : "display")
+                Image(systemName: display.symbolName)
                     .font(.system(size: 20))
                     .foregroundStyle(.white.opacity(0.9))
                 HStack(spacing: 5) {
@@ -541,23 +554,30 @@ struct ChooseDisplayPopover: View {
                         .background(Capsule().fill(Color(hex: 0xFF6B6B).opacity(0.13)))
                         .overlay(Capsule().strokeBorder(Color(hex: 0xFF6B6B).opacity(0.4), lineWidth: 1))
                 } else {
-                    Text(display.isMain ? "Main" : "External")
+                    Text(display.kindLabel)
                         .font(.system(size: 10))
                         .foregroundStyle(Color.muroSecondary)
                 }
             }
+            // The card's shape belongs to the button's label, not to the
+            // button. Hung outside it, the frame, padding and background drew
+            // a card while the button itself stayed the size of the icon and
+            // the name, so most of the card looked clickable and was not.
+            // A `contentShape` outside a button cannot fix that either: it
+            // shapes the view it is attached to, not the button's own hit
+            // region.
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 13)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.glassSheen(0.12, 0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    appliedHere ? Color.muroGreen.opacity(0.55) : Color.white.opacity(0.14),
+                    lineWidth: appliedHere ? 1.5 : 1
+                ))
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 13)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(.glassSheen(0.12, 0.05)))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .strokeBorder(
-                appliedHere ? Color.muroGreen.opacity(0.55) : Color.white.opacity(0.14),
-                lineWidth: appliedHere ? 1.5 : 1
-            ))
-        .contentShape(RoundedRectangle(cornerRadius: 16))
         .accessibilityLabel(
             appliedHere
                 ? "Remove \(item.title) from \(display.name)"
