@@ -9,19 +9,9 @@ struct HomeView: View {
     /// batch as published, and it stays put until a newer one is published.
     private var dropItems: [WallpaperItem] { store.latestDropItems }
 
-    /// Liked first, then everything else.
-    ///
-    /// The latest drop is held out because it has its own row directly above
-    /// this one. Without that, a fresh install with nothing liked and nothing
-    /// downloaded showed the same three wallpapers twice, one row under the
-    /// other.
-    private var pickItems: [WallpaperItem] {
-        let liked = store.likedItems
-        let likedIDs = Set(liked.map(\.id))
-        let dropIDs = Set(dropItems.map(\.id))
-        let rest = store.items.filter { !likedIDs.contains($0.id) && !dropIDs.contains($0.id) }
-        return liked + rest
-    }
+    /// Twelve at random, redrawn each launch. The store owns the draw so it
+    /// survives this view being rebuilt on every tab switch.
+    private var pickItems: [WallpaperItem] { store.pickItems }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -196,10 +186,14 @@ struct HomeView: View {
         )
     }
 
+    /// The subtitle had to move with the row. It said hand-picked from your
+    /// library while listing the whole catalog in array order, which was
+    /// wrong twice over, and it would have stayed wrong now the row is a
+    /// random draw.
     private var pickSection: some View {
         cardRow(
             title: "Muro's Pick",
-            subtitle: "Hand-picked from your library",
+            subtitle: "A different twelve every time you open Muro",
             items: pickItems,
             page: $pickPage
         )

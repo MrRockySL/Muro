@@ -293,6 +293,44 @@ final class AppStore: ObservableObject {
         return newestFirstItems.filter { $0.remote?.publishedAt == newest }
     }
 
+    /// How many wallpapers Muro's Pick draws. Three to a page, four pages.
+    static let pickCount = 12
+
+    /// The draw, kept as ids so it survives the library and catalog changing
+    /// underneath it.
+    private var pickIDs: [String]?
+
+    /// Muro's Pick: twelve wallpapers at random, drawn once per launch.
+    ///
+    /// The row used to be every wallpaper in the catalog split into pages,
+    /// which is a list, not a pick. Twelve drawn at random is small enough to
+    /// feel chosen and different enough each launch to be worth opening Home
+    /// for.
+    ///
+    /// Drawn once and held for the session, deliberately. The obvious version
+    /// re-shuffles whenever `items` changes, and `items` changes every time
+    /// the catalog refreshes, which is every time the app comes to the front,
+    /// as well as on every download, import and like. The row would rearrange
+    /// itself under the pointer.
+    ///
+    /// The latest drop is excluded because it has its own row directly above.
+    var pickItems: [WallpaperItem] {
+        let drop = Set(latestDropItems.map(\.id))
+        let pool = items.filter { !drop.contains($0.id) }
+        if let pickIDs {
+            let resolved = pickIDs.compactMap { item(id: $0) }
+            // Only redrawn when the first draw came up short, which happens
+            // when it ran before the catalog had arrived and there was barely
+            // anything to draw from.
+            if resolved.count >= AppStore.pickCount || pool.count <= resolved.count {
+                return resolved
+            }
+        }
+        let drawn = Array(pool.shuffled().prefix(AppStore.pickCount))
+        pickIDs = drawn.map(\.id)
+        return drawn
+    }
+
     var localItems: [WallpaperItem] {
         if let cachedLocalItems { return cachedLocalItems }
         let out = items.filter(\.isDownloaded)
