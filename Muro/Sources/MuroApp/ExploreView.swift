@@ -32,8 +32,12 @@ struct ExploreView: View {
             .sorted { (Int($0) ?? 0) > (Int($1) ?? 0) }
     }
 
+    /// Newest publish first, so a drop lands at the top of the grid instead of
+    /// behind however many wallpapers this user happens to have downloaded.
+    /// The category tabs and the two filters narrow this order rather than
+    /// replacing it, so a fresh batch is at the top of Cars as well as of All.
     private var filtered: [WallpaperItem] {
-        store.items.filter { item in
+        store.newestFirstItems.filter { item in
             if category != "All", item.category != category { return false }
             if resolution != "All", item.resolutionLabel != resolution { return false }
             if fps != "All", "\(Int(item.fps.rounded()))" != fps { return false }
