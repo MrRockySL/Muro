@@ -3,10 +3,23 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
     @State private var pickPage = 0
+    @State private var dropPage = 0
 
+    /// The most recent drop, which is the whole point of the row: it is the
+    /// batch as published, and it stays put until a newer one is published.
+    private var dropItems: [WallpaperItem] { store.latestDropItems }
+
+    /// Liked first, then everything else.
+    ///
+    /// The latest drop is held out because it has its own row directly above
+    /// this one. Without that, a fresh install with nothing liked and nothing
+    /// downloaded showed the same three wallpapers twice, one row under the
+    /// other.
     private var pickItems: [WallpaperItem] {
         let liked = store.likedItems
-        let rest = store.items.filter { item in !liked.contains(where: { $0.id == item.id }) }
+        let likedIDs = Set(liked.map(\.id))
+        let dropIDs = Set(dropItems.map(\.id))
+        let rest = store.items.filter { !likedIDs.contains($0.id) && !dropIDs.contains($0.id) }
         return liked + rest
     }
 
@@ -17,6 +30,11 @@ struct HomeView: View {
                 heroSelector
                     .padding(.top, 22)
                     .padding(.horizontal, 64)
+                if !dropItems.isEmpty {
+                    dropSection
+                        .padding(.top, 44)
+                        .padding(.horizontal, 64)
+                }
                 pickSection
                     .padding(.top, 44)
                     .padding(.horizontal, 64)
@@ -24,6 +42,10 @@ struct HomeView: View {
             }
         }
         .ignoresSafeArea(edges: .top)
+        // A drop that lands while the app is open replaces the row's contents
+        // under whatever page the user had turned to, which would otherwise
+        // leave them looking at a page that no longer exists.
+        .onChange(of: dropItems.first?.id) { _, _ in dropPage = 0 }
     }
 
     // MARK: - Hero
@@ -156,48 +178,77 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Muro's Pick row
+    // MARK: - Card rows
+
+    /// The newest batch of wallpapers published, above the picks.
+    ///
+    /// The NEW badge on these cards is the same one Explore shows and behaves
+    /// the same way: it marks what has arrived since this install last looked
+    /// and fades after a launch or two. The row itself does not. It keeps
+    /// showing this drop until a newer one is published, so it is still the
+    /// place to find what is new long after the badges have gone.
+    private var dropSection: some View {
+        cardRow(
+            title: "New Live Wallpapers",
+            subtitle: "The latest wallpapers added to the catalog",
+            items: dropItems,
+            page: $dropPage
+        )
+    }
 
     private var pickSection: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        cardRow(
+            title: "Muro's Pick",
+            subtitle: "Hand-picked from your library",
+            items: pickItems,
+            page: $pickPage
+        )
+    }
+
+    /// One titled row of three cards with a pager. Both Home rows are the same
+    /// shape, and were the same code written twice until there were two of
+    /// them.
+    private func cardRow(
+        title: String,
+        subtitle: String,
+        items: [WallpaperItem],
+        page: Binding<Int>
+    ) -> some View {
+        let count = max(1, (items.count + 2) / 3)
+        let start = page.wrappedValue * 3
+        let shown = start < items.count
+            ? Array(items[start..<min(start + 3, items.count)])
+            : []
+        return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Muro's Pick")
+                    Text(title)
                         .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(.white)
-                    Text("Hand-picked from your library")
+                    Text(subtitle)
                         .font(.system(size: 12.5))
                         .foregroundStyle(Color.muroSecondary)
                 }
                 Spacer()
-                pager
+                HStack(spacing: 8) {
+                    pagerButton(systemName: "chevron.left", enabled: page.wrappedValue > 0) {
+                        page.wrappedValue -= 1
+                    }
+                    pagerButton(systemName: "chevron.right", enabled: page.wrappedValue < count - 1) {
+                        page.wrappedValue += 1
+                    }
+                }
             }
-            let page = pageItems
             HStack(spacing: 24) {
-                ForEach(page) { item in
+                ForEach(shown) { item in
                     WallpaperCard(item: item)
                 }
-                if page.count < 3 {
-                    ForEach(0..<(3 - page.count), id: \.self) { _ in Color.clear }
+                // Keeps a short last page's cards the same width as a full
+                // one's rather than letting three columns become one.
+                if shown.count < 3 {
+                    ForEach(0..<(3 - shown.count), id: \.self) { _ in Color.clear }
                 }
             }
-        }
-    }
-
-    private var pageCount: Int {
-        max(1, (pickItems.count + 2) / 3)
-    }
-
-    private var pageItems: [WallpaperItem] {
-        let start = pickPage * 3
-        guard start < pickItems.count else { return [] }
-        return Array(pickItems[start..<min(start + 3, pickItems.count)])
-    }
-
-    private var pager: some View {
-        HStack(spacing: 8) {
-            pagerButton(systemName: "chevron.left", enabled: pickPage > 0) { pickPage -= 1 }
-            pagerButton(systemName: "chevron.right", enabled: pickPage < pageCount - 1) { pickPage += 1 }
         }
     }
 
