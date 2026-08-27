@@ -24,6 +24,23 @@ struct WallpaperItem: Identifiable, Equatable {
     var metaLine: String {
         "\(category) · \(width)×\(height) · \(formatDuration(duration)) · \(formatSize(sizeBytes))"
     }
+
+    /// When this wallpaper became available to look at, which is what Explore
+    /// orders by.
+    ///
+    /// For anything in the catalog that is its publish date, downloaded or
+    /// not. A local `dateAdded` would be the day *this user* downloaded it,
+    /// so using it would float a wallpaper published a year ago to the top of
+    /// Explore the moment someone downloaded it. Only a video the user
+    /// imported themselves has no publish date to speak of, and for that one
+    /// the day they added it is exactly right.
+    ///
+    /// Catalogs published before `publishedAt` existed have none, and those
+    /// entries are genuinely the oldest, so sorting them last is correct.
+    var availableAt: Date {
+        if let remote { return remote.publishedAt ?? .distantPast }
+        return local?.dateAdded ?? .distantPast
+    }
 }
 
 enum ApplyTarget: Equatable {
@@ -191,6 +208,7 @@ final class AppStore: ObservableObject {
     private var cachedItemsByID: [String: WallpaperItem]?
     private var cachedLocalItems: [WallpaperItem]?
     private var cachedLikedItems: [WallpaperItem]?
+    private var cachedNewestFirstItems: [WallpaperItem]?
     private var cachedCategories: [String]?
 
     private func invalidateItemCache() {
@@ -198,6 +216,7 @@ final class AppStore: ObservableObject {
         cachedItemsByID = nil
         cachedLocalItems = nil
         cachedLikedItems = nil
+        cachedNewestFirstItems = nil
         cachedCategories = nil
     }
 
@@ -223,6 +242,55 @@ final class AppStore: ObservableObject {
         }
         cachedItems = out
         return out
+    }
+
+    /// Everything, newest publish first. This is the order Explore browses in.
+    ///
+    /// `items` lists the library before the catalog, which is right for the
+    /// places that care about what you own, and wrong for the one place that
+    /// is about what has just arrived: it pushed a fresh drop below every
+    /// wallpaper the user had ever downloaded, so with nine downloads the
+    /// newest batch started on the fourth row, and with fifty it started on
+    /// the seventeenth. The app promises new wallpapers appear at the top of
+    /// Explore, and for anyone actually using it they did not.
+    ///
+    /// A whole batch shares one publish timestamp, so the date alone cannot
+    /// decide the order inside a drop. Catalog position breaks the tie, which
+    /// keeps a batch in the order it was published in, and `id` backstops the
+    /// rest. That total ordering is what stops the grid reshuffling itself
+    /// between launches.
+    var newestFirstItems: [WallpaperItem] {
+        if let cachedNewestFirstItems { return cachedNewestFirstItems }
+        var position: [String: Int] = [:]
+        for (index, entry) in catalog.enumerated() where position[entry.id] == nil {
+            position[entry.id] = index
+        }
+        let out = items.sorted { a, b in
+            if a.availableAt != b.availableAt { return a.availableAt > b.availableAt }
+            switch (position[a.id], position[b.id]) {
+            case let (x?, y?): return x < y
+            // A video the user imported has no catalog position. It only ties
+            // with a catalog entry when both dates are missing, and then the
+            // catalog entry goes first.
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): return a.id < b.id
+            }
+        }
+        cachedNewestFirstItems = out
+        return out
+    }
+
+    /// The most recent drop: every wallpaper sharing the newest publish date
+    /// in the catalog.
+    ///
+    /// Membership is by publish date and nothing else, so downloading one does
+    /// not remove it, and the set only changes when a newer batch is
+    /// published. That is what lets Home keep showing the latest drop long
+    /// after the NEW badges on it have faded.
+    var latestDropItems: [WallpaperItem] {
+        guard let newest = catalog.compactMap(\.publishedAt).max() else { return [] }
+        return newestFirstItems.filter { $0.remote?.publishedAt == newest }
     }
 
     var localItems: [WallpaperItem] {
