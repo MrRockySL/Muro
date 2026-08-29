@@ -136,7 +136,19 @@ let selected: [WallpaperEntry]
 if opts.reorderOnly {
     selected = []
 } else {
-    let manifest = LibraryManifest.load(root: root)
+    // "Could not read it" and "there is nothing in it" have to be different
+    // answers here. Both used to arrive as an empty manifest, so a damaged
+    // library.json would have reported an empty staging library rather than a
+    // broken one, and the publish would have looked like it had nothing to do.
+    let manifest: LibraryManifest
+    switch LibraryManifest.state(root: root) {
+    case .loaded(let loaded):
+        manifest = loaded
+    case .missing:
+        die("no library.json at \(root.path) — nothing to publish")
+    case .damaged:
+        die("library.json at \(root.path) could not be read — refusing to publish from it")
+    }
     guard !manifest.wallpapers.isEmpty else { die("library is empty — nothing to publish") }
     if opts.titles.isEmpty {
         selected = manifest.wallpapers

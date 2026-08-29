@@ -68,6 +68,10 @@ do {
         entry.fps, entry.duration, mb,
         preserveOriginal ? "original quality" : "hevc", secs, entry.id
     ))
+} catch let error as LibraryWriter.WriteError {
+    // This one has a sentence written for a person. Interpolating it would
+    // print the case name instead, which is what it used to do.
+    fail(error.localizedDescription)
 } catch {
     fail("\(error)")
 }

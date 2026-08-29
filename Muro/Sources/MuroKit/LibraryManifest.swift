@@ -91,11 +91,40 @@ public struct LibraryManifest: Codable {
     /// and "I could not read the entries" have to be different answers, or a
     /// library it simply failed to open looks like a library holding nothing.
     public static func loadIfPresent(root: URL) -> LibraryManifest? {
+        if case .loaded(let manifest) = state(root: root) { return manifest }
+        return nil
+    }
+
+    /// What is actually on disk, told apart properly.
+    ///
+    /// Three outcomes, and every one of them needs a different answer from a
+    /// caller about to write. `load` collapses all three into an empty
+    /// manifest and `loadIfPresent` collapses two of them into nil, which is
+    /// how a damaged library used to get overwritten: a file that would not
+    /// decode looked exactly like a library that had never been written, so
+    /// the next save started from nothing and took every entry with it.
+    public static func state(root: URL) -> State {
         let url = manifestURL(root: root)
-        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
+        // A file that exists but cannot be read or decoded is damaged, not
+        // absent. That covers a truncated write, a permissions problem and a
+        // half-synced file alike, and all three want the same answer: do not
+        // pretend this library is empty.
+        guard let data = try? Data(contentsOf: url) else { return .damaged }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try? decoder.decode(LibraryManifest.self, from: data)
+        guard let manifest = try? decoder.decode(LibraryManifest.self, from: data) else {
+            return .damaged
+        }
+        return .loaded(manifest)
+    }
+
+    public enum State {
+        /// No manifest yet. A new library, and safe to start one.
+        case missing
+        /// A manifest is there and could not be read. Never write over this.
+        case damaged
+        case loaded(LibraryManifest)
     }
 
     public func save(root: URL) throws {

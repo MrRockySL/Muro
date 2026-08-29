@@ -86,6 +86,104 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(LibraryManifest.load(root: root).wallpapers.map(\.title), ["Kept"])
     }
 
+    // MARK: - A damaged manifest
+
+    /// Missing and damaged are not the same thing, and every writer decision
+    /// below depends on telling them apart.
+    func testManifestStateTellsMissingFromDamagedFromReadable() throws {
+        guard case .missing = LibraryManifest.state(root: root) else {
+            return XCTFail("a library with no manifest should read as missing")
+        }
+
+        try Data("{ not json".utf8).write(to: LibraryManifest.manifestURL(root: root))
+        guard case .damaged = LibraryManifest.state(root: root) else {
+            return XCTFail("an undecodable manifest should read as damaged")
+        }
+
+        var manifest = LibraryManifest()
+        manifest.wallpapers = [entry(title: "Real")]
+        try manifest.save(root: root)
+        guard case .loaded(let loaded) = LibraryManifest.state(root: root) else {
+            return XCTFail("a good manifest should read as loaded")
+        }
+        XCTAssertEqual(loaded.wallpapers.map(\.title), ["Real"])
+    }
+
+    /// **The bug.** `update` loaded, applied and saved, and `load` answers an
+    /// undecodable file with an empty manifest, so the next ordinary edit
+    /// wrote that emptiness over the only record of what the library held.
+    /// One corrupt byte plus one heart tap used to erase every entry.
+    func testALikeDoesNotEraseALibraryItCouldNotRead() throws {
+        var manifest = LibraryManifest()
+        manifest.wallpapers = [entry(title: "One"), entry(title: "Two")]
+        try manifest.save(root: root)
+
+        // Damage it the way a truncated write would.
+        let url = LibraryManifest.manifestURL(root: root)
+        let good = try Data(contentsOf: url)
+        try good.prefix(good.count / 2).write(to: url)
+        let damaged = try Data(contentsOf: url)
+
+        // A like is the smallest possible edit, and it was enough.
+        XCTAssertThrowsError(
+            try LibraryWriter.update(root: root) { manifest in
+                guard !manifest.wallpapers.isEmpty else { return }
+                manifest.wallpapers[0].liked = true
+            }
+        ) { error in
+            XCTAssertEqual(error as? LibraryWriter.WriteError, .manifestUnreadable)
+        }
+
+        XCTAssertEqual(
+            try Data(contentsOf: url), damaged,
+            "the damaged manifest is the only record left of what was in the library"
+        )
+    }
+
+    /// Nothing is deleted on the way to refusing, so a repaired file brings
+    /// the whole library straight back.
+    func testARepairedManifestWorksAgain() throws {
+        var manifest = LibraryManifest()
+        manifest.wallpapers = [entry(title: "One")]
+        try manifest.save(root: root)
+        let good = try Data(contentsOf: LibraryManifest.manifestURL(root: root))
+
+        try Data("broken".utf8).write(to: LibraryManifest.manifestURL(root: root))
+        XCTAssertThrowsError(
+            try LibraryWriter.update(root: root) { $0.wallpapers.append(self.entry(title: "Two")) }
+        )
+
+        try good.write(to: LibraryManifest.manifestURL(root: root))
+        let saved = try LibraryWriter.update(root: root) {
+            $0.wallpapers.append(self.entry(title: "Two"))
+        }
+        XCTAssertEqual(saved.wallpapers.map(\.title), ["One", "Two"])
+    }
+
+    /// A library that has never been written is not damaged, and refusing
+    /// there would mean the first import could never happen.
+    func testANewLibraryWithNoManifestStillWrites() throws {
+        let saved = try LibraryWriter.update(root: root) {
+            $0.wallpapers.append(self.entry(title: "First"))
+        }
+        XCTAssertEqual(saved.wallpapers.map(\.title), ["First"])
+        XCTAssertEqual(LibraryManifest.load(root: root).wallpapers.map(\.title), ["First"])
+    }
+
+    /// Delete goes through `update`, so it inherits the refusal. It must not
+    /// remove any files either: it works out what to delete from the manifest
+    /// it cannot read.
+    func testDeleteDoesNotTouchFilesWhenTheManifestIsUnreadable() throws {
+        let masters = root.appendingPathComponent("Masters", isDirectory: true)
+        try FileManager.default.createDirectory(at: masters, withIntermediateDirectories: true)
+        let video = masters.appendingPathComponent("keep.mov")
+        try Data("video".utf8).write(to: video)
+
+        try Data("not json".utf8).write(to: LibraryManifest.manifestURL(root: root))
+        XCTAssertThrowsError(try LibraryWriter.delete(ids: ["anything"], root: root))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: video.path))
+    }
+
     // MARK: - EngineConfig
 
     func testConfigRoundTripIncludingThePauseSettings() throws {

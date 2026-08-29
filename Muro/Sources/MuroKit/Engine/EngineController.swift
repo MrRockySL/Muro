@@ -49,7 +49,20 @@ public final class EngineController {
     }
 
     private func reconcile() {
-        let manifest = LibraryManifest.load(root: root)
+        // A manifest that could not be read is not an empty library. Treating
+        // it as one leaves nothing assigned to any display, and the engine
+        // answers that by taking every wallpaper off the screen: a damaged
+        // file would blank the desktop as well as stalling the app.
+        let manifest: LibraryManifest
+        switch LibraryManifest.state(root: root) {
+        case .loaded(let loaded):
+            manifest = loaded
+        case .missing:
+            manifest = LibraryManifest()
+        case .damaged:
+            EngineLog.log("library.json could not be read — leaving the screen as it is")
+            return
+        }
         let config = EngineConfig.load(root: root)
 
         var desired: [String: (screen: NSScreen, url: URL, frame: String,
