@@ -11,6 +11,7 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Price](https://img.shields.io/badge/Price-Free-brightgreen)
 [![Download](https://img.shields.io/badge/⬇_Download-Muro-A9C4FF)](../../releases/latest)
+[![Sponsor](https://img.shields.io/badge/♥_Sponsor-EA4AAA)](https://github.com/sponsors/MrRockySL)
 
 </div>
 
@@ -204,14 +205,41 @@ paused wallpaper costs nothing.
 
 ---
 
-## Support and contribute
+## Support Muro
 
-If Muro has made your Mac a little more enjoyable, you can support its continued
-development through [GitHub Sponsors](https://github.com/sponsors/MrRockySL).
+<div align="center">
 
-Contributions are welcome too. Found a bug, have an idea, or want to improve
-something? [Open an issue](../../issues) or send a pull request. Let's make Muro
-better together.
+Muro is free, and it stays that way. No Pro tier, no paywall, no account,
+nothing held back.
+
+**$10 a month pays for an Apple Developer certificate**, which removes the
+"Apple could not verify this app" warning you saw when installing.
+
+[![Sponsor Muro](https://img.shields.io/badge/♥%20Sponsor%20Muro-EA4AAA?style=for-the-badge)](https://github.com/sponsors/MrRockySL)
+
+<sub>From $1 a month, or a one-off. A star helps just as much and costs nothing.</sub>
+
+</div>
+
+---
+
+## Supporters
+
+<div align="center">
+
+<sub>Muro is free because of the people who pay for it anyway.</sub>
+
+### [Be the first](https://github.com/sponsors/MrRockySL)
+
+</div>
+
+---
+
+## Contribute
+
+Found a bug, have an idea, or want to improve something?
+[Open an issue](../../issues) or send a pull request. Muro already carries code
+from other people and it is better for it.
 
 ---
 
