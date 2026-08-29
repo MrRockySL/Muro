@@ -77,11 +77,106 @@ public struct RemoteCatalog: Codable {
     /// leaves only the CDN's own ~5 minute window, which we can't bypass
     /// (raw.githubusercontent.com keys its cache without the query string,
     /// so a cache-busting parameter does nothing).
+    ///
+    /// Throws a `CatalogError`, never a raw transport or decoding error. The
+    /// caller has to tell a blocked connection apart from a rate limited CDN
+    /// apart from a catalog it simply could not read, because those are three
+    /// different sentences to put in front of a person.
     public static func fetch(from url: URL) async throws -> RemoteCatalog {
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 20
-        let (data, _) = try await URLSession.shared.data(for: request)
-        return try makeDecoder().decode(RemoteCatalog.self, from: data)
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw CatalogError.classify(error)
+        }
+
+        // The status used to be discarded, and that is the whole bug. Every
+        // error a static host returns arrives as a body: r2.dev answers a rate
+        // limit or a missing key with a 27 KB HTML page. Handing that to the
+        // decoder produced a decoding failure, which the app swallowed, so a
+        // throttled CDN and an empty catalog were the same thing to it.
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw CatalogError.server(status: http.statusCode)
+        }
+
+        do {
+            return try makeDecoder().decode(RemoteCatalog.self, from: data)
+        } catch {
+            throw CatalogError.unreadable
+        }
+    }
+}
+
+/// Why the catalog did not arrive, in the three shapes a person can act on.
+///
+/// Explore used to answer all of them with "Nothing matches that", which
+/// blames the user's filters for something they cannot see and cannot fix by
+/// changing a filter. A user reported exactly that: an empty Explore reads as
+/// a broken app rather than a blocked connection.
+public enum CatalogError: LocalizedError, Equatable {
+    /// Nothing reached the server at all: offline, a host that will not
+    /// resolve, a timeout, or a VPN, firewall or DNS filter in the way.
+    case unreachable
+    /// The server answered, and not with the catalog. 429 is the r2.dev rate
+    /// limit, 5xx is the CDN being unwell, 404 is a bucket that has moved.
+    case server(status: Int)
+    /// A 200 that was not the wallpaper list. A captive portal sign in page
+    /// and a filter's block page both arrive looking exactly like this.
+    case unreadable
+
+    /// The headline. Short enough to sit under an icon.
+    public var title: String {
+        switch self {
+        case .unreachable: return "Muro cannot reach the internet"
+        case .server: return "The wallpaper catalog is not answering"
+        case .unreadable: return "Something is blocking the wallpaper catalog"
+        }
+    }
+
+    /// What to do about it. Never blames the filters, always names the causes
+    /// people actually hit.
+    public var detail: String {
+        switch self {
+        case .unreachable:
+            return """
+            Check that you are online, then try again. A VPN, a firewall or a \
+            DNS filter can also stop Muro reaching its wallpapers.
+            """
+        case .server(let status):
+            return """
+            The server answered with an error (\(status)). This is usually \
+            temporary, so try again in a minute.
+            """
+        case .unreadable:
+            return """
+            Muro reached the catalog but what came back was not the wallpaper \
+            list. A VPN, a company network or a DNS filter can do this.
+            """
+        }
+    }
+
+    public var errorDescription: String? { "\(title). \(detail)" }
+
+    /// Everything that can go wrong on the way to a catalog, sorted into the
+    /// three cases. Anything unrecognised counts as unreachable, which is the
+    /// safe guess: it sends the user to look at their connection rather than
+    /// at a filter that was never the problem.
+    public static func classify(_ error: Error) -> CatalogError {
+        if let catalogError = error as? CatalogError { return catalogError }
+        if error is DecodingError { return .unreadable }
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .badServerResponse, .cannotParseResponse, .zeroByteResource:
+                return .unreadable
+            default:
+                return .unreachable
+            }
+        }
+        return .unreachable
     }
 }

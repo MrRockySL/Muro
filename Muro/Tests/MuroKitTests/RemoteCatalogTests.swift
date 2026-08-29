@@ -87,4 +87,68 @@ final class RemoteCatalogTests: XCTestCase {
     func testMalformedJSONThrowsRatherThanCrashing() {
         XCTAssertThrowsError(try decode("{\"wallpapers\": \"not an array\"}"))
     }
+
+    // MARK: - Why the catalog did not arrive
+    //
+    // A user reported an empty Explore as "how can I view the explore
+    // section". The catalog was live and correct; his machine could not reach
+    // it, and the app had no way to say so because every failure was swallowed
+    // and answered with "Nothing matches that". These pin the three answers
+    // apart.
+
+    /// A static host answers a rate limit or a missing key with an HTML page,
+    /// so the body decodes as garbage. Classifying on the body alone is what
+    /// made a throttled CDN look like a badly filtered page, and it is why the
+    /// status code is checked before the decoder ever sees the bytes.
+    func testAnHTMLErrorPageIsNotMistakenForAnEmptyCatalog() {
+        let html = Data("<!doctype html><html><title>Not Found</title></html>".utf8)
+        XCTAssertThrowsError(
+            try RemoteCatalog.makeDecoder().decode(RemoteCatalog.self, from: html)
+        ) { error in
+            XCTAssertEqual(CatalogError.classify(error), .unreadable)
+        }
+    }
+
+    func testOfflineIsReportedAsUnreachable() {
+        XCTAssertEqual(
+            CatalogError.classify(URLError(.notConnectedToInternet)), .unreachable
+        )
+    }
+
+    /// A blocked or unresolvable host is the shape a DNS filter, a VPN or a
+    /// company network takes.
+    func testABlockedHostIsReportedAsUnreachable() {
+        for code in [URLError.cannotFindHost, .timedOut, .networkConnectionLost,
+                     .secureConnectionFailed, .cannotConnectToHost] {
+            XCTAssertEqual(CatalogError.classify(URLError(code)), .unreachable)
+        }
+    }
+
+    func testAServerErrorKeepsItsStatusCode() {
+        let rateLimited = CatalogError.server(status: 429)
+        XCTAssertEqual(CatalogError.classify(rateLimited), rateLimited)
+        XCTAssertTrue(rateLimited.detail.contains("429"))
+    }
+
+    /// Anything unrecognised has to land on unreachable: that sends someone to
+    /// look at their connection rather than at filters that were never the
+    /// problem.
+    func testAnUnknownErrorFallsBackToUnreachable() {
+        struct Odd: Error {}
+        XCTAssertEqual(CatalogError.classify(Odd()), .unreachable)
+    }
+
+    /// Every case has to be sayable out loud, and the project does not put
+    /// em-dashes in front of users.
+    func testEveryCaseHasCopyAPersonCanRead() {
+        for problem in [CatalogError.unreachable, .server(status: 503), .unreadable] {
+            XCTAssertFalse(problem.title.isEmpty)
+            XCTAssertFalse(problem.detail.isEmpty)
+            XCTAssertFalse(problem.title.contains("—"), "em-dash in \(problem)")
+            XCTAssertFalse(problem.detail.contains("—"), "em-dash in \(problem)")
+            // Never the old message, which blamed the filters for a network
+            // failure.
+            XCTAssertFalse(problem.detail.lowercased().contains("category"))
+        }
+    }
 }

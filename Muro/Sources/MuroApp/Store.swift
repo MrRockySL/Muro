@@ -138,6 +138,21 @@ final class AppStore: ObservableObject {
     /// user has to be told that rather than left with an app that quietly
     /// ignores them.
     @Published var libraryUnreadable = false
+    /// Why the last catalog fetch failed, or nil when it worked.
+    ///
+    /// Every failure used to be swallowed by a `try?` and Explore answered all
+    /// of them with "Nothing matches that", so a blocked connection was
+    /// indistinguishable from filters set too narrow. A user reported it as
+    /// "how can I view the explore section", which is exactly the confusion
+    /// that wording creates.
+    @Published var catalogError: CatalogError?
+    /// False until the first fetch has finished, either way. Explore must not
+    /// accuse anyone of over-filtering an empty page while the first fetch is
+    /// still in the air.
+    @Published private(set) var catalogLoaded = false
+    /// A retry the user asked for is in flight, so the button can say so
+    /// instead of looking dead.
+    @Published private(set) var catalogRefreshing = false
 
     private var watcher: DispatchSourceFileSystemObject?
     private let scheduler = AutomationScheduler()
@@ -507,13 +522,36 @@ final class AppStore: ObservableObject {
         set { defaults.set(newValue, forKey: "catalogURL"); Task { await refreshCatalog() } }
     }
 
+    /// Fetches the catalog and remembers what happened.
+    ///
+    /// It used to be a silent no-op on every failure, which is right for the
+    /// app still working offline and wrong for the user, who was left with an
+    /// empty Explore and no way to know the network was the reason. The last
+    /// good catalog still stays in memory, so one failed refresh never empties
+    /// an Explore that was working a moment ago.
     func refreshCatalog() async {
-        // Silent no-op on any failure — the repo may not exist yet and the
-        // app must work fully offline.
-        guard let url = URL(string: catalogURLString) else { return }
-        if let fetched = try? await RemoteCatalog.fetch(from: url) {
+        defer { catalogLoaded = true }
+        guard let url = URL(string: catalogURLString) else {
+            catalogError = .unreachable
+            return
+        }
+        do {
+            let fetched = try await RemoteCatalog.fetch(from: url)
             catalog = fetched.wallpapers
+            catalogError = nil
             noteCatalogArrivals()
+        } catch {
+            catalogError = CatalogError.classify(error)
+        }
+    }
+
+    /// The Try Again button in Explore.
+    func retryCatalog() {
+        guard !catalogRefreshing else { return }
+        Task {
+            catalogRefreshing = true
+            await refreshCatalog()
+            catalogRefreshing = false
         }
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import MuroKit
 
 /// Explore, rebuilt in the 3.0 language (2026-08-24).
 ///
@@ -74,7 +75,10 @@ struct ExploreView: View {
                             if filtered.isEmpty {
                                 emptyState
                             } else {
-                                grid
+                                VStack(spacing: 22) {
+                                    catalogNotice
+                                    grid
+                                }
                             }
                         }
                         .padding(.horizontal, 40)
@@ -213,14 +217,64 @@ struct ExploreView: View {
         }
     }
 
-    private var emptyState: some View {
+    // MARK: - Empty states
+
+    /// The network got in the way rather than the filters, and there is
+    /// genuinely nothing to show. Someone with downloads still has a grid, and
+    /// gets `catalogNotice` above it instead of this.
+    private var connectionProblem: CatalogError? {
+        store.catalog.isEmpty ? store.catalogError : nil
+    }
+
+    /// Three different reasons a page can be empty, and each one deserves its
+    /// own answer. Saying "Nothing matches that" to someone whose connection
+    /// is blocked sends them to fiddle with filters that were never the
+    /// problem, which is what a user reported.
+    @ViewBuilder private var emptyState: some View {
+        if !store.catalogLoaded, store.catalog.isEmpty {
+            loadingState
+        } else if let problem = connectionProblem {
+            connectionState(problem)
+        } else {
+            noMatchesState
+        }
+    }
+
+    private var loadingState: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+                .tint(Color.muroAccent)
+            Text("Loading wallpapers…")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.muroSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 84)
+    }
+
+    private func connectionState(_ problem: CatalogError) -> some View {
         VStack(spacing: 12) {
-            Image(systemName: "sparkle.magnifyingglass")
-                .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(Color.muroAccent)
-                .frame(width: 54, height: 54)
-                .background(Circle().fill(.glassSheen(0.14, 0.05)))
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+            emptyIcon(symbol(for: problem))
+            Text(problem.title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+            Text(problem.detail)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Color.muroSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 380)
+            retryButton
+                .padding(.top, 6)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 70)
+    }
+
+    private var noMatchesState: some View {
+        VStack(spacing: 12) {
+            emptyIcon("sparkle.magnifyingglass")
             Text("Nothing matches that")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
@@ -235,6 +289,83 @@ struct ExploreView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 70)
+    }
+
+    /// The catalog is missing but the user's own downloads still fill the
+    /// grid. Without this the page looks complete and nothing says that most
+    /// of Explore is absent.
+    @ViewBuilder private var catalogNotice: some View {
+        if let problem = connectionProblem {
+            HStack(spacing: 13) {
+                Image(systemName: symbol(for: problem))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.muroAccent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(problem.title)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("Only the wallpapers you have already downloaded are showing.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Color.muroSecondary)
+                }
+                Spacer(minLength: 12)
+                retryButton
+            }
+            .padding(.leading, 18)
+            .padding(.trailing, 14)
+            .padding(.vertical, 13)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.glassSheen(0.11, 0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.13), lineWidth: 1)
+            )
+        }
+    }
+
+    private var retryButton: some View {
+        Button {
+            store.retryCatalog()
+        } label: {
+            HStack(spacing: 7) {
+                if store.catalogRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Color.muroAccent)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                Text(store.catalogRefreshing ? "Checking…" : "Try Again")
+                    .font(.system(size: 12.5, weight: .semibold))
+            }
+            .foregroundStyle(Color.muroAccent)
+            .padding(.horizontal, 18)
+            .frame(height: 40)
+            .background(Capsule().fill(Color.muroAccent.opacity(0.13)))
+            .overlay(Capsule().strokeBorder(Color.muroAccent.opacity(0.28), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(store.catalogRefreshing)
+    }
+
+    private func emptyIcon(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 22, weight: .medium))
+            .foregroundStyle(Color.muroAccent)
+            .frame(width: 54, height: 54)
+            .background(Circle().fill(.glassSheen(0.14, 0.05)))
+            .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+    }
+
+    private func symbol(for problem: CatalogError) -> String {
+        switch problem {
+        case .unreachable: return "wifi.slash"
+        case .server: return "exclamationmark.icloud"
+        case .unreadable: return "exclamationmark.shield"
+        }
     }
 }
 
