@@ -2,9 +2,15 @@ import Foundation
 import MuroKit
 
 // muro-import: brings a video into the Muro library.
-//   muro-import --title "Snowy Japan" --category "Nature" [--library DIR] <video>
-// Transcodes to HEVC (video only, fps preserved), generates a thumbnail,
-// and appends the wallpaper to library.json.
+//   muro-import --title "Snowy Japan" --category "Nature" [--library DIR]
+//               [--original] <video>
+// Makes the master, a thumbnail and a p720 preview, then appends the
+// wallpaper to library.json.
+//
+// --original copies the source video stream instead of re-encoding it to
+// HEVC, so the master is the source picture to the bit. Use it for anything
+// being published: a wallpaper people download should never be worse than the
+// clip it came from. The file is bigger, which is the point of the trade.
 
 func fail(_ message: String) -> Never {
     fputs("muro-import: \(message)\n", stderr)
@@ -15,6 +21,7 @@ var title: String?
 var category: String?
 var libraryRoot = LibraryManifest.defaultRoot()
 var sourcePath: String?
+var preserveOriginal = false
 
 var args = Array(CommandLine.arguments.dropFirst())
 while !args.isEmpty {
@@ -26,6 +33,8 @@ while !args.isEmpty {
     case "--category":
         guard !args.isEmpty else { fail("--category needs a value") }
         category = args.removeFirst()
+    case "--original", "--no-transcode":
+        preserveOriginal = true
     case "--library":
         guard !args.isEmpty else { fail("--library needs a value") }
         libraryRoot = URL(fileURLWithPath: args.removeFirst(), isDirectory: true)
@@ -35,7 +44,7 @@ while !args.isEmpty {
 }
 
 guard let sourcePath else {
-    fail("usage: muro-import --title T --category C [--library DIR] <video>")
+    fail("usage: muro-import --title T --category C [--library DIR] [--original] <video>")
 }
 let source = URL(fileURLWithPath: sourcePath)
 guard FileManager.default.fileExists(atPath: source.path) else {
@@ -48,14 +57,16 @@ do {
         source: source,
         title: title,
         category: category ?? "Uncategorized",
-        root: libraryRoot
+        root: libraryRoot,
+        preserveOriginal: preserveOriginal
     )
     let mb = Double(entry.sizeBytes) / 1_048_576
     let secs = Date().timeIntervalSince(started)
     print(String(
-        format: "imported \"%@\" [%@] %dx%d @%.0ffps %.0fs %.1fMB (took %.1fs) id=%@",
+        format: "imported \"%@\" [%@] %dx%d @%.0ffps %.0fs %.1fMB %@ (took %.1fs) id=%@",
         entry.title, entry.category, entry.width, entry.height,
-        entry.fps, entry.duration, mb, secs, entry.id
+        entry.fps, entry.duration, mb,
+        preserveOriginal ? "original quality" : "hevc", secs, entry.id
     ))
 } catch {
     fail("\(error)")
