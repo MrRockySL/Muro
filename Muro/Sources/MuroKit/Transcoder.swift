@@ -163,3 +163,93 @@ func recommendedBitrate(width: Int, height: Int, fps: Double) -> Int {
     let bitsPerSecond = Double(width * height) * fps * 0.045
     return max(3_000_000, min(Int(bitsPerSecond), 25_000_000))
 }
+
+/// Brings a video into the library **without re-encoding a single frame**.
+///
+/// `transcodeToHEVC` decodes every frame and encodes it again at a bitrate
+/// `recommendedBitrate` chooses. That is a second generation of lossy
+/// compression on top of whatever the source already went through, and it is
+/// where quality was being lost: a 40 Mbps 4K master came out the far side at
+/// the 25 Mbps ceiling, and even a clip well under the ceiling still paid for
+/// one more encode.
+///
+/// This copies the compressed samples across instead, so the picture that
+/// lands in the library is the picture that was handed in, to the bit. What
+/// still happens is everything around the video: the audio is dropped (a
+/// wallpaper is silent), the container becomes `.mov` like every other master,
+/// and `moov` goes to the front so the file streams.
+///
+/// It goes through a composition holding only the video track, exported with
+/// the passthrough preset. Copying the samples by hand with a reader and a
+/// writer looks simpler and is not: the reader hands back the first sample of
+/// a file with an edit list carrying **no** presentation timestamp, which
+/// crashes `startSession` outright, and writing it at the session start
+/// instead puts a junk frame at time zero that renders black. Both showed up
+/// on real clips. A composition makes AVFoundation own that timing, which it
+/// gets right.
+///
+/// The cost is size. An H.264 source stays H.264 sized rather than shrinking
+/// into HEVC, which is the trade the owner asked for: original quality first,
+/// a smaller file only if it costs nothing to look at.
+@discardableResult
+public func copyVideoStream(source: URL, destination: URL) throws -> TranscodeResult {
+    let asset = AVURLAsset(url: source)
+
+    var loadedTrack: AVAssetTrack?
+    var loadError: Error?
+    let loadDone = DispatchSemaphore(value: 0)
+    asset.loadTracks(withMediaType: .video) { tracks, error in
+        loadedTrack = tracks?.first
+        loadError = error
+        loadDone.signal()
+    }
+    loadDone.wait()
+    if let error = loadError { throw TranscodeError.readerFailed("\(error)") }
+    guard let track = loadedTrack else { throw TranscodeError.noVideoTrack }
+
+    let transformedSize = track.naturalSize.applying(track.preferredTransform)
+    let width = Int(abs(transformedSize.width).rounded())
+    let height = Int(abs(transformedSize.height).rounded())
+    let fps = Double(track.nominalFrameRate)
+    let duration = CMTimeGetSeconds(track.timeRange.duration)
+
+    // Video only. This is also how the audio is stripped: the audio track is
+    // simply never inserted, so nothing has to be filtered out later.
+    let composition = AVMutableComposition()
+    guard let videoTrack = composition.addMutableTrack(
+        withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid
+    ) else {
+        throw TranscodeError.writerFailed("could not add a video track")
+    }
+    do {
+        try videoTrack.insertTimeRange(track.timeRange, of: track, at: .zero)
+    } catch {
+        throw TranscodeError.readerFailed("\(error)")
+    }
+    videoTrack.preferredTransform = track.preferredTransform
+
+    guard let export = AVAssetExportSession(
+        asset: composition, presetName: AVAssetExportPresetPassthrough
+    ) else {
+        throw TranscodeError.writerFailed("no passthrough export session")
+    }
+    try? FileManager.default.removeItem(at: destination)
+    export.outputURL = destination
+    export.outputFileType = .mov
+    // The moov atom belongs at the front, or a player has to pull the whole
+    // file before it can show anything.
+    export.shouldOptimizeForNetworkUse = true
+
+    let exportDone = DispatchSemaphore(value: 0)
+    export.exportAsynchronously { exportDone.signal() }
+    exportDone.wait()
+
+    guard export.status == .completed else {
+        throw TranscodeError.writerFailed(
+            export.error.map { "\($0)" } ?? "status \(export.status.rawValue)"
+        )
+    }
+    removeSafeSaveLeftovers(for: destination)
+
+    return TranscodeResult(width: width, height: height, fps: fps, duration: duration)
+}

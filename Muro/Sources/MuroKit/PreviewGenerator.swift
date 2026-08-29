@@ -75,6 +75,25 @@ public func generatePreview(
     let clipSeconds = min(spec.maxSeconds, fullDuration)
     let clipDuration = CMTime(seconds: clipSeconds, preferredTimescale: 600)
 
+    // Start one source frame in, not at zero.
+    //
+    // Some clips carry an edit list that presents the first picture a frame
+    // late. The composition has nothing to draw in that gap, so it renders it,
+    // and the preview opened on a flash of black before the picture appeared.
+    // Two clips in one drop did exactly that, both offset by 0.0167s, one
+    // frame at 60 fps. Nothing in AVFoundation will admit to the offset:
+    // `timeRange.start` reads zero, and the first sample's stamp reads zero
+    // too, because the edit list has already been applied by then.
+    //
+    // Rather than chase it, begin past it. One frame is below anything a
+    // person can see in a six second loop taken from a clip many times that
+    // long, and it cannot land inside a gap that is at most one frame wide.
+    let sourceFrame = sourceFPS > 0
+        ? CMTime(seconds: 1 / sourceFPS, preferredTimescale: 600)
+        : CMTime.zero
+    let clipStart = sourceFrame
+    let clipRange = CMTimeRange(start: clipStart, duration: clipDuration)
+
     let composition = AVMutableVideoComposition()
     composition.renderSize = CGSize(width: targetW, height: targetH)
     composition.frameDuration = CMTime(
@@ -82,7 +101,7 @@ public func generatePreview(
     )
 
     let instruction = AVMutableVideoCompositionInstruction()
-    instruction.timeRange = CMTimeRange(start: .zero, duration: clipDuration)
+    instruction.timeRange = clipRange
     let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: track)
     layer.setTransform(
         track.preferredTransform.concatenating(
@@ -94,7 +113,7 @@ public func generatePreview(
     composition.instructions = [instruction]
 
     let reader = try AVAssetReader(asset: asset)
-    reader.timeRange = CMTimeRange(start: .zero, duration: clipDuration)
+    reader.timeRange = clipRange
     let readerOutput = AVAssetReaderVideoCompositionOutput(
         videoTracks: [track],
         videoSettings: [
@@ -133,7 +152,7 @@ public func generatePreview(
     guard writer.startWriting() else {
         throw TranscodeError.writerFailed(writer.error.map { "\($0)" } ?? "unknown")
     }
-    writer.startSession(atSourceTime: .zero)
+    writer.startSession(atSourceTime: clipStart)
 
     let queue = DispatchQueue(label: "muro.preview")
     let copyDone = DispatchSemaphore(value: 0)

@@ -1,15 +1,23 @@
 import Foundation
 
-/// Brings a video into the library: HEVC transcode (video only, fps
-/// preserved), thumbnail, p720 preview, manifest append. Shared by
-/// muro-import and the app's drop-to-import. Blocking — call off the main
-/// thread.
+/// Brings a video into the library: master, thumbnail, p720 preview,
+/// manifest append. Shared by muro-import and the app's drop-to-import.
+/// Blocking — call off the main thread.
+///
+/// `preserveOriginal` decides what the master is made of. Off, the default,
+/// re-encodes to HEVC, which is how every wallpaper published before
+/// 2026-08-29 was made and what keeps a user's own dropped video from filling
+/// their disk. On, the video stream is copied across untouched, so the master
+/// is the source picture to the bit. That is the mode published wallpapers use
+/// now: the owner's rule is that nobody downloads a wallpaper worse than the
+/// clip it came from.
 @discardableResult
 public func importVideo(
     source: URL,
     title: String? = nil,
     category: String? = nil,
-    root: URL = LibraryManifest.defaultRoot()
+    root: URL = LibraryManifest.defaultRoot(),
+    preserveOriginal: Bool = false
 ) throws -> WallpaperEntry {
     let mastersDir = root.appendingPathComponent("Masters", isDirectory: true)
     let thumbsDir = root.appendingPathComponent("Thumbnails", isDirectory: true)
@@ -24,7 +32,9 @@ public func importVideo(
     let previewURL = previewsDir.appendingPathComponent("\(id)-p720.mov")
 
     do {
-        let result = try transcodeToHEVC(source: source, destination: masterURL)
+        let result = try preserveOriginal
+            ? copyVideoStream(source: source, destination: masterURL)
+            : transcodeToHEVC(source: source, destination: masterURL)
         // A missing thumbnail costs the card its picture and nothing more, so
         // like the preview below it must not fail an import whose master
         // transcoded perfectly well.
