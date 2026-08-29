@@ -18,10 +18,9 @@
 
 ## Why I built this
 
-A still desktop picture is a waste of a good screen. But every live wallpaper
-app I tried came with a catch. Usually a subscription, or a Pro tier holding the
-good wallpapers hostage, or worst of all, a fan that spins up the second you set
-one.
+A still desktop picture is a waste of a good screen. But most of the live
+wallpaper apps I tried came with a catch. Usually a subscription, or a Pro tier
+holding the good wallpapers hostage.
 
 Most of them are Electron apps wrapping a web page. They sit at 300 to 400 MB of
 RAM and keep your CPU warm all day, for a picture that moves.
@@ -58,8 +57,8 @@ wallpaper and every feature is unlocked.
 - 🆓 **Free and open source** (MIT).
 
 > Requires macOS 14 (Sonoma) or newer on an Apple Silicon Mac. The build is
-> arm64 only and leans on the Apple Silicon media engine for hardware HEVC
-> decoding. On macOS 26 and later the interface uses SwiftUI's native liquid
+> arm64 only for now, so it will not run on an Intel Mac. An Intel build is
+> planned. On macOS 26 and later the interface uses SwiftUI's native liquid
 > glass; on older versions it falls back to translucent materials, which looks
 > slightly different but works the same.
 
