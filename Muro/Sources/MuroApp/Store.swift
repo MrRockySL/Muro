@@ -605,6 +605,9 @@ final class AppStore: ObservableObject {
     /// Release page URL when GitHub has a newer version than this build.
     @Published var updateAvailable: URL?
 
+    /// Where the "Support Muro" row in Settings goes.
+    static let sponsorURL = URL(string: "https://github.com/sponsors/MrRockySL")!
+
     static let appVersion =
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
 

@@ -211,6 +211,12 @@ struct SettingsView: View {
                         subtitle: updateSubtitle) {
                         updateControl
                     }
+                    divider
+                    row(icon: "heart.fill", tint: .pink,
+                        title: "Support Muro",
+                        subtitle: "Muro is free. Sponsoring keeps it that way.") {
+                        sponsorControl
+                    }
                 }
 
                 Spacer(minLength: 24)
@@ -370,6 +376,25 @@ struct SettingsView: View {
             .padding(.vertical, 5.5)
             .glassCapsule(fill: 0.09, stroke: 0.15)
         }
+    }
+
+    /// The only place in Settings that asks for anything.
+    ///
+    /// One ordinary row, built with the same helper as every other, so it sits
+    /// in the list rather than shouting over it. It is already the only warm
+    /// colour among the blues and teals and the only heart among the gears,
+    /// which is contrast enough; a glowing or pulsing treatment would be a nag
+    /// wearing a nicer outfit, and the reason people trust Muro is that it
+    /// never does that. Nothing here is gated, nothing is withheld, and
+    /// ignoring it costs the user nothing.
+    private var sponsorControl: some View {
+        Button("Sponsor ↗") { NSWorkspace.shared.open(AppStore.sponsorURL) }
+            .buttonStyle(.plain)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 5.5)
+            .glassCapsule(fill: 0.09, stroke: 0.15)
     }
 
     private func row(
