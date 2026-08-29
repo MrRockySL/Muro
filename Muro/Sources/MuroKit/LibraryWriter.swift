@@ -16,10 +16,41 @@ import Foundation
 public enum LibraryWriter {
     private static let lock = NSLock()
 
+    public enum WriteError: LocalizedError {
+        /// `library.json` is there and could not be read, so there is no safe
+        /// starting point to change. Refusing is the whole point: the entries
+        /// that cannot be read are still the only record of what the library
+        /// holds, and a save would replace them with nothing.
+        case manifestUnreadable
+
+        public var errorDescription: String? {
+            switch self {
+            case .manifestUnreadable:
+                return """
+                Muro could not read your wallpaper list, so it stopped rather \
+                than overwrite it. Your wallpaper files are untouched. The list \
+                is library.json in Muro's Application Support folder.
+                """
+            }
+        }
+    }
+
     /// Reads the manifest from disk, applies `change`, and writes it back,
     /// with no other caller able to interleave. Always work from the manifest
     /// handed to the closure, never from a copy read earlier, since that copy
     /// is exactly what goes stale.
+    ///
+    /// Throws `WriteError.manifestUnreadable` rather than write over a
+    /// `library.json` it could not read. This used to load, apply and save
+    /// unconditionally, and `load` answers an undecodable file with an empty
+    /// manifest, so one damaged byte plus the next ordinary edit, a like or an
+    /// import, replaced the whole listing with nothing and left every file
+    /// stranded on disk with no entry pointing at it. One corrupt byte, one
+    /// heart tap, entire library gone.
+    ///
+    /// A library with no manifest at all is a different case and still writes:
+    /// that is simply a new library, and refusing there would mean the first
+    /// import could never happen.
     @discardableResult
     public static func update(
         root: URL,
@@ -40,7 +71,14 @@ public enum LibraryWriter {
         }
         if descriptor >= 0 { flock(descriptor, LOCK_EX) }
 
-        var manifest = LibraryManifest.load(root: root)
+        // Inside the lock, deliberately: reading the state before taking it
+        // would let another writer repair or damage the file in between.
+        var manifest: LibraryManifest
+        switch LibraryManifest.state(root: root) {
+        case .loaded(let existing): manifest = existing
+        case .missing: manifest = LibraryManifest()
+        case .damaged: throw WriteError.manifestUnreadable
+        }
         try change(&manifest)
         try manifest.save(root: root)
         return manifest

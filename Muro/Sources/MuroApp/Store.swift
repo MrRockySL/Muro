@@ -133,6 +133,11 @@ final class AppStore: ObservableObject {
     @Published var lockScreenNeedsSystemSettings = false
     /// A delete waiting on the confirmation sheet.
     @Published var pendingDelete: DeleteRequest?
+    /// `library.json` is on disk and could not be read. Muro refuses to write
+    /// over it, so every edit stops until it is repaired or removed, and the
+    /// user has to be told that rather than left with an app that quietly
+    /// ignores them.
+    @Published var libraryUnreadable = false
 
     private var watcher: DispatchSourceFileSystemObject?
     private let scheduler = AutomationScheduler()
@@ -422,7 +427,20 @@ final class AppStore: ObservableObject {
     // MARK: - Disk state
 
     func reloadFromDisk() {
-        manifest = LibraryManifest.load(root: root)
+        switch LibraryManifest.state(root: root) {
+        case .loaded(let fresh):
+            manifest = fresh
+            libraryUnreadable = false
+        case .missing:
+            manifest = LibraryManifest()
+            libraryUnreadable = false
+        case .damaged:
+            // Keep showing whatever was last read successfully. Replacing it
+            // with an empty manifest would say the library is empty, which is
+            // both untrue and the exact impression the old bug left behind
+            // right before it made it true.
+            libraryUnreadable = true
+        }
         config = EngineConfig.load(root: root)
         playlists = PlaylistStore.load(root: root)
         automations = AutomationStore.load(root: root)
@@ -872,12 +890,11 @@ final class AppStore: ObservableObject {
     /// A negative value is how "never pause this one" is stored, so a
     /// wallpaper can opt out while the global setting stays on.
     func setPauseAfter(_ seconds: Int?, for item: WallpaperItem) {
-        guard let updated = try? LibraryWriter.update(root: root, { manifest in
+        write { manifest in
             guard let index = manifest.wallpapers.firstIndex(where: { $0.id == item.id })
             else { return }
             manifest.wallpapers[index].pauseAfterSeconds = seconds
-        }) else { return }
-        manifest = updated
+        }
     }
 
     func setAutoPauseFullScreen(_ on: Bool) {
@@ -941,12 +958,26 @@ final class AppStore: ObservableObject {
     /// erased by a heart tap. Every manifest edit goes through LibraryWriter,
     /// which works from what is actually on disk.
     func toggleLike(_ item: WallpaperItem) {
-        guard let updated = try? LibraryWriter.update(root: root, { manifest in
+        write { manifest in
             guard let index = manifest.wallpapers.firstIndex(where: { $0.id == item.id })
             else { return }
             manifest.wallpapers[index].liked.toggle()
-        }) else { return }
-        manifest = updated
+        }
+    }
+
+    /// Every small manifest edit the interface makes, in one place.
+    ///
+    /// These used to be `try?`, which turned the one error worth reporting
+    /// into nothing at all: with a damaged `library.json` the heart simply
+    /// would not fill and Muro said nothing about why.
+    private func write(_ change: @escaping (inout LibraryManifest) -> Void) {
+        do {
+            manifest = try LibraryWriter.update(root: root, change)
+        } catch LibraryWriter.WriteError.manifestUnreadable {
+            libraryUnreadable = true
+        } catch {
+            applyError = error.localizedDescription
+        }
     }
 
     // MARK: - Download (remote catalog → local library)

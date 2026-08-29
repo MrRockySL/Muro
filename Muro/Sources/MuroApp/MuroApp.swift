@@ -119,6 +119,21 @@ struct RootView: View {
         } message: {
             Text("Muro set your lock screen wallpaper but macOS has not picked it up yet. Open System Settings, go to Wallpaper, and choose Muro to finish it.")
         }
+        // A damaged library.json stops every edit, because Muro will not write
+        // over a list it could not read. Saying so is the difference between
+        // an app protecting the user's library and an app that has silently
+        // stopped responding.
+        .alert("Muro cannot read your wallpaper list", isPresented: $store.libraryUnreadable) {
+            Button("Show the File") {
+                store.libraryUnreadable = false
+                NSWorkspace.shared.activateFileViewerSelecting([
+                    LibraryManifest.manifestURL(root: store.root)
+                ])
+            }
+            Button("Later", role: .cancel) { store.libraryUnreadable = false }
+        } message: {
+            Text("Your wallpapers are safe on disk, and Muro has stopped rather than overwrite the list with an empty one. Liking, importing and downloading will not work until library.json is repaired or moved out of Muro's folder.")
+        }
         .alert("Playlist stopped", isPresented: Binding(
             get: { store.deleteNotice != nil },
             set: { if !$0 { store.deleteNotice = nil } }
