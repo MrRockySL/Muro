@@ -297,10 +297,7 @@ struct MenuBarView: View {
         VStack(spacing: 2) {
             menuRow("Open Muro") {
                 StatusBarController.shared?.closePanel()
-                NSApp.activate(ignoringOtherApps: true)
-                for window in NSApp.windows where window.title == "Muro" {
-                    window.makeKeyAndOrderFront(nil)
-                }
+                showMainWindow()
             }
             menuRow("Settings") {
                 StatusBarController.shared?.closePanel()

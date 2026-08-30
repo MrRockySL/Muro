@@ -4,20 +4,100 @@ import MuroKit
 
 /// The Muro app: gallery window + settings + menu bar, with the wallpaper
 /// engine embedded (one process, one config, instant hot-reload).
+@MainActor
 final class MuroAppDelegate: NSObject, NSApplicationDelegate {
     let engine = EngineController()
     private var statusBar: StatusBarController?
 
+    /// True when macOS started Muro at login rather than a person opening it.
+    private var startedAtLogin = false
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Read here and nowhere later. The launch Apple event only sits on the
+        // queue while the app is starting, so by the time anything else could
+        // ask, the answer is gone.
+        startedAtLogin = Self.launchedAsLoginItem()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let showDock = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
-        NSApp.setActivationPolicy(showDock ? .regular : .accessory)
+        Self.applyActivationPolicy()
         engine.start()
         statusBar = StatusBarController(store: AppStore.shared)
-        NSApp.activate(ignoringOtherApps: true)
+
+        // Starting at login is the Mac booting, not a person asking to see the
+        // gallery. Muro used to throw its full window on screen every single
+        // boot, which had to be closed by hand every single time. It starts in
+        // the menu bar now and waits to be asked.
+        if startedAtLogin {
+            hideMainWindow()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
+    /// Opening an app that is already running, from Spotlight, the Dock or
+    /// Finder. Without this the click did nothing at all: the window is only
+    /// ordered out, not closed, so nothing reopened it and the only way back
+    /// in was the menu bar.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        Self.applyActivationPolicy()
+        showMainWindow()
+        return true
+    }
+
+    /// Re-assert the Dock setting whenever Muro comes to the front.
+    ///
+    /// Launching an already-running Muro from Spotlight left an icon in the
+    /// Dock even with "Show Dock icon" switched off, and it stayed there. The
+    /// only cure anyone found was opening Settings and flicking that toggle on
+    /// and off, which is nothing more than calling `setActivationPolicy`
+    /// again. So call it again here, where it costs nothing and no one has to
+    /// know the trick.
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Self.applyActivationPolicy()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false   // keep playing wallpapers from the menu bar
+    }
+
+    // MARK: - Helpers
+
+    /// The Dock icon setting, applied. Idempotent, so it is safe to call on
+    /// every activation.
+    static func applyActivationPolicy() {
+        let showDock = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
+        let wanted: NSApplication.ActivationPolicy = showDock ? .regular : .accessory
+        guard NSApp.activationPolicy() != wanted else { return }
+        NSApp.setActivationPolicy(wanted)
+    }
+
+    /// Did macOS start us as a login item?
+    ///
+    /// There is no flag on `NSApplication` for this. The launch Apple event
+    /// carries it: an `oapp` event with a `prdt` parameter of `lgit`. This is
+    /// the documented way and it is what `SMAppService` login starts send.
+    private static func launchedAsLoginItem() -> Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventID == kAEOpenApplication
+        else { return false }
+        return event.paramDescriptor(forKeyword: keyAEPropData)?
+            .enumCodeValue == keyAELaunchedAsLogInItem
+    }
+
+    /// Put the gallery away without closing it.
+    ///
+    /// Run more than once on purpose. SwiftUI creates the `Window` scene's
+    /// `NSWindow` around launch rather than at a moment we control, so a
+    /// single pass here can happen before the window exists and miss it. The
+    /// later passes are cheap and catch that case.
+    private func hideMainWindow() {
+        mainWindow?.orderOut(nil)
+        Task { @MainActor in
+            mainWindow?.orderOut(nil)
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            mainWindow?.orderOut(nil)
+        }
     }
 }
 
@@ -28,22 +108,28 @@ struct MuroApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
-        Window("Muro", id: "main") {
+        Window(MuroWindow.gallery, id: "main") {
             RootView()
                 .environmentObject(store)
                 .frame(minWidth: 1180, minHeight: 760)
                 .preferredColorScheme(.dark)
                 .onAppear {
                     SettingsWindowOpener.shared.open = { openWindow(id: "settings") }
+                    // Here rather than in the delegate: the window is what is
+                    // being reconfigured, and by the time its content appears
+                    // it definitely exists. Re-applied on every appearance, so
+                    // it survives the window being rebuilt.
+                    makeMinimiseHideTheWindow(titled: MuroWindow.gallery)
                 }
         }
         .defaultSize(width: 1440, height: 920)
         .windowStyle(.hiddenTitleBar)
 
-        Window("Muro Settings", id: "settings") {
+        Window(MuroWindow.settings, id: "settings") {
             SettingsView()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
+                .onAppear { makeMinimiseHideTheWindow(titled: MuroWindow.settings) }
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
