@@ -220,13 +220,16 @@ struct RootView: View {
         } message: {
             Text("Your wallpapers are safe on disk, and Muro has stopped rather than overwrite the list with an empty one. Liking, importing and downloading will not work until library.json is repaired or moved out of Muro's folder.")
         }
-        .alert("Playlist stopped", isPresented: Binding(
-            get: { store.deleteNotice != nil },
-            set: { if !$0 { store.deleteNotice = nil } }
-        )) {
+        .alert(
+            Text(store.deleteNotice?.title ?? ""),
+            isPresented: Binding(
+                get: { store.deleteNotice != nil },
+                set: { if !$0 { store.deleteNotice = nil } }
+            )
+        ) {
             Button("OK", role: .cancel) { store.deleteNotice = nil }
         } message: {
-            Text(store.deleteNotice ?? "")
+            Text(store.deleteNotice?.message ?? "")
         }
         // Every dropdown and right-click menu in the main window draws here
         // rather than in a popover of its own.

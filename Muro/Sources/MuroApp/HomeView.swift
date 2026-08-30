@@ -244,7 +244,7 @@ struct HomeView: View {
     private var pickSection: some View {
         cardRow(
             title: "Muro's Pick",
-            subtitle: "A different twelve every time you open Muro",
+            subtitle: "A different twelve every day",
             items: pickItems,
             page: $pickPage,
             shift: $pickShift

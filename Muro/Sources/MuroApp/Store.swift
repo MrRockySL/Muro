@@ -76,6 +76,17 @@ struct DisplayInfo: Identifiable, Equatable {
     }
 }
 
+/// A running playlist or automation that lost its last wallpaper to a delete.
+///
+/// The title travels with the message because both stop the same way, and the
+/// alert used to hardcode "Playlist stopped" over both of them, so deleting the
+/// last wallpaper out of a running automation announced a playlist that had not
+/// stopped and might not exist.
+struct StopNotice: Equatable {
+    let title: String
+    let message: String
+}
+
 @MainActor
 final class AppStore: ObservableObject {
     static let shared = AppStore()
@@ -123,7 +134,7 @@ final class AppStore: ObservableObject {
     @Published var importError: String?
     /// Set when a delete had a consequence the user did not ask for and
     /// cannot see, such as a running playlist losing its last wallpaper.
-    @Published var deleteNotice: String?
+    @Published var deleteNotice: StopNotice?
     /// The lock screen is applied and every file is in place, but macOS has
     /// not picked it up yet. Its own alert, with the one step that finishes
     /// the job, rather than the old dead-end error.
@@ -339,12 +350,21 @@ final class AppStore: ObservableObject {
     /// which matters here because Muro stays alive in the menu bar after its
     /// window closes.
     ///
-    /// It re-draws only when today's draw came up short of what the pool can
-    /// now supply, which happens when it ran at launch before the catalog had
-    /// arrived. Comparing what was *drawn* rather than what still resolves is
-    /// deliberate: deleting a wallpaper leaves an id that no longer resolves,
-    /// and re-drawing on that would re-shuffle the row on every redraw for
-    /// the rest of the day.
+    /// A draw made before the catalog arrived is provisional, and this is the
+    /// one case that has to force a re-draw. A cold launch renders Home before
+    /// the fetch lands, so the pool is only what is downloaded, and with
+    /// twelve or more of those the draw still comes out full size. Counting
+    /// the drawn ids could not tell that apart from a real draw, so the local
+    /// twelve stuck for the whole day and the catalog never reached the row.
+    /// The draw now records whether it saw a catalog, and one that did not is
+    /// re-drawn as soon as one arrives.
+    ///
+    /// Everything else keeps today's draw. Deleting a wallpaper leaves an id
+    /// that no longer resolves, and re-drawing on that would re-shuffle the
+    /// row on every redraw for the rest of the day, which is why what was
+    /// *drawn* is compared rather than what still resolves. Staying offline
+    /// keeps the local twelve rather than re-shuffling them forever, because
+    /// an empty catalog is not a better pool to draw from.
     ///
     /// The latest drop is excluded because it has its own row directly above.
     var pickItems: [WallpaperItem] {
@@ -352,14 +372,18 @@ final class AppStore: ObservableObject {
         let pool = items.filter { !drop.contains($0.id) }
         let today = Calendar.current.startOfDay(for: Date())
         let drawnIDs = defaults.stringArray(forKey: "pickIDs") ?? []
+        let sawCatalog = !catalog.isEmpty
+        let provisional = sawCatalog && !defaults.bool(forKey: "pickDrewFromCatalog")
         if let drawnDay = defaults.object(forKey: "pickDrawDay") as? Date,
            drawnDay == today,
+           !provisional,
            drawnIDs.count >= min(AppStore.pickCount, pool.count) {
             return drawnIDs.compactMap { item(id: $0) }
         }
         let drawn = Array(pool.shuffled().prefix(AppStore.pickCount))
         defaults.set(today, forKey: "pickDrawDay")
         defaults.set(drawn.map(\.id), forKey: "pickIDs")
+        defaults.set(sawCatalog, forKey: "pickDrewFromCatalog")
         return drawn
     }
 
@@ -1312,7 +1336,10 @@ final class AppStore: ObservableObject {
         if let running = activePlaylistID, emptied.contains(running) {
             let name = playlists.first { $0.id == running }?.name ?? "The playlist"
             stopPlaylist()
-            deleteNotice = "\(name) has no wallpapers left, so it stopped."
+            deleteNotice = StopNotice(
+                title: "Playlist stopped",
+                message: "\(name) has no wallpapers left, so it stopped."
+            )
         }
         let (prunedAutomations, emptiedAutomations) =
             AutomationStore.pruned(automations, removing: ids)
@@ -1323,7 +1350,10 @@ final class AppStore: ObservableObject {
         if let running = activeAutomationID, emptiedAutomations.contains(running) {
             let name = automations.first { $0.id == running }?.name ?? "The automation"
             stopAutomation()
-            deleteNotice = "\(name) has no wallpapers left, so it stopped."
+            deleteNotice = StopNotice(
+                title: "Automation stopped",
+                message: "\(name) has no wallpapers left, so it stopped."
+            )
         }
 
         if recentIDs.contains(where: { ids.contains($0) }) {
