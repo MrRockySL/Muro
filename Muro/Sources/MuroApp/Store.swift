@@ -1,6 +1,8 @@
 import SwiftUI
 import AppKit
 import MuroKit
+import IOKit
+import IOKit.ps
 
 /// One wallpaper as the UI sees it: local library entry, remote catalog
 /// entry, or both (downloaded catalog wallpaper).
@@ -52,6 +54,94 @@ enum ApplySurface: String, CaseIterable {
     case both = "Both", desktop = "Desktop", lockscreen = "Lockscreen"
 }
 
+/// What to call the screen built into this Mac.
+///
+/// macOS calls it "Built-in Retina Display", which is accurate and is not how
+/// anyone thinks about it. People call it their MacBook. It cannot simply be
+/// hardcoded to that either: Muro runs on an iMac too, where the built-in
+/// screen is not a MacBook, and the label has to be right on a machine nobody
+/// working on Muro owns.
+///
+/// Two sources, because neither covers every Mac on its own. Apple Silicon
+/// publishes a marketing name like "MacBook Pro (14-inch, M3, 2023)" in the
+/// device tree, while its `hw.model` is only "Mac15,3" and names no product.
+/// Intel Macs have no such device-tree entry but do have a readable
+/// `hw.model`, "MacBookPro16,1". A battery settles it either way as a last
+/// resort, since only a portable has one. Muro ships for both architectures,
+/// so both paths are live.
+enum MacHardware {
+    /// Resolved once. None of this can change while the app is running.
+    static let builtInName: String = {
+        let model = (deviceTreeProductName() ?? modelIdentifier() ?? "").lowercased()
+        if model.hasPrefix("macbook") { return "MacBook" }
+        if model.hasPrefix("imac") { return "iMac" }
+        if hasInternalBattery() { return "MacBook" }
+        // A Mac mini, Studio or Pro has no built-in screen, so this is only
+        // reached when the built-in test itself guessed. Say the honest thing
+        // rather than name a machine this might not be.
+        return "Built-in"
+    }()
+
+    private static func deviceTreeProductName() -> String? {
+        let entry = IORegistryEntryFromPath(kIOMainPortDefault, "IODeviceTree:/product")
+        guard entry != 0 else { return nil }
+        defer { IOObjectRelease(entry) }
+        guard let raw = IORegistryEntryCreateCFProperty(
+            entry, "product-name" as CFString, kCFAllocatorDefault, 0
+        )?.takeRetainedValue() else { return nil }
+        // The device tree stores it as a null-terminated C string in a data
+        // blob, not as a CFString.
+        if let data = raw as? Data {
+            return String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\0"))
+        }
+        return raw as? String
+    }
+
+    private static func modelIdentifier() -> String? {
+        var size = 0
+        guard sysctlbyname("hw.model", nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var chars = [CChar](repeating: 0, count: size)
+        guard sysctlbyname("hw.model", &chars, &size, nil, 0) == 0 else { return nil }
+        return String(cString: chars)
+    }
+
+    private static func hasInternalBattery() -> Bool {
+        guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef]
+        else { return false }
+        return sources.contains { source in
+            guard let desc = IOPSGetPowerSourceDescription(snapshot, source)?
+                .takeUnretainedValue() as? [String: Any] else { return false }
+            return desc[kIOPSTypeKey as String] as? String == kIOPSInternalBatteryType
+        }
+    }
+}
+
+/// One place a wallpaper can be showing: a display, and which of that
+/// display's two surfaces.
+///
+/// A Mac with two monitors has four of these, and Muro can hold a different
+/// wallpaper in every one, so a label that only ever named the display could
+/// not tell two of them apart.
+struct AppliedPlace: Identifiable, Equatable {
+    let display: DisplayInfo
+    let isLockScreen: Bool
+
+    var id: String { display.id + (isLockScreen ? "#lock" : "#desktop") }
+
+    /// For the small chip on a card. Upper case, and short, because it has a
+    /// card corner to fit into.
+    var chipLabel: String {
+        isLockScreen ? display.chipLabel + " LOCK" : display.chipLabel
+    }
+
+    /// For anywhere there is room to read a sentence.
+    var fullLabel: String {
+        isLockScreen ? "\(display.displayName) lock screen" : display.displayName
+    }
+}
+
 struct DisplayInfo: Identifiable, Equatable {
     let id: String
     let name: String
@@ -71,9 +161,18 @@ struct DisplayInfo: Identifiable, Equatable {
 
     var symbolName: String { isBuiltIn ? "laptopcomputer" : "display" }
 
-    var chipLabel: String {
-        name.localizedCaseInsensitiveContains("built-in") ? "MACBOOK" : name.uppercased()
+    /// What to call this display anywhere it is named.
+    ///
+    /// The built-in screen is named after the machine; every other display is
+    /// named by the display itself, which is what makes this work for any
+    /// monitor of any brand without Muro knowing a single brand name.
+    var displayName: String {
+        isBuiltIn || name.localizedCaseInsensitiveContains("built-in")
+            ? MacHardware.builtInName
+            : name
     }
+
+    var chipLabel: String { displayName.uppercased() }
 }
 
 /// A running playlist or automation that lost its last wallpaper to a delete.
@@ -1032,6 +1131,91 @@ final class AppStore: ObservableObject {
 
     func appliedDisplays(for id: String) -> [DisplayInfo] {
         displays.filter { config.assignment(forDisplayUUID: $0.id)?.wallpaperID == id }
+    }
+
+    /// Everywhere this wallpaper is showing, desktops and lock screens both.
+    ///
+    /// The two are kept in different places, the desktop in `config` and the
+    /// lock screen inside `LockScreenService`, which is why the chip used to
+    /// know nothing about the lock screen and a wallpaper applied only there
+    /// looked unapplied.
+    func appliedPlaces(for id: String) -> [AppliedPlace] {
+        var out: [AppliedPlace] = []
+        for display in displays {
+            if config.assignment(forDisplayUUID: display.id)?.wallpaperID == id {
+                out.append(AppliedPlace(display: display, isLockScreen: false))
+            }
+            if lockScreenAvailable,
+               lockScreen.isApplied(wallpaperID: id, target: .display(display.id)) {
+                out.append(AppliedPlace(display: display, isLockScreen: true))
+            }
+        }
+        return out
+    }
+
+    /// How much ground a wallpaper covers, once it is in more than one place.
+    ///
+    /// Both labels below read this rather than working it out for themselves,
+    /// so the chip on a card and the sentence in the preview bar can never
+    /// disagree about the same wallpaper.
+    private enum AppliedSpread {
+        case everywhere
+        case allDisplays
+        case allLockScreens
+        case some(Int)
+    }
+
+    private func appliedSpread(_ places: [AppliedPlace]) -> AppliedSpread {
+        let screens = displays.count
+        let desktops = places.filter { !$0.isLockScreen }.count
+        let locks = places.count - desktops
+        let everyPlace = screens * (lockScreenAvailable ? 2 : 1)
+
+        // "Everywhere" only reads as true when there is a lock screen it could
+        // also have gone to. On a Mac that cannot do lock screens, covering
+        // every display is covering every display, which is what it used to
+        // say and still should.
+        if places.count >= everyPlace {
+            return lockScreenAvailable ? .everywhere : .allDisplays
+        }
+        if locks == 0, desktops == screens { return .allDisplays }
+        if desktops == 0, locks == screens { return .allLockScreens }
+        return .some(places.count)
+    }
+
+    /// The one short label for the chip, whatever the wallpaper is covering.
+    ///
+    /// Naming the single place it is in is the useful answer and the common
+    /// one. Past that a chip cannot list four names in a card corner, so it
+    /// says how much ground is covered instead, and only claims "everywhere"
+    /// when there is genuinely nothing left to apply it to.
+    func appliedChipLabel(for id: String) -> String? {
+        let places = appliedPlaces(for: id)
+        guard let only = places.first else { return nil }
+        if places.count == 1 { return only.chipLabel }
+        switch appliedSpread(places) {
+        case .everywhere: return "EVERYWHERE"
+        case .allDisplays: return "ALL DISPLAYS"
+        case .allLockScreens: return "ALL LOCK SCREENS"
+        case .some(let count): return "\(count) PLACES"
+        }
+    }
+
+    /// The same answer in words, for the preview bar.
+    ///
+    /// A card corner can only take an abbreviation; the bar under a
+    /// full-screen preview has room for the sentence, and where a wallpaper
+    /// is showing is the thing someone opening it wants to know.
+    func appliedFullLabel(for id: String) -> String? {
+        let places = appliedPlaces(for: id)
+        guard let only = places.first else { return nil }
+        if places.count == 1 { return "Applied on \(only.fullLabel)" }
+        switch appliedSpread(places) {
+        case .everywhere: return "Applied everywhere"
+        case .allDisplays: return "Applied on all displays"
+        case .allLockScreens: return "Applied on all lock screens"
+        case .some(let count): return "Applied in \(count) places"
+        }
     }
 
     // MARK: - Likes

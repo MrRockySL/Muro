@@ -127,9 +127,15 @@ struct PreviewView: View {
 
             if let url = store.videoURL(for: item, mode: "smooth") {
                 ShareLink(item: url) {
-                    // Measured 2026-07-20 (offscreen ink-bounds render): the
-                    // glyph is optically centered at 0; the old +1 sat 1pt low.
-                    barIcon("square.and.arrow.up")
+                    // The forward arrow, not the box with an arrow out of it.
+                    // The box is the system default and reads as generic
+                    // chrome; this is the share glyph messaging apps settled
+                    // on, and it is what the owner asked for (2026-08-30).
+                    //
+                    // Measured by the offscreen ink-bounds render used for the
+                    // other bar icons: this glyph sits 0.4pt high in a 40pt
+                    // circle, so it is pushed back down by that much.
+                    barIcon("arrowshape.turn.up.right.fill", opticalYOffset: 0.4)
                 }
                 .buttonStyle(.plain)
             }
@@ -240,7 +246,7 @@ struct PreviewView: View {
             }
             // The list stops at an hour. Anything else this wallpaper wants
             // is set here, the same way Settings does it.
-            + [.divider, MenuOption(title: "Custom…") { customPauseAfter = true }]
+            + [.divider, MenuOption(title: "Custom") { customPauseAfter = true }]
         }) {
             HStack(spacing: 6) {
                 Image(systemName: "pause.circle")
@@ -323,8 +329,13 @@ struct PreviewView: View {
                 HStack(spacing: 7) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
-                    Text("Applied")
+                    // Named in full here. The chip on a card has a corner to
+                    // fit into and has to abbreviate; this bar has the room,
+                    // and with four places a wallpaper can be in, which one it
+                    // is in is the answer someone opened this for.
+                    Text(store.appliedFullLabel(for: item.id) ?? "Applied")
                         .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
                 }
                 .foregroundStyle(Color.muroGreen)
                 .padding(.horizontal, 22)
@@ -540,7 +551,7 @@ struct ChooseDisplayPopover: View {
                     if appliedHere {
                         Circle().fill(Color.muroGreen).frame(width: 5, height: 5)
                     }
-                    Text(display.name)
+                    Text(display.displayName)
                         .font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
@@ -580,8 +591,8 @@ struct ChooseDisplayPopover: View {
         .buttonStyle(.plain)
         .accessibilityLabel(
             appliedHere
-                ? "Remove \(item.title) from \(display.name)"
-                : "Apply \(item.title) to \(display.name)"
+                ? "Remove \(item.title) from \(display.displayName)"
+                : "Apply \(item.title) to \(display.displayName)"
         )
     }
 }

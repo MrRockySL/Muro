@@ -1289,6 +1289,10 @@ private struct MenuOverlay: View {
     let dismiss: () -> Void
 
     @State private var size: CGSize = .zero
+    /// Whether the card has been let in. False for the frames before it knows
+    /// its own size, which is what keeps the reveal off the screen until
+    /// there is somewhere real to reveal it.
+    @State private var shown = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -1310,13 +1314,34 @@ private struct MenuOverlay: View {
                         Color.clear.preference(key: MenuSizeKey.self, value: geo.size)
                     }
                 )
+                .scaleEffect(shown ? 1 : 0.94, anchor: scaleAnchor)
+                .opacity(shown ? 1 : 0)
                 .offset(x: x, y: y)
-                // Hidden for the one frame before its height is known, so it
-                // cannot appear in the wrong place and jump.
-                .opacity(size == .zero ? 0 : 1)
-                .transition(.scale(scale: 0.96, anchor: .top).combined(with: .opacity))
+                // No insertion transition. The card is inserted at the top
+                // left corner, because a view that has not been measured has
+                // no size to place it by, and only then does it learn where it
+                // belongs. Letting a transition run over those frames is
+                // exactly what made it appear to leap into place: the fade and
+                // the move were happening at once, and the manual hide that
+                // was meant to cover it only made the card snap on partway
+                // through. The reveal is driven below instead, one turn after
+                // the position is right. Removal still needs a transition,
+                // since by then the view is leaving and has no state left.
+                .transition(.asymmetric(
+                    insertion: .identity,
+                    removal: .opacity.combined(with: .scale(scale: 0.97, anchor: scaleAnchor))
+                ))
         }
         .onPreferenceChange(MenuSizeKey.self) { size = $0 }
+        .onChange(of: size) { _, measured in
+            guard measured != .zero, !shown else { return }
+            // Deliberately here and not in the line above. Setting `size` is
+            // what moves the card from the corner to the anchor, and that move
+            // must not be animated. `onChange` runs after that update has been
+            // committed, so this spring only ever carries the scale and the
+            // fade.
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) { shown = true }
+        }
     }
 
     /// Below the control by default, above it when there is no room below,
@@ -1341,12 +1366,24 @@ private struct MenuOverlay: View {
         return min(max(ideal, 10), limit)
     }
 
-    private var y: CGFloat {
+    /// Whether there is no room under the control and the card has to sit
+    /// above it instead.
+    private var flipsAbove: Bool {
         let below = presentation.anchor.maxY + Self.gapBelow
         let above = presentation.anchor.minY - size.height - Self.gapAbove
-        if below + size.height > container.height - 10, above > 10 { return above }
+        return below + size.height > container.height - 10 && above > 10
+    }
+
+    private var y: CGFloat {
+        if flipsAbove { return presentation.anchor.minY - size.height - Self.gapAbove }
+        let below = presentation.anchor.maxY + Self.gapBelow
         return min(below, max(container.height - size.height - 10, 10))
     }
+
+    /// Grow from the edge nearest the control that opened it, so the card
+    /// reads as coming out of that control. Anchored to the top always, a card
+    /// that had flipped above grew downward, away from its own control.
+    private var scaleAnchor: UnitPoint { flipsAbove ? .bottom : .top }
 }
 
 private struct MenuHost: ViewModifier {
@@ -1367,6 +1404,18 @@ private struct MenuHost: ViewModifier {
                             presentation: current,
                             container: geo.size
                         ) { presenter.dismiss() }
+                            // One identity per presentation, and this is load
+                            // bearing. Choosing "Custom" inside an open menu
+                            // runs `dismiss()` and then the action that opens
+                            // the card in the same handler, so `current` goes
+                            // menu to card in a single update and never passes
+                            // through nil. Without an id of its own the
+                            // overlay is then the same view: it keeps the
+                            // menu's measured size and its already-revealed
+                            // state, so the card appeared at once, laid out
+                            // against the menu's geometry, and snapped into
+                            // place a frame later. That snap is the jump.
+                            .id(current.id)
                     }
                 }
                 .animation(.spring(response: 0.24, dampingFraction: 0.86), value: presenter.current?.id)
