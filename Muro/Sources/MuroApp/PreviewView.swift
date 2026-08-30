@@ -400,6 +400,10 @@ struct ChooseDisplayPopover: View {
     @EnvironmentObject var store: AppStore
     let item: WallpaperItem
     @Namespace private var surfaceNS
+    /// Shown when someone on macOS 14 or 15 picks Lockscreen or Both. The
+    /// pills used to be simply disabled with a small "26+" badge, which says
+    /// there is a rule without ever saying what it is.
+    @State private var showLockRequirement = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -410,6 +414,75 @@ struct ChooseDisplayPopover: View {
                 }
                 Spacer()
             }
+            // The chooser stays laid out underneath so it keeps defining the
+            // width and height. The popover must never resize: it is anchored
+            // at the bottom, so a change of height moves the top edge and the
+            // whole card appears to jump (owner, 2026-07-20).
+            ZStack {
+                chooser
+                    .opacity(showLockRequirement ? 0 : 1)
+                    .allowsHitTesting(!showLockRequirement)
+                if showLockRequirement {
+                    lockRequirementCard.transition(.opacity)
+                }
+            }
+        }
+        .padding(18)
+        // No background of its own: `anchoredCard` draws it on the same glass
+        // as every dropdown, with the same corner radius.
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// What the lock screen actually needs, said plainly, in the app's own
+    /// voice rather than as an error.
+    private var lockRequirementCard: some View {
+        VStack(spacing: 9) {
+            ZStack {
+                Circle().fill(Color.muroAccent.opacity(0.14))
+                Image(systemName: "lock.display")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.muroAccent)
+            }
+            .frame(width: 40, height: 40)
+
+            Text("Lock screen needs macOS 26")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+
+            Text("Live lock screen wallpapers use a part of macOS that arrived in macOS 26. This Mac runs \(Self.osLabel), so Muro can set your desktop but not your lock screen.")
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(Color.muroSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(1.5)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                withAnimation(.easeOut(duration: 0.18)) { showLockRequirement = false }
+            } label: {
+                Text("Set my desktop instead")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(Color.white.opacity(0.12)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// "macOS 15.6", from the running system rather than a guess.
+    private static var osLabel: String {
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        return v.patchVersion > 0
+            ? "macOS \(v.majorVersion).\(v.minorVersion).\(v.patchVersion)"
+            : "macOS \(v.majorVersion).\(v.minorVersion)"
+    }
+
+    private var chooser: some View {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("Choose display")
                     .font(.system(size: 11.5, weight: .medium))
@@ -439,9 +512,6 @@ struct ChooseDisplayPopover: View {
                 }
             }
         }
-        .padding(18)
-        // No background of its own: `anchoredCard` draws it on the same glass
-        // as every dropdown, with the same corner radius.
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -462,7 +532,16 @@ struct ChooseDisplayPopover: View {
         // Constant font weight: weight changes used to resize the labels and
         // make "Lockscreen" jump sideways when switching Both → Desktop.
         return Button {
-            withAnimation(.easeOut(duration: 0.16)) { store.applySurface = surface }
+            guard enabled else {
+                // Not disabled any more. A dead button tells someone their
+                // click failed; this tells them what the rule is.
+                withAnimation(.easeOut(duration: 0.18)) { showLockRequirement = true }
+                return
+            }
+            withAnimation(.easeOut(duration: 0.18)) {
+                showLockRequirement = false
+                store.applySurface = surface
+            }
         } label: {
             Text(surface.rawValue)
                 .font(.system(size: 11.5, weight: .semibold))
@@ -490,7 +569,6 @@ struct ChooseDisplayPopover: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .disabled(!enabled)
         .accessibilityLabel("Apply to \(surface.rawValue.lowercased())")
         .accessibilityValue(selected ? "Selected" : "Not selected")
         .help(enabled ? "" : "Lock-screen live wallpapers require macOS 26 or later")

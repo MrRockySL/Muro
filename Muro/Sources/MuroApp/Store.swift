@@ -265,6 +265,8 @@ final class AppStore: ObservableObject {
     private let scheduler = AutomationScheduler()
     private let defaults = UserDefaults.standard
     private lazy var lockScreen = LockScreenService(root: root)
+    /// Only ever does anything on macOS 14 and 15. See DesktopTintService.
+    private lazy var desktopTint = DesktopTintService(root: root)
 
     private init() {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -278,6 +280,10 @@ final class AppStore: ObservableObject {
         syncScheduler()
         watchRoot()
         recomputeSize()
+        // Installs that applied a wallpaper before this shipped have never had
+        // a still written, and a display plugged in while Muro was closed has
+        // no still either.
+        desktopTint.reconcile(config: config, manifest: manifest)
         if !lockScreen.isAvailable { applySurface = .desktop }
         // Seed the default so the Settings field shows the real URL instead
         // of an empty placeholder (getter also falls back when cleared).
@@ -865,7 +871,12 @@ final class AppStore: ObservableObject {
         return (def == "efficient" && item.fps > 40) ? "efficient" : "smooth"
     }
 
-    var lockScreenAvailable: Bool { lockScreen.isAvailable }
+    /// Lock screens need macOS 26. The legacy simulation used to exercise
+    /// the 14/15 desktop-tint path has to take this with it, otherwise the
+    /// simulated old Mac would still offer a feature an old Mac cannot have.
+    var lockScreenAvailable: Bool {
+        !DesktopTintService.isNeeded && lockScreen.isAvailable
+    }
     var lockScreenWallpaperID: String? { lockScreen.activeWallpaperID }
 
     /// `surface == nil` is a legacy/menu-bar desktop action: it preserves any
@@ -1101,6 +1112,9 @@ final class AppStore: ObservableObject {
 
     private func saveConfig() {
         try? config.save(root: root)
+        // Every apply, remove and clear lands here, so this is the one place
+        // the desktop still has to be kept in step with. Inert on macOS 26+.
+        desktopTint.reconcile(config: config, manifest: manifest)
     }
 
     private func pushRecent(_ id: String) {
