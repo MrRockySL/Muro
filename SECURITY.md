@@ -52,6 +52,31 @@ While Muro's menu-bar panel is open, it temporarily observes global left-click
 and right-click events so it can close the panel when you click elsewhere. It
 handles the Escape key locally. It does not record or upload those events.
 
+### Desktop picture on macOS 14 and 15
+
+On macOS 15 and earlier the menu bar takes its colour from the desktop picture.
+Muro does not use the desktop picture: it plays video in its own window seated
+under the desktop icons, which macOS knows nothing about, so the menu bar was
+being tinted by whatever still image you had set before installing Muro while a
+different video played underneath it.
+
+On those versions only, Muro sets your desktop picture to a still frame of the
+wallpaper it is playing, per display, so the menu bar samples the right image.
+The frames live in `~/Library/Application Support/Muro/DesktopStills`.
+
+**This does not run on macOS 26 or later**, where the menu bar is transparent
+and there is nothing to correct.
+
+Your own desktop picture is read and recorded in
+`~/Library/Application Support/Muro/desktop-tint.json` before anything is
+written, and put back when the wallpaper is removed. Muro restores only its own
+change: if you pick a new picture yourself in System Settings, that is your
+choice and Muro leaves it alone. It also skips any display whose wallpaper is
+being driven by Muro's lock-screen extension.
+
+This is disclosed because the desktop picture is state outside Muro's own data
+directories.
+
 ### Quarantine removal on Muro's own bundle
 
 Since 3.0, Muro removes the `com.apple.quarantine` extended attribute from its
