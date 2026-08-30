@@ -10,6 +10,11 @@ struct LibraryView: View {
     }
 
     @State private var tab: LibTab = .all
+    /// Which way the last tab change went, so All to Liked leaves leftwards
+    /// and Liked back to All leaves the other way. The three main tabs do not
+    /// do this: they crossfade, because moving a whole window moves its
+    /// background with it. These are panels inside one, clipped by the tray.
+    @State private var tabShift: CGFloat = 1
     @State private var dropTargeted = false
     @State private var hoveringDrop = false
     @State private var pressingDrop = false
@@ -63,13 +68,13 @@ struct LibraryView: View {
                         .padding(.horizontal, 40)
                         .padding(.top, 22)
                         .padding(.bottom, 40)
-                        // Each tab is its own view, so SwiftUI crossfades
-                        // them instead of swapping the contents of one.
+                        // Each tab is its own view, so SwiftUI replaces it
+                        // instead of swapping the contents of one.
                         .id(tab)
-                        .transition(.opacity.combined(with: .offset(y: 6)))
+                        .transition(.muroPage(shift: tabShift))
                     }
                     .scrollFade(top: 22, bottom: 46)
-                    .animation(.easeOut(duration: 0.24), value: tab)
+                    .animation(.muroPage, value: tab)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
@@ -121,7 +126,18 @@ struct LibraryView: View {
                 ],
                 selection: Binding(
                     get: { tab.rawValue },
-                    set: { raw in if let new = LibTab(rawValue: raw) { tab = new } }
+                    set: { raw in
+                        guard let new = LibTab(rawValue: raw), new != tab else { return }
+                        // Direction first, and outside the animation: the
+                        // transition is built as the view re-renders, so it
+                        // has to already know which way this one is going.
+                        let order = LibTab.allCases
+                        if let from = order.firstIndex(of: tab),
+                           let to = order.firstIndex(of: new) {
+                            tabShift = to >= from ? 1 : -1
+                        }
+                        tab = new
+                    }
                 ),
                 height: 38,
                 labelSize: 13
