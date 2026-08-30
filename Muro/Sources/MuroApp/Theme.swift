@@ -122,9 +122,13 @@ func formatDuration(_ seconds: Double) -> String {
 // CPU budget the whole app is built around.
 
 extension Color {
-    static let muroBGTop = Color(hex: 0x0B0E15)
-    static let muroBGMid = Color(hex: 0x0C1017)
-    static let muroBGBottom = Color(hex: 0x090B10)
+    // Darkened 2026-08-30, about 40% down from 0x0B0E15 / 0x0C1017 / 0x090B10.
+    // They keep the blue lean rather than going to neutral grey, because a
+    // page that is exactly black makes the glass panels look like they are
+    // floating on nothing.
+    static let muroBGTop = Color(hex: 0x07080D)
+    static let muroBGMid = Color(hex: 0x070A0E)
+    static let muroBGBottom = Color(hex: 0x05070A)
     static let muroViolet = Color(hex: 0x8E7BFF)
     static let muroTeal = Color(hex: 0x4FD6C9)
     static let muroWarn = Color(hex: 0xFFC46B)
@@ -160,17 +164,30 @@ private struct Bloom: View {
     }
 }
 
-/// The coloured surface behind a page. Home does not use it: a 4K wallpaper
-/// is already playing there and anything painted over it is noise.
+/// The coloured surface behind a page. All three tabs use it. Home was left
+/// out at first, on the theory that a 4K wallpaper is already playing there,
+/// but the hero is only the top of the page and everything below it read as
+/// flatter and darker than Explore and Library.
 struct MuroPageBackground: View {
     var body: some View {
         LinearGradient(
             colors: [.muroBGTop, .muroBGMid, .muroBGBottom],
             startPoint: .top, endPoint: .bottom
         )
-        .overlay(Bloom(colour: .muroAccent, alpha: 0.26, at: UnitPoint(x: 0.16, y: 0.06), spread: 0.86))
-        .overlay(Bloom(colour: .muroViolet, alpha: 0.20, at: UnitPoint(x: 0.88, y: 0.85), spread: 0.82))
-        .overlay(Bloom(colour: .muroTeal, alpha: 0.11, at: UnitPoint(x: 0.40, y: 1.02), spread: 0.62))
+        // The blooms, not the gradient, are what set how dark the page reads.
+        // The gradient stops are all within a few steps of black already, so
+        // darkening only those changes almost nothing; these are the numbers
+        // to move. Down from 0.26 / 0.20 / 0.11 on 2026-08-30, kept rather
+        // than removed so the page still has some depth to it.
+        //
+        // The violet one came down twice, to 0.05. It is the right hand glow,
+        // and it reads far stronger on Home than anywhere else: Explore and
+        // Library cover most of their background with the glass tray, while
+        // Home leaves it bare between the hero and the rows. Judge this one on
+        // Home, not on the other two, or it will always look too strong there.
+        .overlay(Bloom(colour: .muroAccent, alpha: 0.14, at: UnitPoint(x: 0.16, y: 0.06), spread: 0.86))
+        .overlay(Bloom(colour: .muroViolet, alpha: 0.05, at: UnitPoint(x: 0.88, y: 0.85), spread: 0.82))
+        .overlay(Bloom(colour: .muroTeal, alpha: 0.06, at: UnitPoint(x: 0.40, y: 1.02), spread: 0.62))
         .ignoresSafeArea()
         .allowsHitTesting(false)
     }

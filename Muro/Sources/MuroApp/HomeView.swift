@@ -14,28 +14,38 @@ struct HomeView: View {
     private var pickItems: [WallpaperItem] { store.pickItems }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                hero
-                heroSelector
-                    .padding(.top, 22)
-                    .padding(.horizontal, 64)
-                if !dropItems.isEmpty {
-                    dropSection
+        // Same coloured surface Explore and Library sit on. Home used to be
+        // flat `muroBG` on the theory that the hero is already a 4K video and
+        // anything behind it is noise, but the hero is only the top 560pt:
+        // everything under it, which is most of the page once you scroll, was
+        // a flatter and darker grey than the other two tabs. No `GlassTray`
+        // here, unlike those two, because the hero is deliberately full bleed
+        // and a tray would inset it away from the window edge.
+        ZStack {
+            MuroPageBackground()
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    hero
+                    heroSelector
+                        .padding(.top, 22)
+                        .padding(.horizontal, 64)
+                    if !dropItems.isEmpty {
+                        dropSection
+                            .padding(.top, 44)
+                            .padding(.horizontal, 64)
+                    }
+                    pickSection
                         .padding(.top, 44)
                         .padding(.horizontal, 64)
+                        .padding(.bottom, 48)
                 }
-                pickSection
-                    .padding(.top, 44)
-                    .padding(.horizontal, 64)
-                    .padding(.bottom, 48)
             }
+            .ignoresSafeArea(edges: .top)
+            // A drop that lands while the app is open replaces the row's
+            // contents under whatever page the user had turned to, which would
+            // otherwise leave them looking at a page that no longer exists.
+            .onChange(of: dropItems.first?.id) { _, _ in dropPage = 0 }
         }
-        .ignoresSafeArea(edges: .top)
-        // A drop that lands while the app is open replaces the row's contents
-        // under whatever page the user had turned to, which would otherwise
-        // leave them looking at a page that no longer exists.
-        .onChange(of: dropItems.first?.id) { _, _ in dropPage = 0 }
     }
 
     // MARK: - Hero
@@ -43,15 +53,45 @@ struct HomeView: View {
     @ViewBuilder private var hero: some View {
         if let item = store.heroItem {
             ZStack(alignment: .bottomLeading) {
-                heroMedia(item)
-                LinearGradient(
-                    stops: [
-                        .init(color: .black.opacity(0.15), location: 0),
-                        .init(color: .clear, location: 0.35),
-                        .init(color: Color.muroBG.opacity(0.35), location: 0.72),
-                        .init(color: Color.muroBG, location: 1)
-                    ],
-                    startPoint: .top, endPoint: .bottom
+                // The video and its scrim fade to nothing at the bottom edge,
+                // so whatever the page background happens to be there shows
+                // through and the hero has no edge at all.
+                //
+                // It used to fade to a colour instead, and that is what drew a
+                // hard line across the window. A colour can only match a
+                // background that is flat, and this one is not: the blooms sit
+                // behind the hero's bottom edge and shift with the window
+                // size, so there is no single value that is ever right.
+                // Transparent matches everything, at every size, for free.
+                ZStack {
+                    heroMedia(item)
+                    // Darkening only, for the title and buttons to read
+                    // against. Black rather than a background colour, because
+                    // this fades out with everything else.
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.15), location: 0),
+                            .init(color: .clear, location: 0.35),
+                            .init(color: .black.opacity(0.30), location: 0.75),
+                            .init(color: .black.opacity(0.45), location: 1)
+                        ],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                }
+                // Four stops rather than two: a straight ramp still reads as a
+                // line where it begins, because the eye finds the point the
+                // slope changes. This eases in and then falls away.
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white, location: 0),
+                            .init(color: .white, location: 0.50),
+                            .init(color: .white.opacity(0.82), location: 0.70),
+                            .init(color: .white.opacity(0.35), location: 0.88),
+                            .init(color: .clear, location: 1)
+                        ],
+                        startPoint: .top, endPoint: .bottom
+                    )
                 )
                 heroContent(item)
                     .padding(.leading, 64)
