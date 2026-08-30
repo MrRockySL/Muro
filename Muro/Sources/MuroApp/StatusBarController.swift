@@ -14,6 +14,7 @@ final class StatusBarController: NSObject {
     private let panel: NSPanel
     private let container = NSView()
     private let hostingView: NSHostingView<MenuBarPanelRoot>
+    private let store: AppStore
     private var eventMonitors: [Any] = []
     /// When the panel is open and the status item is clicked, a dismissal
     /// monitor sees that click first and closes the panel; the button's own
@@ -24,6 +25,7 @@ final class StatusBarController: NSObject {
     private let reopenSuppression: TimeInterval = 0.25
 
     init(store: AppStore) {
+        self.store = store
         hostingView = FirstMouseHostingView(rootView: MenuBarPanelRoot(store: store))
 
         panel = KeyablePanel(
@@ -103,6 +105,11 @@ final class StatusBarController: NSObject {
 
     private func openPanel() {
         guard let button = statusItem?.button, let buttonWindow = button.window else { return }
+        // Here, not in the SwiftUI view's `onAppear`. The panel's hosting view
+        // is built once and this only orders it back on screen, so `onAppear`
+        // fires on the very first open and never again: a check made on Monday
+        // was still saying "Muro is up to date" on Friday.
+        store.clearUpdateCheckResult()
         let size = hostingView.fittingSize
         let anchor = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
         var x = anchor.midX - size.width / 2
