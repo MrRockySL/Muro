@@ -57,9 +57,12 @@ struct RootView: View {
         ZStack(alignment: .top) {
             Color.muroBG.ignoresSafeArea()
 
-            // Small directional slide + fade when switching pages. The
-            // per-tab .id makes SwiftUI treat each page as insert/remove so
-            // the transition actually fires.
+            // A straight crossfade. The per-tab .id makes SwiftUI treat each
+            // page as insert/remove so the transition actually fires.
+            //
+            // No slide here, unlike everywhere else in the app. See
+            // `.muroTab`: these are whole windows, so moving one moves its
+            // background and resizes the glass tray's corners with it.
             Group {
                 switch store.tab {
                 case .home: HomeView()
@@ -68,10 +71,7 @@ struct RootView: View {
                 }
             }
             .id(store.tab)
-            .transition(.asymmetric(
-                insertion: .opacity.combined(with: .offset(x: 26 * store.tabShift)),
-                removal: .opacity.combined(with: .offset(x: -26 * store.tabShift))
-            ))
+            .transition(.opacity)
 
             TopBar()
 
@@ -81,7 +81,7 @@ struct RootView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.22), value: store.tab)
+        .animation(.muroTab, value: store.tab)
         .animation(.easeInOut(duration: 0.18), value: store.previewItem?.id)
         .alert("Couldn’t set wallpaper", isPresented: Binding(
             get: { store.applyError != nil },

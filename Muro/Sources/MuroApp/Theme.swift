@@ -135,6 +135,63 @@ extension Color {
     static let muroDanger = Color(hex: 0xFF6B6B)
 }
 
+// MARK: - Page changes
+
+extension Animation {
+    /// The one curve behind every page change in Muro: the main tabs, the
+    /// Library's tabs, Explore's categories, and both card rows on Home.
+    ///
+    /// Slower and softer than the rest of the app on purpose. Muro's other
+    /// animations are 0.12 to 0.24 second easeOuts on small controls, where
+    /// quick reads as responsive. A page change moves a screenful of large
+    /// photographs, and at that size quick reads as a flicker instead of as
+    /// movement. Damping just under 1 lets it glide to a stop with no bounce,
+    /// which is the difference between smooth and springy.
+    static let muroPage = Animation.spring(response: 0.5, dampingFraction: 0.94)
+
+    /// Switching between Home, Explore and Library. A plain crossfade, and
+    /// deliberately not `.muroPage`.
+    ///
+    /// Those three are whole windows, not panels inside one. Sliding or
+    /// scaling a whole window animates its background with it: the gradient
+    /// and its blooms slide under the content, and the glass tray's rounded
+    /// corners visibly resize. The Library's tabs and Explore's categories can
+    /// move because they happen inside that tray, which stays still and clips
+    /// them. Up here there is nothing outside the movement to hold the eye, so
+    /// the only thing that reads as clean is not moving at all.
+    ///
+    /// Symmetric easing rather than a spring, because both halves of a
+    /// crossfade should run at the same rate. A spring settles at the end,
+    /// which on a fade means the last of the old page lingers.
+    static let muroTab = Animation.easeInOut(duration: 0.28)
+}
+
+extension AnyTransition {
+    /// One page replacing another, leaving towards the control that sent it
+    /// and arriving from the far side.
+    ///
+    /// `shift` is which way the user went: positive for forwards, negative
+    /// for back. Offset carries the direction, opacity does most of the work,
+    /// and the barely-there scale keeps the outgoing page reading as passing
+    /// behind the incoming one rather than beside it.
+    ///
+    /// The travel is deliberately far short of a full width slide. Moving a
+    /// page its own width means it either races to get there or drags, and
+    /// the two pages sweep across the whole window on the way past.
+    static func muroPage(shift: CGFloat, distance: CGFloat = 86) -> AnyTransition {
+        let leaving = shift >= 0 ? -distance : distance
+        let arriving = shift >= 0 ? distance : -distance
+        return .asymmetric(
+            insertion: .offset(x: arriving)
+                .combined(with: .opacity)
+                .combined(with: .scale(scale: 0.985)),
+            removal: .offset(x: leaving)
+                .combined(with: .opacity)
+                .combined(with: .scale(scale: 0.985))
+        )
+    }
+}
+
 /// One soft colour bloom, sized and placed as a fraction of the page.
 private struct Bloom: View {
     var colour: Color

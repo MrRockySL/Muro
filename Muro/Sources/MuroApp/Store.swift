@@ -88,9 +88,6 @@ final class AppStore: ObservableObject {
     }
 
     @Published var tab: Tab = .home
-    /// +1 when moving right in the tab order, -1 when moving left — drives
-    /// the direction of the small slide transition between pages.
-    @Published var tabShift: CGFloat = 1
     // The merged wallpaper list is derived from exactly these two, so any
     // change to either is the one and only thing that can stale the cache
     // built from them (see `items`).
@@ -218,12 +215,12 @@ final class AppStore: ObservableObject {
 
     // MARK: - Navigation
 
+    /// There is no direction to record here any more. The three top level
+    /// tabs crossfade rather than slide, because moving a whole window moves
+    /// its background with it (see `.muroTab`). The panels inside a page still
+    /// track direction; they keep it in their own view state.
     func switchTab(_ new: Tab) {
         guard new != tab else { return }
-        let order = Tab.allCases
-        if let from = order.firstIndex(of: tab), let to = order.firstIndex(of: new) {
-            tabShift = to >= from ? 1 : -1
-        }
         tab = new
     }
 

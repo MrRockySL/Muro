@@ -5,6 +5,16 @@ struct HomeView: View {
     @State private var pickPage = 0
     @State private var dropPage = 0
 
+    /// Which way each row was last paged, so the cards leave towards the
+    /// arrow that was pressed and the new ones arrive from the far side. Kept
+    /// per row, because paging one row must not throw the other into reverse.
+    /// Same idea as the Library's own `tabShift`.
+    @State private var pickShift: CGFloat = 1
+    @State private var dropShift: CGFloat = 1
+
+    // The curve and the transition itself live in `Theme.swift` as
+    // `.muroPage`, because every page change in the app now uses them.
+
     /// The most recent drop, which is the whole point of the row: it is the
     /// batch as published, and it stays put until a newer one is published.
     private var dropItems: [WallpaperItem] { store.latestDropItems }
@@ -222,7 +232,8 @@ struct HomeView: View {
             title: "New Live Wallpapers",
             subtitle: "The latest wallpapers added to the catalog",
             items: dropItems,
-            page: $dropPage
+            page: $dropPage,
+            shift: $dropShift
         )
     }
 
@@ -235,7 +246,8 @@ struct HomeView: View {
             title: "Muro's Pick",
             subtitle: "A different twelve every time you open Muro",
             items: pickItems,
-            page: $pickPage
+            page: $pickPage,
+            shift: $pickShift
         )
     }
 
@@ -246,7 +258,8 @@ struct HomeView: View {
         title: String,
         subtitle: String,
         items: [WallpaperItem],
-        page: Binding<Int>
+        page: Binding<Int>,
+        shift: Binding<CGFloat>
     ) -> some View {
         let count = max(1, (items.count + 2) / 3)
         let start = page.wrappedValue * 3
@@ -266,23 +279,40 @@ struct HomeView: View {
                 Spacer()
                 HStack(spacing: 8) {
                     pagerButton(systemName: "chevron.left", enabled: page.wrappedValue > 0) {
-                        page.wrappedValue -= 1
+                        // Direction first, outside the animation: the
+                        // transition is built while the view re-renders, so it
+                        // has to already know which way this page is going.
+                        shift.wrappedValue = -1
+                        withAnimation(.muroPage) { page.wrappedValue -= 1 }
                     }
                     pagerButton(systemName: "chevron.right", enabled: page.wrappedValue < count - 1) {
-                        page.wrappedValue += 1
+                        shift.wrappedValue = 1
+                        withAnimation(.muroPage) { page.wrappedValue += 1 }
                     }
                 }
             }
-            HStack(spacing: 24) {
-                ForEach(shown) { item in
-                    WallpaperCard(item: item)
+            // A ZStack rather than the bare HStack. A transition means both
+            // pages exist for the moment it runs, and in the VStack they would
+            // stack up and shove the rest of Home down the screen mid
+            // animation. Overlaid, they pass through each other in place.
+            ZStack {
+                HStack(spacing: 24) {
+                    ForEach(shown) { item in
+                        WallpaperCard(item: item)
+                    }
+                    // Keeps a short last page's cards the same width as a full
+                    // one's rather than letting three columns become one.
+                    if shown.count < 3 {
+                        ForEach(0..<(3 - shown.count), id: \.self) { _ in Color.clear }
+                    }
                 }
-                // Keeps a short last page's cards the same width as a full
-                // one's rather than letting three columns become one.
-                if shown.count < 3 {
-                    ForEach(0..<(3 - shown.count), id: \.self) { _ in Color.clear }
-                }
+                // The `.id` is what makes this a page change at all: without
+                // it SwiftUI reuses the same three cards and just swaps their
+                // images, which no transition can animate.
+                .id(page.wrappedValue)
+                .transition(.muroPage(shift: shift.wrappedValue))
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

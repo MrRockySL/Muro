@@ -12,6 +12,11 @@ import MuroKit
 struct ExploreView: View {
     @EnvironmentObject var store: AppStore
     @State private var category = "All"
+    /// Which way the last category change went, read off the order of the
+    /// pills themselves, so the grid leaves towards the pill you came from.
+    /// A resolution or FPS change leaves it alone: those are not a direction,
+    /// so they reuse whichever way the row last moved.
+    @State private var categoryShift: CGFloat = 1
     @State private var resolution = "All"
     @State private var fps = "All"
 
@@ -85,10 +90,10 @@ struct ExploreView: View {
                         .padding(.top, 22)
                         .padding(.bottom, 40)
                         .id(filterKey)
-                        .transition(.opacity.combined(with: .offset(y: 6)))
+                        .transition(.muroPage(shift: categoryShift))
                     }
                     .scrollFade(top: 22, bottom: 46)
-                    .animation(.easeOut(duration: 0.24), value: filterKey)
+                    .animation(.muroPage, value: filterKey)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
@@ -112,7 +117,21 @@ struct ExploreView: View {
     private var categorySegments: some View {
         PillSegments(
             options: categoryOptions,
-            selection: $category,
+            selection: Binding(
+                get: { category },
+                set: { new in
+                    guard new != category else { return }
+                    // Direction first, and outside the animation: the
+                    // transition is built as the view re-renders, so it has to
+                    // already know which way this one is going.
+                    let order = categoryOptions.map(\.id)
+                    if let from = order.firstIndex(of: category),
+                       let to = order.firstIndex(of: new) {
+                        categoryShift = to >= from ? 1 : -1
+                    }
+                    category = new
+                }
+            ),
             height: 42,
             labelSize: 13.5,
             horizontalPadding: 16
