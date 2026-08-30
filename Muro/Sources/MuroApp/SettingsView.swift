@@ -110,7 +110,7 @@ struct SettingsView: View {
                                     title: seconds == 0 ? "Off" : durationLabel(seconds),
                                     checked: store.pauseAfterSeconds == seconds
                                 ) { store.setPauseAfter(seconds) }
-                            } + [.divider, MenuOption(title: "Custom…") { customPauseAfter = true }]
+                            } + [.divider, MenuOption(title: "Custom") { customPauseAfter = true }]
                         }) {
                             HStack(spacing: 6) {
                                 Text(store.pauseAfterSeconds == 0
@@ -168,7 +168,7 @@ struct SettingsView: View {
                         if index > 0 { divider }
                         row(icon: display.symbolName,
                             tint: .cyan,
-                            title: display.name,
+                            title: display.displayName,
                             subtitle: "\(display.kindLabel) display") {
                             Text("\(display.pixelsW) × \(display.pixelsH)")
                                 .font(.system(size: 12, weight: .medium))

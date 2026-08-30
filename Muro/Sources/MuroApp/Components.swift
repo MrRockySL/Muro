@@ -608,6 +608,9 @@ struct AppliedChip: View {
                 .font(.system(size: 9, weight: .semibold))
                 .tracking(0.9)
                 .foregroundStyle(.white.opacity(0.95))
+                // Monitors name themselves, and some of them are wordy. One
+                // line whatever they are called.
+                .lineLimit(1)
         }
         .padding(.leading, 9)
         .padding(.trailing, 10)
@@ -858,9 +861,8 @@ struct WallpaperCard: View {
     }
 
     @ViewBuilder private var topLeadingChip: some View {
-        let applied = store.appliedDisplays(for: item.id)
-        if let first = applied.first {
-            AppliedChip(label: applied.count > 1 ? "ALL DISPLAYS" : first.chipLabel)
+        if let label = store.appliedChipLabel(for: item.id) {
+            AppliedChip(label: label)
                 .padding(12)
         } else if store.isNew(item) {
             NewBadge().padding(12)

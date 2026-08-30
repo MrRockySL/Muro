@@ -149,9 +149,8 @@ struct HomeView: View {
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(Color.muroSecondary)
                 FPSChip(text: item.fps > 40 ? "\(Int(item.fps)) FPS" : "\(item.resolutionLabel) · \(Int(item.fps))")
-                let applied = store.appliedDisplays(for: item.id)
-                if let first = applied.first {
-                    AppliedChip(label: "APPLIED · " + (applied.count > 1 ? "ALL DISPLAYS" : first.chipLabel))
+                if let label = store.appliedChipLabel(for: item.id) {
+                    AppliedChip(label: "APPLIED · " + label)
                 }
             }
             .padding(.top, 14)

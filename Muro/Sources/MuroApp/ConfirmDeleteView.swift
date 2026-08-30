@@ -231,6 +231,6 @@ struct ConfirmDeleteView: View {
     }
 
     private func friendly(_ display: DisplayInfo) -> String {
-        display.name.localizedCaseInsensitiveContains("built-in") ? "MacBook" : display.name
+        display.displayName
     }
 }

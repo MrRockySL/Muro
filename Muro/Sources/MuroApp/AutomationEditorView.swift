@@ -760,7 +760,7 @@ struct DurationStepper: View {
             MenuButton(width: 160, align: .center) {
                 presets.map { value in
                     MenuOption(title: durationLabel(value), checked: seconds == value) { seconds = value }
-                } + [.divider, MenuOption(title: "Custom…") { onCustom() }]
+                } + [.divider, MenuOption(title: "Custom") { onCustom() }]
             } label: {
                 HStack(spacing: 6) {
                     Text(durationLabel(seconds))
