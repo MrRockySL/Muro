@@ -20,6 +20,10 @@ struct MenuBarView: View {
         }
         .padding(16)
         .frame(width: 306)
+        // The update row is reset by `StatusBarController.openPanel`, not from
+        // here. This view is built once and reused, so an `onAppear` fires on
+        // the first open of the panel and never again.
+        //
         // No background here: StatusBarController hosts this in a fully
         // transparent panel whose container draws the single rounded
         // dark-glass card (blur + wash + border).
@@ -295,30 +299,55 @@ struct MenuBarView: View {
 
     private var menuButtons: some View {
         VStack(spacing: 2) {
-            menuRow("Open Muro") {
+            menuRow("Open Muro", icon: "macwindow") {
                 StatusBarController.shared?.closePanel()
                 showMainWindow()
             }
-            menuRow("Settings") {
+            menuRow("Settings", icon: "gearshape") {
                 StatusBarController.shared?.closePanel()
                 openSettingsWindow()
             }
-            menuRow("Quit Muro", trailingText: "⌘Q") {
+            updateRow
+            menuRow("Quit Muro", icon: "power", trailingText: "⌘Q") {
                 NSApp.terminate(nil)
             }
         }
     }
 
+    /// Leading icons, so these read as part of the same panel as the Playlists
+    /// and Automations rows above them rather than as a plain text list
+    /// bolted underneath. Same size and opacity as those two use.
     private func menuRow(
-        _ title: String, trailing: String? = nil, trailingText: String? = nil,
+        _ title: String, icon: String, badge: String? = nil,
+        trailing: String? = nil, trailingText: String? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: 9) {
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(width: 16)
                 Text(title)
                     .font(.system(size: 12.5))
                     .foregroundStyle(.white)
-                Spacer()
+                    .fixedSize()
+                Spacer(minLength: 6)
+                if let badge {
+                    // The accent capsule the app already uses for a count or a
+                    // state, rather than a new shape invented for this. Small
+                    // and tinted rather than solid: it is a flag saying there
+                    // is something to find, not the action itself. Pressing
+                    // the row is still what finds it.
+                    Text(badge)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Color.muroAccent)
+                        .fixedSize()
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.muroAccent.opacity(0.14)))
+                        .overlay(Capsule().strokeBorder(Color.muroAccent.opacity(0.30), lineWidth: 1))
+                }
                 if let trailing {
                     Image(systemName: trailing)
                         .font(.system(size: 10, weight: .semibold))
@@ -335,6 +364,108 @@ struct MenuBarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(MenuRowButtonStyle())
+    }
+
+    // MARK: - Update
+
+    /// One row that answers rather than one that just does something.
+    ///
+    /// The whole point of pressing "Check for Updates" is to be told, so this
+    /// row says what happened in place: checking, up to date, could not reach
+    /// GitHub, or a version with a Download beside it. It shares
+    /// `store.updateCheck` with the same button in Settings, so a check made
+    /// in one is not forgotten by the other.
+    @ViewBuilder private var updateRow: some View {
+        switch store.updateCheck {
+        case .idle:
+            // The badge is read from `latestRelease`, not from this button
+            // ever having been pressed. Muro already asks GitHub every six
+            // hours and that check is silent, so without the badge the panel
+            // would sit there offering a check while the app privately knew a
+            // new version was out. The row still offers the check, because
+            // being told is the point of pressing it.
+            menuRow(
+                "Check for Updates",
+                icon: "arrow.triangle.2.circlepath",
+                badge: store.latestRelease != nil ? "New Update Available" : nil
+            ) {
+                Task { await store.checkForUpdates(userInitiated: true) }
+            }
+        case .checking:
+            updateStatusRow(icon: "arrow.triangle.2.circlepath", title: "Checking…") {
+                ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.65)
+                    .frame(width: 16, height: 16)
+            }
+        case .upToDate:
+            updateStatusRow(icon: "checkmark.circle", title: "Muro is up to date") {
+                Text("v\(AppStore.appVersion)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.muroSecondary)
+            }
+        case .failed:
+            // Tappable, because the usual reason is a network that has since
+            // come back and the fix is to press it again.
+            menuRow("Could not check. Try again", icon: "exclamationmark.triangle") {
+                Task { await store.checkForUpdates(userInitiated: true) }
+            }
+        case let .available(version, _):
+            downloadRow(version: version)
+        }
+    }
+
+    /// The one row in this panel worth a second of attention, so it gets a
+    /// filled accent pill rather than accent-coloured text. The whole row is
+    /// the button; the pill is the affordance, not a separate target.
+    private func downloadRow(version: String) -> some View {
+        Button {
+            StatusBarController.shared?.closePanel()
+            store.downloadUpdate()
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.muroAccent)
+                    .frame(width: 16)
+                Text("Muro \(version) is available")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.white)
+                Spacer()
+                Text("Download")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.muroAccent))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(MenuRowButtonStyle())
+    }
+
+    /// A row that reports instead of acting. Same shape as `menuRow`, without
+    /// the button, so a state that is not tappable does not look tappable.
+    private func updateStatusRow<Trailing: View>(
+        icon: String,
+        title: String,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(width: 16)
+            Text(title)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Color.muroSecondary)
+            Spacer()
+            trailing()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
     }
 }
 

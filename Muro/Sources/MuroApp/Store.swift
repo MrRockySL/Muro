@@ -672,6 +672,20 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Forget the outcome of a finished check, so the next place that shows it
+    /// starts by offering the check rather than reporting an old answer.
+    ///
+    /// "Muro is up to date" and "Could not check" answer a question that was
+    /// asked at some point in the past, and a panel that reopens still showing
+    /// one of them looks like it is reporting something current. "5.0 is
+    /// available" is cleared too: the fact survives in `latestRelease`, which
+    /// is what draws the badge, so the row goes back to offering the check
+    /// with a flag on it rather than skipping the step.
+    func clearUpdateCheckResult() {
+        guard updateCheck != .idle, updateCheck != .checking else { return }
+        updateCheck = .idle
+    }
+
     /// Muro is a background app people leave running for weeks, so a check
     /// that only happens at launch is a check that never happens again. Six
     /// hours is often enough to hear about a release the day it lands and
