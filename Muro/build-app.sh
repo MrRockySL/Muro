@@ -14,8 +14,13 @@ BUILD="6"
 DIR="$(cd "$(dirname "$0")" && pwd)"
 APP="$DIR/dist/Muro.app"
 
-echo "==> swift build -c release"
-swift build -c release --package-path "$DIR"
+# Universal, so every Mac that can run macOS 14 gets a native slice rather
+# than only Apple Silicon. Both slices are the same source compiled twice,
+# which is why nothing else in the project has to know about Intel: every
+# later change reaches both without a second thought. The wallpaper
+# extension carries the same two architectures, set in its Xcode project.
+echo "==> swift build -c release (universal: arm64 + x86_64)"
+swift build -c release --package-path "$DIR" --arch arm64 --arch x86_64
 
 echo "==> assembling $APP"
 rm -rf "$DIR/dist"
