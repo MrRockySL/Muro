@@ -345,16 +345,75 @@ struct ImportButton: View {
     }
 }
 
+/// Muro's two `Window` scenes, by the titles SwiftUI gives them.
+enum MuroWindow {
+    static let gallery = "Muro"
+    static let settings = "Muro Settings"
+}
+
+@MainActor
+func window(titled title: String) -> NSWindow? {
+    NSApp.windows.first { $0.title == title }
+}
+
+/// The gallery window itself. `Window("Muro", id: "main")` is a SwiftUI scene,
+/// and closing it only orders it out, so it can always be brought back.
+@MainActor
+var mainWindow: NSWindow? { window(titled: MuroWindow.gallery) }
+
+/// Bring the gallery forward. Three places needed the same three lines, and
+/// the app delegate now needs them too when the Dock icon or Spotlight asks
+/// for a window that is only ordered out.
+@MainActor
+func showMainWindow() {
+    NSApp.activate(ignoringOtherApps: true)
+    mainWindow?.makeKeyAndOrderFront(nil)
+}
+
+/// Make a window's yellow button put it away rather than minimise it.
+///
+/// A minimised window is a different thing from an app icon, and the Dock
+/// treats it that way: `.accessory` hides the icon, it does not hide a
+/// minimised window. So with "Show Dock icon" switched off, minimising left a
+/// lone Muro thumbnail parked beside the Trash with no app icon to belong to,
+/// and nothing obvious to do about it.
+///
+/// Muro lives in the menu bar. Putting a window away should put it away, and
+/// the menu bar is how the gallery comes back, exactly like the red button.
+/// The button is left enabled and yellow rather than removing
+/// `.miniaturizable`, because a dead greyed-out button reads as broken.
+///
+/// **Every window scene has to ask for this.** Doing only the gallery left
+/// Settings minimising into the Dock exactly as before, which is how the first
+/// version of this shipped.
+@MainActor
+func makeMinimiseHideTheWindow(titled title: String) {
+    guard let button = window(titled: title)?.standardWindowButton(.miniaturizeButton)
+    else { return }
+    button.target = WindowButtonTarget.shared
+    button.action = #selector(WindowButtonTarget.hideWindow(_:))
+}
+
+/// Owns the retargeted button action. A plain function cannot be a `#selector`
+/// target, and a button does not retain its target, so this has to outlive it.
+@MainActor
+final class WindowButtonTarget: NSObject {
+    static let shared = WindowButtonTarget()
+
+    /// The sender is the button, so it knows its own window. One target can
+    /// serve every window rather than one per scene.
+    @objc func hideWindow(_ sender: Any?) {
+        (sender as? NSView)?.window?.orderOut(nil)
+    }
+}
+
 /// Bring the gallery forward and open What's New on it. The menu bar and
 /// Settings both point their "update available" line here, so there is one
 /// place in the app where an update is read about and downloaded.
 @MainActor
 func openWhatsNew(_ store: AppStore) {
     StatusBarController.shared?.closePanel()
-    NSApp.activate(ignoringOtherApps: true)
-    for window in NSApp.windows where window.title == "Muro" {
-        window.makeKeyAndOrderFront(nil)
-    }
+    showMainWindow()
     store.whatsNewOpen = true
     store.markUpdateSeen()
 }
