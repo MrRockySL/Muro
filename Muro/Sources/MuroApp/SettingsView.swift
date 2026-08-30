@@ -226,7 +226,7 @@ struct SettingsView: View {
             .onReceive(NotificationCenter.default.publisher(
                 for: NSWindow.willCloseNotification
             )) { note in
-                if (note.object as? NSWindow)?.title == "Muro Settings" {
+                if (note.object as? NSWindow)?.title == MuroWindow.settings {
                     scrollToTopOnNextOpen = true
                 }
             }
@@ -234,7 +234,7 @@ struct SettingsView: View {
                 for: NSWindow.didBecomeKeyNotification
             )) { note in
                 guard scrollToTopOnNextOpen,
-                      (note.object as? NSWindow)?.title == "Muro Settings" else { return }
+                      (note.object as? NSWindow)?.title == MuroWindow.settings else { return }
                 scrollToTopOnNextOpen = false
                 proxy.scrollTo("settings-top", anchor: .top)
             }
