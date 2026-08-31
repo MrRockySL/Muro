@@ -42,6 +42,14 @@ enum LockScreenServiceError: LocalizedError {
 /// away a selection that was usually about to settle a second later.
 enum LockScreenApplyOutcome {
     case applied
+    /// Written, held by the stores, but macOS has not come to collect it yet.
+    ///
+    /// Deliberately separate from `.needsSystemSettings`, which puts a modal
+    /// alert in front of the user. This one says nothing on screen and only
+    /// reaches the diagnostics log. An apply that macOS picks up a moment late
+    /// is common; telling somebody their wallpaper failed when it is about to
+    /// work would be worse than the silence it replaced.
+    case pendingAcknowledgement
     case needsSystemSettings
 }
 
@@ -198,6 +206,56 @@ final class LockScreenService {
         }
     }
 
+    /// The extension's side of the handshake. Mirrors the type it writes.
+    private struct AcquireReceipt: Codable {
+        var id: String
+        var at: Date
+        var ok: Bool
+        var preview: Bool
+        var detail: String
+    }
+
+    private static var acquireReceiptURL: URL {
+        extensionDocumentsURL.appendingPathComponent("acquire-receipt.json")
+    }
+
+    private static func latestReceipt() -> AcquireReceipt? {
+        guard let data = try? Data(contentsOf: acquireReceiptURL) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode(AcquireReceipt.self, from: data)
+    }
+
+    /// Waits for macOS to actually come and collect the wallpaper.
+    ///
+    /// This replaces re-reading the property list Muro had just written, which
+    /// could only ever fail if WallpaperAgent deleted the line within a few
+    /// seconds. Everything else, macOS ignoring the choice included, read as
+    /// success. A receipt is written by the extension when macOS calls
+    /// `acquire`, so it cannot be produced by Muro talking to itself.
+    ///
+    /// A preview acquire counts. It is still macOS accepting the provider and
+    /// finding the staged file, and refusing it would invent failures on any
+    /// Mac that previews before it commits.
+    private static func awaitAcknowledgement(
+        wallpaperID: String,
+        since: Date,
+        timeout: TimeInterval
+    ) async -> Bool {
+        func matches() -> Bool {
+            guard let receipt = latestReceipt() else { return false }
+            return receipt.ok
+                && receipt.id == wallpaperID
+                && receipt.at >= since.addingTimeInterval(-1)
+        }
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if matches() { return true }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+        return matches()
+    }
+
     @discardableResult
     func apply(
         entry: WallpaperEntry,
@@ -234,8 +292,10 @@ final class LockScreenService {
                 // watch for the selection to appear; if the agent clobbered it,
                 // write again. Three passes, about ten seconds in the worst
                 // case, and almost always settled on the first.
-                var settled = false
-                for attempt in 1...3 {
+                let applyStart = Date()
+                var acknowledged = false
+                var storeHolds = false
+                for _ in 1...3 {
                     try await Self.updateWallpaperStores(
                         wallpaperID: entry.id,
                         videoURL: Self.stagedVideoURL(id: entry.id),
@@ -244,16 +304,26 @@ final class LockScreenService {
                     )
                     Self.notifyLibraryChanged()
                     Self.restartWallpaperAgent()
-                    if await Self.awaitSelection(timeout: attempt == 1 ? 4 : 3) {
-                        settled = true
+                    if await Self.awaitAcknowledgement(
+                        wallpaperID: entry.id, since: applyStart, timeout: 3
+                    ) {
+                        acknowledged = true
+                        storeHolds = true
                         break
                     }
+                    // No receipt. If the stores still hold the choice then
+                    // macOS simply has not come looking, and writing it a
+                    // fourth time will not make it. Only a choice the agent
+                    // overwrote is worth another pass.
+                    storeHolds = Self.wallpaperStoresHaveSelection()
+                    if storeHolds { break }
                 }
 
                 try Self.saveState(nextState, root: root)
                 try Self.pruneStagedLibrary(
                     keeping: Set(nextState.selections.values).subtracting([Self.removedSelection])
                 )
+                let settled = acknowledged || storeHolds
                 // The wallpaper this one replaced has just lost its staged
                 // file, so every record still naming it is now dead. Sweeping
                 // here is what stops the stores growing a layer per wallpaper.
@@ -262,19 +332,20 @@ final class LockScreenService {
                 if (try? Self.purgeDeadMuroSurfaces(root: root)) == true {
                     Self.restartWallpaperAgent()
                 }
-                if !settled {
-                    // Everything Muro owns is written and the extension is
-                    // registered. Only macOS has not acknowledged it. Keep the
-                    // lot and tell the user the one step that finishes it.
-                    Self.recordDiagnostics(
-                        root: root,
-                        wallpaperID: entry.id,
-                        targetKey: targetKey,
-                        registered: true,
-                        settled: false
-                    )
-                }
-                return settled ? .applied : .needsSystemSettings
+                // Recorded every time now, not only on failure. An apply that
+                // reports success and quietly does nothing is exactly the case
+                // that used to leave no trace at all, which is what made the
+                // first report of it unanswerable.
+                Self.recordDiagnostics(
+                    root: root,
+                    wallpaperID: entry.id,
+                    targetKey: targetKey,
+                    registered: true,
+                    settled: settled,
+                    acknowledged: acknowledged
+                )
+                if !settled { return .needsSystemSettings }
+                return acknowledged ? .applied : .pendingAcknowledgement
             } catch {
                 // Only a real failure rolls back: the extension would not
                 // register, or a store write threw. A slow agent no longer
@@ -358,6 +429,7 @@ final class LockScreenService {
             Self.unregisterExtension(at: extensionURL)
             try? FileManager.default.removeItem(at: Self.extensionDocumentsURL)
             try? FileManager.default.removeItem(at: Self.stateURL(root: root))
+            try? FileManager.default.removeItem(at: Self.acquireReceiptURL)
             try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
             try? FileManager.default.removeItem(at: Self.legacyBackupURL(root: root))
         }.value
@@ -463,16 +535,6 @@ final class LockScreenService {
         wallpaperStoreURLs.contains {
             containsMuroSurface(named: "Desktop", in: loadWallpaperStore(at: $0))
         }
-    }
-
-    /// Watch for the selection instead of guessing how long the agent takes.
-    private static func awaitSelection(timeout: TimeInterval) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if wallpaperStoresHaveSelection() { return true }
-            try? await Task.sleep(nanoseconds: 250_000_000)
-        }
-        return wallpaperStoresHaveSelection()
     }
 
     private static func containsMuroSurface(named name: String, in value: Any?) -> Bool {
@@ -1022,6 +1084,7 @@ final class LockScreenService {
         targetKey: String,
         registered: Bool,
         settled: Bool,
+        acknowledged: Bool = false,
         error: Error? = nil
     ) {
         let version = ProcessInfo.processInfo.operatingSystemVersionString
@@ -1036,6 +1099,13 @@ final class LockScreenService {
             "target=\(targetKey)",
             "registered=\(registered)",
             "settled=\(settled)",
+            // The honest half. `settled` only says the stores kept what Muro
+            // wrote; `acknowledged` says macOS came and collected it.
+            "acknowledged=\(acknowledged)",
+            latestReceipt().map {
+                "receipt=\($0.detail)/\($0.ok ? "ok" : "failed")"
+                    + ($0.preview ? "/preview" : "")
+            } ?? "receipt=none",
             stores,
             error.map { "error=\($0.localizedDescription)" } ?? "",
         ].filter { !$0.isEmpty }.joined(separator: " | ")

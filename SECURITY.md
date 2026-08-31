@@ -138,18 +138,26 @@ Muro stores local data in:
 - The `com.mrrockysl.muro` preferences domain for interface and catalog settings
 - The wallpaper extension's container for staged lock-screen files and its
   local diagnostic log
-- `~/Library/Application Support/Muro/lockscreen-diagnostics.log`, written only
-  when a lock-screen apply fails or is not acknowledged by macOS
+- `~/Library/Application Support/Muro/lockscreen-diagnostics.log`, written on
+  every lock-screen apply
 
 The extension log records technical lifecycle events such as process IDs,
 wallpaper and display identifiers, requested dimensions, and errors. Since 3.0
 it is size-capped rather than growing without limit.
 
 The lock-screen diagnostics log records the macOS version, the wallpaper and
-target identifiers, whether the extension was registered, and which wallpaper
-store did not accept the change. It exists so a failure report can be answered.
-It is capped at 32 KB and, like the extension log, contains no video contents
-and is never uploaded.
+target identifiers, whether the extension was registered, whether the wallpaper
+stores kept the change, and whether macOS acknowledged it. It exists so a
+failure report can be answered. Since 4.0 it is written on every apply rather
+than only on a failure, because an apply that reported success and did nothing
+used to leave no record at all. It is capped at 32 KB and, like the extension
+log, contains no video contents and is never uploaded.
+
+The extension also writes a small `acquire-receipt.json` inside its own
+container, holding the identifier of the wallpaper macOS last asked it for, the
+time, and whether a frame was drawn. Muro reads it to tell an apply that macOS
+genuinely collected apart from one it only wrote down. It is a single record,
+overwritten each time, and is never uploaded.
 
 ### Dependencies and release contents
 

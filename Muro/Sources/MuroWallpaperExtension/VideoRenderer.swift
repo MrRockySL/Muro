@@ -92,18 +92,24 @@ final class VideoRenderer: @unchecked Sendable {
         CATransaction.flush()
     }
 
-    func start(initiallyPaused: Bool, firstFrameReady: @escaping @Sendable () -> Void) {
+    /// `firstFrameReady` carries whether a frame actually reached the layer.
+    ///
+    /// It used to carry nothing, so every caller was told "ready" even when the
+    /// asset would not open. That mattered once the app started waiting on this
+    /// answer to decide whether a lock-screen apply really took.
+    func start(initiallyPaused: Bool, firstFrameReady: @escaping @Sendable (Bool) -> Void) {
         queue.async { [weak self] in
-            guard let self, isRunning else { firstFrameReady(); return }
+            guard let self, isRunning else { firstFrameReady(false); return }
             guard let reader = try? AVAssetReader(asset: asset) else {
-                firstFrameReady()
+                extensionLog("renderer could not open the video")
+                firstFrameReady(false)
                 return
             }
             let output = makeOutput()
             reader.add(output)
             guard reader.startReading() else {
                 extensionLog("renderer could not start reading: \(reader.error?.localizedDescription ?? "unknown")")
-                firstFrameReady()
+                firstFrameReady(false)
                 return
             }
 
@@ -113,6 +119,7 @@ final class VideoRenderer: @unchecked Sendable {
             lastEnqueuedEnd = .zero
             CMTimebaseSetTime(timebase, time: .zero)
 
+            var composited = false
             if let first = output.copyNextSampleBuffer() {
                 CATransaction.begin()
                 CATransaction.setDisableActions(true)
@@ -120,6 +127,7 @@ final class VideoRenderer: @unchecked Sendable {
                 noteEnd(of: first)
                 CATransaction.commit()
                 CATransaction.flush()
+                composited = true
                 extensionTrace("renderer composited first frame")
             } else {
                 extensionLog("renderer produced no first frame")
@@ -127,7 +135,7 @@ final class VideoRenderer: @unchecked Sendable {
 
             isPaused = initiallyPaused
             CMTimebaseSetRate(timebase, rate: initiallyPaused ? 0 : 1)
-            firstFrameReady()
+            firstFrameReady(composited)
             prepareNextReader()
             feedCurrentReader()
         }
