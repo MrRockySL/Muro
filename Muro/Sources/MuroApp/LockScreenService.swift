@@ -115,14 +115,40 @@ final class LockScreenService {
         // moment. Cheap when there is nothing to clear (two `getxattr` calls).
         await Task.detached(priority: .utility) { Self.clearQuarantine() }.value
 
-        guard !activeWallpaperIDs.isEmpty else { return }
         let root = self.root
         let extensionURL = extensionBundleURL
+
+        // Muro claiming nothing is not the same as Apple holding nothing. A
+        // record can outlive the wallpaper it names, and this branch used to
+        // return before it could ever look. The result was a Mac where macOS
+        // asked Muro for a lock-screen wallpaper on every wake, Muro answered
+        // with nothing because the file was gone, and neither side knew: the
+        // app showed no lock-screen wallpaper set, so there was nothing to
+        // suggest anything was wrong.
+        guard !activeWallpaperIDs.isEmpty else {
+            let changed = await Task.detached(priority: .utility) {
+                (try? Self.purgeDeadMuroSurfaces(root: root)) == true
+            }.value
+            if changed {
+                await Task.detached(priority: .utility) { Self.restartWallpaperAgent() }.value
+            }
+            return
+        }
 
         let stillSelected = await Task.detached(priority: .utility) {
             Self.wallpaperStoresHaveSelection()
         }.value
-        guard !stillSelected else { return }
+        // A healthy selection can still sit alongside records left by earlier
+        // wallpapers, so this path sweeps rather than simply returning.
+        guard !stillSelected else {
+            let changed = await Task.detached(priority: .utility) {
+                (try? Self.purgeDeadMuroSurfaces(root: root)) == true
+            }.value
+            if changed {
+                await Task.detached(priority: .utility) { Self.restartWallpaperAgent() }.value
+            }
+            return
+        }
 
         await Task.detached(priority: .utility) {
             try? await Self.restoreWallpaperStores(targetKey: "all", root: root)
@@ -228,6 +254,14 @@ final class LockScreenService {
                 try Self.pruneStagedLibrary(
                     keeping: Set(nextState.selections.values).subtracting([Self.removedSelection])
                 )
+                // The wallpaper this one replaced has just lost its staged
+                // file, so every record still naming it is now dead. Sweeping
+                // here is what stops the stores growing a layer per wallpaper.
+                // The live record is untouched, so the agent only re-reads
+                // what it is already showing.
+                if (try? Self.purgeDeadMuroSurfaces(root: root)) == true {
+                    Self.restartWallpaperAgent()
+                }
                 if !settled {
                     // Everything Muro owns is written and the extension is
                     // registered. Only macOS has not acknowledged it. Keep the
@@ -296,6 +330,13 @@ final class LockScreenService {
             try Self.pruneStagedLibrary(
                 keeping: Set(nextState.selections.values).subtracting([Self.removedSelection])
             )
+            // `restoreWallpaperStores` only rewrites surfaces matching this
+            // target. Records for the same wallpaper under a display that is
+            // no longer connected, or under another Space, are not matched and
+            // used to survive a removal forever.
+            if (try? Self.purgeDeadMuroSurfaces(root: root)) == true {
+                Self.restartWallpaperAgent()
+            }
             if nextState.selections.values.allSatisfy({ $0 == Self.removedSelection }) {
                 Self.unregisterExtension(at: extensionURL)
                 try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
@@ -679,6 +720,52 @@ final class LockScreenService {
         }
     }
 
+    /// Takes every dead Muro record out of Apple's stores and gives the
+    /// surface back to whatever the user had.
+    ///
+    /// Needed because a wallpaper apply fans out. Apple keeps one `Desktop`
+    /// surface per Space per display and the write walks all of them, so a Mac
+    /// that has used the feature for a while accumulates a record per Space
+    /// for every wallpaper it has ever shown. Removing one wallpaper only ever
+    /// rewrote the surfaces matching that target, so the rest sat there
+    /// pointing at videos that had since been deleted: measured at 139 of 356
+    /// records on the developer's own Mac, with the two stores disagreeing
+    /// about which wallpaper was current.
+    ///
+    /// Returns whether anything changed, so the caller only restarts
+    /// WallpaperAgent when there is a reason to.
+    @discardableResult
+    private static func purgeDeadMuroSurfaces(root: URL) throws -> Bool {
+        let manager = FileManager.default
+        var changedAnyStore = false
+        for storeURL in wallpaperStoreURLs where manager.fileExists(atPath: storeURL.path) {
+            let data = try Data(contentsOf: storeURL)
+            var current = try PropertyListSerialization.propertyList(from: data, format: nil)
+            let backup = (try? Data(contentsOf: backupURL(root: root, storeName: storeURL.lastPathComponent)))
+                .flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) }
+            var changed = false
+
+            for surfaceName in ["Desktop", "Idle", "Linked"] {
+                let fallback = backup.flatMap { firstNonMuroSurface(named: surfaceName, in: $0) }
+                    ?? firstNonMuroSurface(named: surfaceName, in: current)
+                    ?? crossStoreNonMuroSurface(named: surfaceName)
+                    ?? defaultSurface()
+                mutateSurfaces(named: surfaceName, in: &current, path: []) { path, surface in
+                    guard isDeadMuroSurface(surface) else { return surface }
+                    changed = true
+                    return backup.flatMap { self.surface(named: surfaceName, at: path, in: $0) }
+                        .flatMap { isMuroSurface($0) ? nil : $0 }
+                        ?? fallback
+                }
+            }
+
+            guard changed else { continue }
+            try writePropertyList(current, to: storeURL)
+            changedAnyStore = true
+        }
+        return changedAnyStore
+    }
+
     private static func writePropertyList(_ value: Any, to url: URL) throws {
         let data = try PropertyListSerialization.data(
             fromPropertyList: value,
@@ -726,6 +813,37 @@ final class LockScreenService {
               let choices = content["Choices"] as? [[String: Any]]
         else { return false }
         return choices.contains { ($0["Provider"] as? String) == extensionBundleID }
+    }
+
+    /// The wallpaper this Muro record asks the extension to play. macOS hands
+    /// the same bytes back on `acquire`, so it is what the extension looks up.
+    private static func muroWallpaperID(of surface: [String: Any]) -> String? {
+        guard let content = surface["Content"] as? [String: Any],
+              let choices = content["Choices"] as? [[String: Any]]
+        else { return nil }
+        for choice in choices where (choice["Provider"] as? String) == extensionBundleID {
+            guard let data = choice["Configuration"] as? Data else { continue }
+            return String(data: data, encoding: .utf8)
+        }
+        return nil
+    }
+
+    /// A Muro record is dead when the video it names is no longer staged.
+    ///
+    /// Dead records are the whole failure: macOS still believes Muro owns the
+    /// surface, asks the extension for that wallpaper, and the extension has
+    /// nothing to hand back, so the lock screen falls back to Apple's default
+    /// and the extension log fills with `no staged lock-screen library`.
+    ///
+    /// Deliberately keyed on the staged file rather than on Muro's own
+    /// selection list. A wallpaper picked straight from System Settings never
+    /// reaches `lockscreen.json`, so judging by the selection list would tear
+    /// out a choice the user made by hand. A record naming a file that does
+    /// not exist cannot be anybody's working choice.
+    private static func isDeadMuroSurface(_ surface: [String: Any]) -> Bool {
+        guard isMuroSurface(surface) else { return false }
+        guard let id = muroWallpaperID(of: surface), !id.isEmpty else { return true }
+        return !FileManager.default.fileExists(atPath: stagedVideoURL(id: id).path)
     }
 
     private static func firstSurface(named name: String, in value: Any) -> [String: Any]? {
