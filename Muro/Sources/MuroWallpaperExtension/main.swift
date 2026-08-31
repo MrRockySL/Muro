@@ -160,6 +160,9 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
            let response = createRemoteContextXPC(contextId: existing.context.contextId)
         {
             extensionTrace("reusing remote context \(existing.context.contextId)")
+            AcquireReceipt.record(
+                id: info.choiceID, preview: info.isPreview, ok: true, detail: "reused"
+            )
             reply(response, nil)
             return
         }
@@ -167,6 +170,9 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         let videoURL = info.files.first { FileManager.default.fileExists(atPath: $0.path) }
             ?? stagedVideoURL(for: info.choiceID)
         guard let videoURL else {
+            AcquireReceipt.record(
+                id: info.choiceID, preview: info.isPreview, ok: false, detail: "not staged"
+            )
             reply(nil, extensionError(2, "The selected Muro video is not staged."))
             return
         }
@@ -177,6 +183,9 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             ? CAContext.remoteContext()
             : CAContext.perform(NSSelectorFromString("remoteContextWithOptions:"), with: options)?.takeUnretainedValue()
         guard let context = rawContext as? CAContext, context.contextId != 0 else {
+            AcquireReceipt.record(
+                id: info.choiceID, preview: info.isPreview, ok: false, detail: "no context"
+            )
             reply(nil, extensionError(3, "Could not create the remote wallpaper context."))
             return
         }
@@ -189,6 +198,9 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         CATransaction.flush()
 
         guard let response = createRemoteContextXPC(contextId: context.contextId) else {
+            AcquireReceipt.record(
+                id: info.choiceID, preview: info.isPreview, ok: false, detail: "no remote context"
+            )
             reply(nil, extensionError(4, "Could not wrap the remote wallpaper context."))
             return
         }
@@ -206,12 +218,27 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             )
             let responseBox = SendableBox(value: response)
             let contextID = context.contextId
-            renderer.start(initiallyPaused: !RendererState.shared.shouldPlayNow(isPreview: info.isPreview)) {
+            let choiceID = info.choiceID
+            let isPreview = info.isPreview
+            renderer.start(initiallyPaused: !RendererState.shared.shouldPlayNow(isPreview: info.isPreview)) { composited in
                 extensionTrace("remote context \(contextID) ready")
+                // Recorded whether or not a frame landed. A paused start still
+                // composites one, so this stays true for the desktop surface,
+                // where the extension is deliberately frozen.
+                AcquireReceipt.record(
+                    id: choiceID,
+                    preview: isPreview,
+                    ok: composited,
+                    detail: composited ? "rendering" : "no first frame"
+                )
                 reply(responseBox.value, nil)
             }
         } catch {
             extensionLog("renderer creation failed: \(error)")
+            AcquireReceipt.record(
+                id: info.choiceID, preview: info.isPreview, ok: false,
+                detail: "renderer failed"
+            )
             reply(nil, extensionError(5, error.localizedDescription))
         }
     }
