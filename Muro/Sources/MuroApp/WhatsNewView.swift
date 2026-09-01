@@ -58,6 +58,8 @@ enum WhatsNew {
                               detail: "Wallpapers now come from Muro's own domain."),
                 WhatsNewEntry(title: "Applying now waits for macOS",
                               detail: "Muro used to say it worked even when macOS had ignored it."),
+                WhatsNewEntry(title: "Other small bug fixes",
+                              detail: "The Dock, the menus, and Muro's Pick."),
             ]),
         ]
     )
