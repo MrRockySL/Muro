@@ -54,18 +54,16 @@ enum LockScreenApplyOutcome {
 }
 
 /// Owns the Apple-managed half of Muro playback. It stages only wallpapers
-/// selected for the lock screen and writes them into the Apple `Desktop`
-/// surface of both wallpaper stores (`Index.plist` and macOS 26+'s
-/// authoritative `Index2.plist`).
+/// selected for the lock screen and writes them into both wallpaper stores
+/// (`Index.plist` and macOS 26+'s authoritative `Index2.plist`).
 ///
-/// Why `Desktop` and not `Idle`: on macOS 26/27 the lock screen renders the
-/// **Desktop** wallpaper surface — there is no separate lock-only surface, and
-/// `Idle` is the screen *saver*. Writing `Idle` (the old approach) made the
-/// System Settings tile appear but never changed the lock screen, so the very
-/// first wallpaper that reached `Desktop` (via a manual System Settings click)
-/// stayed frozen there. Muro's own borderless window still owns the *visible*
-/// desktop, and the extension keeps `alwaysPauseDesktop` so it is a paused
-/// still (≈0% CPU) on the desktop and only plays while locked.
+/// The lock screen has no surface of its own, so it renders whatever fills the
+/// desktop role. Which key that is depends on the node, and `AppleWallpaperStore`
+/// owns that rule: `Desktop` when the desktop and lock screen are set apart,
+/// `Linked` when they share one wallpaper. `Idle` is the screen *saver* and is
+/// never ours. Muro's own borderless window still owns the *visible* desktop,
+/// and the extension keeps `alwaysPauseDesktop`, so it is a paused still on the
+/// desktop and only plays while locked.
 ///
 /// It restores every record it owns before deleting staged files.
 final class LockScreenService {
@@ -533,23 +531,12 @@ final class LockScreenService {
     /// meant a correct apply reported itself as a failure.
     private static func wallpaperStoresHaveSelection() -> Bool {
         wallpaperStoreURLs.contains {
-            containsMuroSurface(named: "Desktop", in: loadWallpaperStore(at: $0))
+            AppleWallpaperStore.containsProvider(
+                extensionBundleID, in: loadWallpaperStore(at: $0)
+            )
         }
     }
 
-    private static func containsMuroSurface(named name: String, in value: Any?) -> Bool {
-        guard let value else { return false }
-        if let dictionary = value as? [String: Any] {
-            if let surface = dictionary[name] as? [String: Any], isMuroSurface(surface) {
-                return true
-            }
-            return dictionary.values.contains { containsMuroSurface(named: name, in: $0) }
-        }
-        if let array = value as? [Any] {
-            return array.contains { containsMuroSurface(named: name, in: $0) }
-        }
-        return false
-    }
 
     private static func saveState(_ state: SelectionState, root: URL) throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -702,36 +689,41 @@ final class LockScreenService {
 
             let data = existed ? try Data(contentsOf: storeURL) : seedData
             var store = try PropertyListSerialization.propertyList(from: data, format: nil)
-            var changed = 0
-            // The lock screen renders the Desktop surface on macOS 26/27, so
-            // that is what we replace. Muro's own window keeps the visible
-            // desktop; the extension stays paused there (alwaysPauseDesktop).
-            mutateSurfaces(named: "Desktop", in: &store, path: []) { surfacePath, surface in
-                guard targetKey == "all" || surfacePath.contains(targetKey) else { return surface }
-                changed += 1
-                return surfaceApplying(choice: choice, to: surface)
-            }
+            // Each node says which surface it keeps its wallpaper under, and
+            // that is the one to write. Writing `Desktop` on a node whose
+            // desktop and lock screen are linked put the wallpaper somewhere
+            // macOS never reads, which is issue #11.
+            let changed = AppleWallpaperStore.applyChoice(
+                choice, to: &store, targetKey: targetKey
+            )
 
-            if targetKey != "all", changed == 0 {
-                ensureDisplaySurface(
-                    named: "Desktop",
-                    displayUUID: targetKey,
-                    choice: choice,
-                    fallback: firstSurface(named: "Desktop", in: store) ?? defaultSurface(),
-                    root: &store
-                )
-            } else if targetKey == "all", changed == 0 {
-                // A real store can carry no `Desktop` key at all: on this Mac
-                // the top-level `AllSpacesAndDisplays` node held only `Idle`,
-                // so an all-displays apply matched nothing and wrote nothing.
-                // Create the node that means "everywhere" rather than
-                // succeeding silently against an empty tree.
-                ensureAllSpacesSurface(
-                    named: "Desktop",
-                    choice: choice,
-                    fallback: firstSurface(named: "Desktop", in: store) ?? defaultSurface(),
-                    root: &store
-                )
+            if changed == 0 {
+                // A real store can offer nowhere to write: one reporter's Mac
+                // kept every node linked, so an apply looking only for
+                // `Desktop` matched nothing at all. Create the node that means
+                // "everywhere" rather than succeeding silently against a tree
+                // with no room in it.
+                let desktopFallback = firstNonMuroSurface(named: "Desktop", in: store)
+                    ?? defaultSurface()
+                let idleFallback = firstNonMuroSurface(named: "Idle", in: store)
+                    ?? defaultSurface()
+                if targetKey == "all" {
+                    ensureNode(
+                        at: ["AllSpacesAndDisplays"],
+                        choice: choice,
+                        desktopFallback: desktopFallback,
+                        idleFallback: idleFallback,
+                        root: &store
+                    )
+                } else {
+                    ensureNode(
+                        at: ["Displays", targetKey],
+                        choice: choice,
+                        desktopFallback: desktopFallback,
+                        idleFallback: idleFallback,
+                        root: &store
+                    )
+                }
             }
 
             try writePropertyList(store, to: storeURL)
@@ -892,10 +884,9 @@ final class LockScreenService {
 
     /// A Muro record is dead when the video it names is no longer staged.
     ///
-    /// Dead records are the whole failure: macOS still believes Muro owns the
-    /// surface, asks the extension for that wallpaper, and the extension has
-    /// nothing to hand back, so the lock screen falls back to Apple's default
-    /// and the extension log fills with `no staged lock-screen library`.
+    /// Dead records leave macOS believing Muro owns the surface: it asks the
+    /// extension for a wallpaper whose file is gone, gets nothing back, and
+    /// shows Apple's default instead.
     ///
     /// Deliberately keyed on the staged file rather than on Muro's own
     /// selection list. A wallpaper picked straight from System Settings never
@@ -908,15 +899,6 @@ final class LockScreenService {
         return !FileManager.default.fileExists(atPath: stagedVideoURL(id: id).path)
     }
 
-    private static func firstSurface(named name: String, in value: Any) -> [String: Any]? {
-        if let dictionary = value as? [String: Any] {
-            if let surface = dictionary[name] as? [String: Any] { return surface }
-            for child in dictionary.values {
-                if let found = firstSurface(named: name, in: child) { return found }
-            }
-        }
-        return nil
-    }
 
     private static func firstNonMuroSurface(named name: String, in value: Any) -> [String: Any]? {
         if let dictionary = value as? [String: Any] {
@@ -955,46 +937,50 @@ final class LockScreenService {
         return current as? [String: Any]
     }
 
-    private static func surfaceApplying(
+    /// Writes the choice at one path in the tree, whether or not a node is
+    /// already there.
+    ///
+    /// Replaces two helpers that each bolted a `Desktop` key onto whatever
+    /// they found and stamped `Type` as `individual` without adding the `Idle`
+    /// that word promises. That left nodes describing a shape they did not
+    /// have, and one reporter's Mac carried exactly that while macOS never
+    /// asked the extension for a single frame.
+    private static func ensureNode(
+        at path: [String],
         choice: [String: Any],
-        to surface: [String: Any]
-    ) -> [String: Any] {
-        var updated = surface
-        var content = updated["Content"] as? [String: Any] ?? [:]
-        content["Choices"] = [choice]
-        if content["Shuffle"] == nil { content["Shuffle"] = "$null" }
-        updated["Content"] = content
-        updated["LastSet"] = Date()
-        updated["LastUse"] = Date()
-        return updated
-    }
-
-    private static func ensureDisplaySurface(
-        named name: String,
-        displayUUID: String,
-        choice: [String: Any],
-        fallback: [String: Any],
+        desktopFallback: [String: Any],
+        idleFallback: [String: Any],
         root: inout Any
     ) {
-        guard var rootDictionary = root as? [String: Any] else { return }
-        var displays = rootDictionary["Displays"] as? [String: Any] ?? [:]
-        var display = displays[displayUUID] as? [String: Any] ?? ["Type": "individual"]
-        display[name] = surfaceApplying(choice: choice, to: fallback)
-        displays[displayUUID] = display
-        rootDictionary["Displays"] = displays
-        root = rootDictionary
-    }
-
-    private static func ensureAllSpacesSurface(
-        named name: String,
-        choice: [String: Any],
-        fallback: [String: Any],
-        root: inout Any
-    ) {
-        guard var rootDictionary = root as? [String: Any] else { return }
-        var node = rootDictionary["AllSpacesAndDisplays"] as? [String: Any] ?? [:]
-        node[name] = surfaceApplying(choice: choice, to: fallback)
-        rootDictionary["AllSpacesAndDisplays"] = node
+        guard let first = path.first, var rootDictionary = root as? [String: Any] else { return }
+        if path.count == 1 {
+            let existing = rootDictionary[first] as? [String: Any]
+            rootDictionary[first] = existing.map {
+                AppleWallpaperStore.nodeApplying(
+                    choice: choice,
+                    to: $0,
+                    desktopFallback: desktopFallback,
+                    idleFallback: idleFallback
+                )
+            } ?? AppleWallpaperStore.makeNode(
+                choice: choice,
+                desktopFallback: desktopFallback,
+                idleFallback: idleFallback
+            )
+            root = rootDictionary
+            return
+        }
+        var container = rootDictionary[first] as? [String: Any] ?? [:]
+        var nested: Any = container
+        ensureNode(
+            at: Array(path.dropFirst()),
+            choice: choice,
+            desktopFallback: desktopFallback,
+            idleFallback: idleFallback,
+            root: &nested
+        )
+        container = nested as? [String: Any] ?? container
+        rootDictionary[first] = container
         root = rootDictionary
     }
 
@@ -1088,9 +1074,24 @@ final class LockScreenService {
         error: Error? = nil
     ) {
         let version = ProcessInfo.processInfo.operatingSystemVersionString
+        // Names the surface Muro actually landed on and the node's own
+        // `Type`, rather than a bare yes or no. The whole of issue #11 was
+        // Muro writing the wrong one of three keys, and "ok" said nothing
+        // about which one, so the first report of it was unanswerable.
         let stores = wallpaperStoreURLs.map { url -> String in
-            let has = containsMuroSurface(named: "Desktop", in: loadWallpaperStore(at: url))
-            return "\(url.lastPathComponent)=\(has ? "ok" : "no")"
+            var seen: Set<String> = []
+            if let store = loadWallpaperStore(at: url) {
+                AppleWallpaperStore.forEachNode(in: store) { _, node in
+                    for name in AppleWallpaperStore.surfaceNames {
+                        guard let surface = node[name] as? [String: Any],
+                              AppleWallpaperStore.providers(of: surface).contains(extensionBundleID)
+                        else { continue }
+                        seen.insert("\(name)/\(node["Type"] as? String ?? "none")")
+                    }
+                }
+            }
+            let detail = seen.isEmpty ? "no" : seen.sorted().joined(separator: ",")
+            return "\(url.lastPathComponent)=\(detail)"
         }.joined(separator: " ")
         let line = [
             ISO8601DateFormatter().string(from: Date()),
