@@ -35,7 +35,7 @@ struct SettingsView: View {
 
                 section("GENERAL") {
                     row(icon: "power", tint: .blue, title: "Launch at Login",
-                        subtitle: "Muro starts quietly in the background") {
+                        subtitle: "Starts quietly in the background") {
                         Toggle("", isOn: $launchAtLogin)
                             .toggleStyle(.switch)
                             .tint(Color.muroAccent)
@@ -57,7 +57,7 @@ struct SettingsView: View {
                     }
                     divider
                     row(icon: "dock.rectangle", tint: .pink, title: "Show Dock Icon",
-                        subtitle: "Turn off to run Muro as a menu bar app") {
+                        subtitle: "Off keeps Muro in the menu bar only") {
                         Toggle("", isOn: $showDockIcon)
                             .toggleStyle(.switch)
                             .tint(Color.muroAccent)
@@ -95,7 +95,7 @@ struct SettingsView: View {
                     }
                     divider
                     row(icon: "gauge.with.dots.needle.33percent", tint: .mint, title: "Default Quality",
-                        subtitle: "Smooth keeps original fps · Efficient caps at 30 fps (~2% CPU)") {
+                        subtitle: "Efficient caps at 30 fps for lower CPU") {
                         CapsuleSegments(
                             options: [("Smooth", "smooth"), ("Efficient", "efficient")],
                             selection: $defaultMode
@@ -136,7 +136,7 @@ struct SettingsView: View {
 
                 section("ENERGY") {
                     row(icon: "battery.25percent", tint: .yellow, title: "Auto-pause in Low Power Mode",
-                        subtitle: "Freeze wallpapers while saving energy") {
+                        subtitle: "Freeze while saving energy") {
                         Toggle("", isOn: Binding(
                             get: { store.autoPauseLowPower },
                             set: { store.setAutoPauseLowPower($0) }
@@ -154,7 +154,7 @@ struct SettingsView: View {
                     }
                     divider
                     row(icon: "macwindow.on.rectangle", tint: .teal, title: "Auto-pause when covered",
-                        subtitle: "Freeze a display's wallpaper while a full screen app or window hides it") {
+                        subtitle: "Freeze when a window or full screen app covers it") {
                         Toggle("", isOn: Binding(
                             get: { store.autoPauseFullScreen },
                             set: { store.setAutoPauseFullScreen($0) }
@@ -179,7 +179,7 @@ struct SettingsView: View {
 
                 section("STORAGE") {
                     row(icon: "internaldrive", tint: .gray, title: "Library & Cache",
-                        subtitle: store.clearStatus ?? "Everything goes except the wallpaper in use") {
+                        subtitle: store.clearStatus ?? "Keeps the wallpaper in use") {
                         HStack(spacing: 10) {
                             Text(formatSize(store.libraryBytes))
                                 .font(.system(size: 12, weight: .medium))
@@ -261,8 +261,8 @@ struct SettingsView: View {
 
     private var pauseAfterSubtitle: String {
         store.pauseAfterSeconds == 0
-            ? "Wallpapers keep playing until something else pauses them"
-            : "Play for \(durationLabel(store.pauseAfterSeconds)) after every change or unlock, then hold on a frame"
+            ? "Wallpapers keep playing"
+            : "Plays for \(durationLabel(store.pauseAfterSeconds)), then holds on a frame"
     }
 
     /// Says what is about to happen in counts, and names the part that cannot

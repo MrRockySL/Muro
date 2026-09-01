@@ -202,8 +202,8 @@ struct PreviewView: View {
 
     private func fpsToggle(_ item: WallpaperItem) -> some View {
         HStack(spacing: 2) {
-            fpsSegment("\(Int(item.fps))", mode: "smooth", hint: "~4% CPU")
-            fpsSegment("30", mode: "efficient", hint: "~2% CPU")
+            fpsSegment("\(Int(item.fps))", mode: "smooth", hint: "Higher CPU")
+            fpsSegment("30", mode: "efficient", hint: "Lower CPU")
         }
         .padding(3)
         .background(Capsule().fill(Color.white.opacity(0.08)))
