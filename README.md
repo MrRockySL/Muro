@@ -42,8 +42,8 @@ wallpaper and every feature is unlocked.
 
 - 🌙 **Live video wallpapers.** Looping, seamless, on every display at once.
 - 🔒 **Lock screen live wallpapers.** Play a wallpaper on your lock screen too, not just the desktop. Set it to the desktop, the lock screen, or both, per display. Requires macOS 26 or newer.
-- 🪶 **Around 2% CPU while playing.** HEVC decoded in hardware, never on the CPU.
-- 😴 **Pauses itself** on full screen apps, display sleep, screen lock, Low Power Mode and low battery. A paused wallpaper costs 0% CPU.
+- 🪶 **Very low CPU usage.** HEVC decoded in hardware, never on the CPU.
+- 😴 **Pauses itself** on full screen apps, display sleep, screen lock, Low Power Mode and low battery. A paused wallpaper uses no CPU at all.
 - ⚡ **Smooth or Efficient.** Keep a wallpaper's original frame rate, or drop it to 30 fps to halve the power draw. Your choice, per wallpaper.
 - 🖼️ **Explore gallery.** Browse the catalog, preview full screen, download only what you want.
 - 🔄 **New wallpapers arrive on their own.** The library updates without updating the app. More on that below.
