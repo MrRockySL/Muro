@@ -38,64 +38,47 @@ struct WhatsNewRelease: Identifiable {
 /// release is editing this one list.
 enum WhatsNew {
     static let current = WhatsNewRelease(
-        version: "3.0",
-        date: "August 2026",
-        headline: "The biggest Muro yet. Wallpapers you can delete, schedules that change them for you, and a new look for every screen in the app.",
+        version: "4.0",
+        date: "September 2026",
+        headline: "The lock screen now works on Macs where it never did, wallpapers load on networks that used to show nothing, and Muro runs on Intel.",
         sections: [
             WhatsNewSection(name: "New", entries: [
                 WhatsNewEntry(
-                    icon: "trash",
-                    title: "Delete wallpapers",
-                    detail: "Every card has a delete button, and you can select several and clear them in one go. Nothing is deleted without asking first."
+                    icon: "desktopcomputer",
+                    title: "Intel Macs",
+                    detail: "Muro is built for Intel as well as Apple Silicon, so it runs natively on either one."
                 ),
                 WhatsNewEntry(
-                    icon: "clock.arrow.2.circlepath",
-                    title: "Automations",
-                    detail: "Change wallpaper on a timer, or give each one a time of day. The day is drawn as a timeline you can drag."
+                    icon: "bell.badge",
+                    title: "New versions from the menu bar",
+                    detail: "When a new Muro is out, the menu bar says so and takes you straight to it."
                 ),
                 WhatsNewEntry(
-                    icon: "pause.circle",
-                    title: "Pause after",
-                    detail: "Let a wallpaper play for a while and then hold on a frame. Set it once for everything, or per wallpaper."
-                ),
-                WhatsNewEntry(
-                    icon: "sparkles",
-                    title: "What's New",
-                    detail: "This screen. It tells you when a new Muro is out, shows what changed, and downloads it for you."
-                ),
-            ]),
-            WhatsNewSection(name: "Redesigned", entries: [
-                WhatsNewEntry(
-                    icon: "square.grid.2x2",
-                    title: "The Library",
-                    detail: "New background, new tabs, and one job per tab. Playlists and automations are cards you can read at a glance."
-                ),
-                WhatsNewEntry(
-                    icon: "rectangle.3.group",
-                    title: "Explore and the top bar",
-                    detail: "The same glass everywhere, and every menu in the app is now drawn by Muro instead of by the system."
+                    icon: "paintpalette",
+                    title: "The menu bar matches your wallpaper",
+                    detail: "On macOS 15 and earlier the menu bar took its colour from whatever picture you had before installing Muro, not from what Muro is playing. It follows the wallpaper now. macOS 26 made the menu bar clear, so there is nothing to match there."
                 ),
             ]),
             WhatsNewSection(name: "Fixed", entries: [
                 WhatsNewEntry(
                     icon: "lock.display",
-                    title: "Lock screen wallpapers stick now",
-                    detail: "Installing from the DMG left the lock-screen extension blocked, so macOS dropped the choice. Muro clears that on its own and waits for macOS properly."
+                    title: "The lock screen on macOS 26",
+                    detail: "If your desktop and lock screen share one wallpaper, Muro was writing its choice somewhere macOS never reads, so the lock screen kept showing Apple's. It writes to the right place now."
                 ),
                 WhatsNewEntry(
-                    icon: "arrow.down.circle",
-                    title: "Downloads are much faster",
-                    detail: "They were being read one byte at a time. The progress ring also moves now, instead of sitting at zero for the whole transfer."
-                ),
-                WhatsNewEntry(
-                    icon: "bolt.badge.clock",
-                    title: "Lighter on the machine",
-                    detail: "Video stops decoding when nothing can see it, thumbnails no longer pile up in memory, and changing wallpaper crossfades in place."
+                    icon: "globe",
+                    title: "Explore was empty on some networks",
+                    detail: "Wallpapers came from an address shared with every other Cloudflare bucket, and some networks block the whole thing. They now come from Muro's own domain, which nobody else is on."
                 ),
                 WhatsNewEntry(
                     icon: "checkmark.seal",
+                    title: "Applying to the lock screen tells the truth",
+                    detail: "Muro used to check its own work, so it passed every time even when macOS had ignored it. It waits for macOS to confirm now, and clears out old entries left behind by wallpapers you deleted."
+                ),
+                WhatsNewEntry(
+                    icon: "macwindow",
                     title: "Smaller things",
-                    detail: "Imports say why they failed, two downloads at once both survive, the auto-pause switches in Settings actually do something, and a repeated wallpaper in the catalog can no longer stop Muro from starting."
+                    detail: "Muro stays out of the Dock and still opens when you click it there, Muro's Pick comes from the catalog, the menu says which screen a wallpaper is on and no longer jumps as you read it, and Muro no longer puts a CPU percentage on anything."
                 ),
             ]),
         ]
@@ -103,6 +86,28 @@ enum WhatsNew {
 
     /// Older releases, newest first.
     static let earlier: [WhatsNewRelease] = [
+        WhatsNewRelease(
+            version: "3.0",
+            date: "August 2026",
+            headline: "The biggest Muro yet. Wallpapers you can delete, schedules that change them for you, and a new look for every screen in the app.",
+            sections: [WhatsNewSection(name: "", entries: [
+                WhatsNewEntry(
+                    icon: "trash",
+                    title: "Delete wallpapers",
+                    detail: "Every card has a delete button, and you can clear several at once. Nothing goes without asking first."
+                ),
+                WhatsNewEntry(
+                    icon: "clock.arrow.2.circlepath",
+                    title: "Automations and Pause after",
+                    detail: "Change wallpaper on a timer or by time of day, and let one play for a while before holding on a frame."
+                ),
+                WhatsNewEntry(
+                    icon: "square.grid.2x2",
+                    title: "A new look",
+                    detail: "The Library, Explore and every menu in the app were redrawn by Muro instead of by the system."
+                ),
+            ])]
+        ),
         WhatsNewRelease(
             version: "2.0",
             date: "July 2026",
