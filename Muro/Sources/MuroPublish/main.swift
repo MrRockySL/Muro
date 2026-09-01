@@ -34,6 +34,8 @@ import MuroKit
 //   --github        use GitHub Releases instead of R2
 //   --repo          GitHub repo               (default: MrRockySL/Muro-Wallpapers)
 //   --tag           release tag for assets    (default: wallpapers)
+//   --rebase-urls   repoint every live entry's asset URLs at the current
+//                   publicBaseURL (use after moving the CDN to a new host)
 //   --catalog       where to also write catalog.json locally (default: ./catalog.json)
 
 func die(_ message: String) -> Never {
@@ -47,6 +49,7 @@ struct Options {
     var replace = false
     var reupload = false
     var reorderOnly = false
+    var rebaseURLs = false
     var repo = "MrRockySL/Muro-Wallpapers"
     var tag = "wallpapers"
     var catalogPath = "catalog.json"
@@ -70,6 +73,7 @@ func parseOptions() -> Options {
         case "--replace": opts.replace = true
         case "--reupload": opts.reupload = true
         case "--reorder-only": opts.reorderOnly = true
+        case "--rebase-urls": opts.rebaseURLs = true
         case "--repo":    opts.repo = value(for: "--repo")
         case "--tag":     opts.tag = value(for: "--tag")
         case "--catalog": opts.catalogPath = value(for: "--catalog")
@@ -92,6 +96,10 @@ func parseOptions() -> Options {
                   --reorder-only  rewrite just the order of the live catalog (newest
                                first) and re-upload catalog.json — no library needed,
                                no wallpaper assets touched
+                  --rebase-urls   repoint every entry's asset URLs at the current
+                               publicBaseURL and re-upload catalog.json — for moving
+                               the CDN to a new hostname. No library needed, no
+                               wallpaper assets touched, nothing in the bucket moves
                 """)
             exit(0)
         default:
@@ -127,13 +135,16 @@ let opts = parseOptions()
 if opts.reorderOnly && opts.replace {
     die("--reorder-only cannot be combined with --replace")
 }
+if opts.rebaseURLs && opts.replace {
+    die("--rebase-urls cannot be combined with --replace")
+}
 let root = opts.libraryRoot
 
-// --reorder-only rewrites only the order of the live catalog and touches no
-// wallpapers, so it needs no local library. Every other mode publishes from
-// the library, so it must exist and be non-empty.
+// --reorder-only and --rebase-urls both rewrite the live catalog in place and
+// touch no wallpapers, so they need no local library. Every other mode
+// publishes from the library, so it must exist and be non-empty.
 let selected: [WallpaperEntry]
-if opts.reorderOnly {
+if opts.reorderOnly || opts.rebaseURLs {
     selected = []
 } else {
     // "Could not read it" and "there is nothing in it" have to be different
@@ -323,6 +334,10 @@ if opts.reorderOnly && liveEntries.isEmpty {
     die("--reorder-only needs an existing live catalog to reorder, but none was "
         + "found at \(liveCatalogURL.absoluteString)")
 }
+if opts.rebaseURLs && liveEntries.isEmpty {
+    die("--rebase-urls needs an existing live catalog to rewrite, but none was "
+        + "found at \(liveCatalogURL.absoluteString)")
+}
 
 // A repeated id would trap here, and a duplicate that reached catalog.json
 // would crash every installed copy of Muro at launch. Catch it on this side,
@@ -392,6 +407,40 @@ mergedEntries.append(contentsOf: publishedEntries
 // Newest wallpapers first so every install sees the latest drops at the top of
 // Explore. This replaces the old append-to-the-end behaviour.
 mergedEntries = newestFirst(mergedEntries)
+
+/// Repoints one entry's asset URLs at `base`, keeping the id-derived key
+/// layout. Moving the CDN to a new hostname moves nothing in the bucket — the
+/// objects and their keys stay exactly where they are — but the *full* URL of
+/// every asset is baked into each catalog entry, so without this rewrite the
+/// live catalog keeps handing out the old host to every install forever.
+func rebasing(_ entry: CatalogEntry, onto base: String) -> CatalogEntry {
+    var result = entry
+    result.video = URL(string: "\(base)/masters/\(entry.id).mov")!
+    result.thumbnail = URL(string: "\(base)/thumbs/\(entry.id).jpg")!
+    // Only entries that already have a preview get one — inventing a URL for a
+    // p720 that was never generated would promise a file that is not there.
+    if entry.preview720 != nil {
+        result.preview720 = URL(string: "\(base)/p720/\(entry.id).mov")!
+    }
+    return result
+}
+
+if opts.rebaseURLs {
+    guard let r2 else {
+        die("--rebase-urls rewrites URLs onto the R2 publicBaseURL; there is no "
+            + "equivalent for the --github path")
+    }
+    let base = r2.publicBaseURL.hasSuffix("/")
+        ? String(r2.publicBaseURL.dropLast()) : r2.publicBaseURL
+    var changed = 0
+    mergedEntries = mergedEntries.map { entry in
+        let rebased = rebasing(entry, onto: base)
+        if rebased != entry { changed += 1 }
+        return rebased
+    }
+    print("--rebase-urls: repointed \(changed) of \(mergedEntries.count) "
+        + "entries at \(base)")
+}
 
 let newCount = publishedEntries.filter { !liveIDs.contains($0.id) }.count
 let updatedCount = publishedEntries.count - newCount

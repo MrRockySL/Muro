@@ -497,18 +497,25 @@ final class AppStore: ObservableObject {
     /// Overridable via `defaults write com.mrrockysl.muro catalogURL …`;
     /// empty falls back here.
     ///
-    /// This is the free r2.dev development URL (rate-limited by Cloudflare).
-    /// When the app gets real user volume, attach a custom domain to the
-    /// bucket and add THIS url to `retiredCatalogURLs`.
+    /// Served from the bucket's own domain. This replaced the free r2.dev
+    /// development URL, which some networks block outright: `r2.dev` is one
+    /// shared hostname for every Cloudflare R2 bucket, so filtering it takes
+    /// out every bucket at once, and Explore arrived empty for anyone behind
+    /// such a filter (issue #7, Turkey). A hostname nobody else is on cannot
+    /// be caught by somebody else's block. The r2.dev endpoint stays enabled
+    /// on the bucket permanently for installs that never update.
     static let defaultCatalogURL =
-        "https://pub-e910bedfcb17480a8067dba142403816.r2.dev/catalog.json"
+        "https://cdn.murowallpaper.com/catalog.json"
 
     /// Former defaults. An install that still has one of these stored gets
     /// migrated to `defaultCatalogURL`; anything else is treated as a
-    /// deliberate user override and left alone.
+    /// deliberate user override and left alone. A stored value always beats a
+    /// new default, so a URL retired without being listed here would keep
+    /// every existing install on the old host for good.
     static let retiredCatalogURLs = [
         "https://raw.githubusercontent.com/MrRockySL/Muro/main/catalog.json",
         "https://raw.githubusercontent.com/MrRockySL/Muro-Wallpapers/main/catalog.json",
+        "https://pub-e910bedfcb17480a8067dba142403816.r2.dev/catalog.json",
     ]
 
     var catalogURLString: String {
