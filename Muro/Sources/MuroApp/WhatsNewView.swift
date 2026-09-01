@@ -4,40 +4,33 @@ import MuroKit
 
 // MARK: - The notes themselves
 
-/// One line in a release: what changed, and why anyone would care.
+/// One change: what it is, and one line saying what that means.
 struct WhatsNewEntry: Identifiable {
     let id = UUID()
-    /// SF Symbol shown in the row's bubble.
-    var icon: String
     var title: String
     var detail: String
 }
 
-/// Entries are grouped so a release reads as a few short lists rather than one
-/// long one: "New", "Also fixed".
+/// Entries are grouped so a release reads as two short lists rather than one
+/// long one. The tint is the group's own colour, worn by its bubble, so New
+/// and Fixed are told apart at a glance instead of by reading two identical
+/// grey captions.
 struct WhatsNewSection: Identifiable {
     let id = UUID()
     var name: String
-    /// Draws the row markers in the accent colour. Reserved for what is new,
-    /// so that the eye lands there first and the fixes read as the quieter
-    /// half of the release.
-    var isAccent: Bool = false
+    var tint: Color
     var entries: [WhatsNewEntry]
 }
 
 struct WhatsNewRelease: Identifiable {
     var id: String { version }
     var version: String
-    /// Free text, so a release can say "August 2026" or nothing at all.
+    /// Free text, so a release can say "September 2026" or nothing at all.
     var date: String?
     var headline: String
-    /// The single change worth a picture, drawn as the one card on the sheet.
-    /// Everything else is a line. A release where every item shouts equally is
-    /// a release nobody reads, and that is what the old all-cards layout was.
-    var hero: WhatsNewEntry?
     var sections: [WhatsNewSection]
 
-    var isEmpty: Bool { hero == nil && sections.allSatisfy { $0.entries.isEmpty } }
+    var isEmpty: Bool { sections.allSatisfy { $0.entries.isEmpty } }
 }
 
 /// The release notes shown in the sheet.
@@ -49,80 +42,33 @@ enum WhatsNew {
         version: "4.0",
         date: "September 2026",
         headline: "The lock screen works on every Mac now, and Explore loads on networks that used to show nothing.",
-        hero: WhatsNewEntry(
-            icon: "lock.display",
-            title: "The lock screen on macOS 26",
-            detail: "It kept showing Apple's picture. Muro was saving your choice somewhere macOS never reads."
-        ),
         sections: [
-            WhatsNewSection(name: "New", isAccent: true, entries: [
-                WhatsNewEntry(icon: "cpu", title: "Intel Macs",
-                              detail: "native on Intel and Apple Silicon"),
-                WhatsNewEntry(icon: "bell.badge", title: "Update alerts",
-                              detail: "from the menu bar"),
-                WhatsNewEntry(icon: "paintpalette", title: "Menu bar colour",
-                              detail: "follows your wallpaper on macOS 15"),
+            WhatsNewSection(name: "New", tint: .muroAccent, entries: [
+                WhatsNewEntry(title: "Intel Macs",
+                              detail: "Runs natively on Intel as well as Apple Silicon."),
+                WhatsNewEntry(title: "Update alerts",
+                              detail: "The menu bar tells you when a new Muro is out."),
+                WhatsNewEntry(title: "Menu bar colour",
+                              detail: "Follows your wallpaper on macOS 15 and earlier."),
             ]),
-            WhatsNewSection(name: "Also fixed", entries: [
-                WhatsNewEntry(icon: "globe", title: "Explore was empty",
-                              detail: "on some networks"),
-                WhatsNewEntry(icon: "checkmark.seal", title: "Applying told the truth",
-                              detail: "Muro waits for macOS now"),
-                WhatsNewEntry(icon: "macwindow", title: "Smaller things",
-                              detail: "the Dock, menus, and Muro's Pick"),
+            WhatsNewSection(name: "Fixed", tint: .muroGreen, entries: [
+                WhatsNewEntry(title: "The lock screen on macOS 26",
+                              detail: "It kept showing Apple's picture instead of your wallpaper."),
+                WhatsNewEntry(title: "Explore was empty on some networks",
+                              detail: "Wallpapers now come from Muro's own domain."),
+                WhatsNewEntry(title: "Applying told the truth",
+                              detail: "Muro waits for macOS to confirm instead of checking itself."),
+                WhatsNewEntry(title: "Smaller things",
+                              detail: "The Dock, the menus, and Muro's Pick."),
             ]),
         ]
     )
 
-    /// Older releases, newest first.
-    static let earlier: [WhatsNewRelease] = [
-        WhatsNewRelease(
-            version: "3.0",
-            date: "August 2026",
-            headline: "The biggest Muro yet. Wallpapers you can delete, schedules that change them for you, and a new look for every screen in the app.",
-            sections: [WhatsNewSection(name: "", entries: [
-                WhatsNewEntry(
-                    icon: "trash",
-                    title: "Delete wallpapers",
-                    detail: "Every card has a delete button, and you can clear several at once. Nothing goes without asking first."
-                ),
-                WhatsNewEntry(
-                    icon: "clock.arrow.2.circlepath",
-                    title: "Automations and Pause after",
-                    detail: "Change wallpaper on a timer or by time of day, and let one play for a while before holding on a frame."
-                ),
-                WhatsNewEntry(
-                    icon: "square.grid.2x2",
-                    title: "A new look",
-                    detail: "The Library, Explore and every menu in the app were redrawn by Muro instead of by the system."
-                ),
-            ])]
-        ),
-        WhatsNewRelease(
-            version: "2.0",
-            date: "July 2026",
-            headline: "Lock screen live wallpapers.",
-            sections: [WhatsNewSection(name: "", entries: [
-                WhatsNewEntry(
-                    icon: "lock.display",
-                    title: "Lock screen live wallpapers",
-                    detail: "Set any wallpaper on the lock screen as well as the desktop."
-                ),
-            ])]
-        ),
-        WhatsNewRelease(
-            version: "1.1",
-            date: "July 2026",
-            headline: "New wallpapers arrive on their own.",
-            sections: [WhatsNewSection(name: "", entries: [
-                WhatsNewEntry(
-                    icon: "sparkle",
-                    title: "New wallpapers arrive on their own",
-                    detail: "Wallpapers published since you installed Muro show up in Explore, marked NEW, with no update needed."
-                ),
-            ])]
-        ),
-    ]
+    // Past releases are deliberately not listed here. Keeping them inline meant
+    // the sheet grew by one more release every time, and 4.0 opened onto a
+    // scroll through 3.0, 2.0 and 1.1 before you reached anything current. The
+    // footer's "Earlier releases" goes to the releases page, which is the one
+    // place that list is complete and does not need shipping in the app.
 
     static let releasesURL = URL(string: "https://github.com/MrRockySL/Muro/releases")!
 }
@@ -144,7 +90,7 @@ struct WhatsNewView: View {
         VStack(spacing: 0) {
             header
             GlassScrollView(fadeTop: 14, fadeBottom: 22) {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 14) {
                     // A newer Muro comes first, above this build's own notes.
                     // Someone who opened this because of the badge is here for
                     // that, and should not have to scroll past old news.
@@ -152,10 +98,7 @@ struct WhatsNewView: View {
                         updateBlock(update)
                         SectionLabel("IN THE VERSION YOU HAVE")
                     }
-                    titleLine
-                    if let hero = release.hero {
-                        heroCard(hero)
-                    }
+                    releaseCard
                     if release.isEmpty {
                         placeholder
                     } else {
@@ -163,13 +106,10 @@ struct WhatsNewView: View {
                             sectionBlock(section)
                         }
                     }
-                    ForEach(WhatsNew.earlier) { past in
-                        earlierBlock(past)
-                    }
                 }
-                .padding(.horizontal, 26)
-                .padding(.top, 18)
-                .padding(.bottom, 20)
+                .padding(.horizontal, 22)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
             }
             footer
         }
@@ -196,75 +136,84 @@ struct WhatsNewView: View {
             .buttonStyle(.plain)
             .keyboardShortcut(.cancelAction)
         }
-        .padding(.horizontal, 26)
-        .padding(.top, 24)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
+        .background(
+            Rectangle()
+                .fill(.glassSheen(0.05, 0.02))
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(height: 1)
+                }
+        )
     }
 
-    // MARK: Hero
+    // MARK: The release
 
-    /// Version and date on one line. The old layout opened with the version
-    /// set at 34pt inside its own glowing panel, which spent the top third of
-    /// the sheet telling you a number you already knew.
-    private var titleLine: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 9) {
-            Text("Muro \(release.version)")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(.white)
-            if let date = release.date {
-                Circle()
-                    .fill(Color.muroSecondary.opacity(0.55))
-                    .frame(width: 3, height: 3)
-                    .offset(y: -4)
-                Text(date)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color.muroSecondary)
-            }
-        }
-        .padding(.top, 2)
-    }
-
-    /// The one card on the sheet, for the one change that earns it. Everything
-    /// else in the release is a single line, so this is the only thing with a
-    /// border, a glow and room to explain itself.
-    private func heroCard(_ entry: WhatsNewEntry) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Image(systemName: entry.icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Color.muroAccent)
-                .frame(width: 40, height: 40)
-                .background(
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .fill(Color.muroAccent.opacity(0.16))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .strokeBorder(Color.muroAccent.opacity(0.28), lineWidth: 1)
-                )
-            VStack(alignment: .leading, spacing: 6) {
-                Text(entry.title)
-                    .font(.system(size: 18, weight: .semibold))
+    /// The version, the date and the one sentence, inside a card of their own.
+    /// It gives the top of the sheet something to be, instead of three loose
+    /// pieces of text sitting on the background.
+    private var releaseCard: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("Muro \(release.version)")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                Text(entry.detail)
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Color.muroSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if let date = release.date {
+                    Text(date)
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.muroSecondary)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(.glassSheen(0.09, 0.03)))
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+                }
             }
+            Text(release.headline)
+                .font(.system(size: 12))
+                .foregroundStyle(Color.muroSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(22)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 13)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.muroAccent.opacity(0.16), Color.muroAccent.opacity(0.04)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.glassSheen(0.06, 0.02))
+                .overlay(
+                    RadialGradient(
+                        gradient: Gradient(colors: [
+                            Color.muroAccent.opacity(0.30), Color.muroAccent.opacity(0)
+                        ]),
+                        center: UnitPoint(x: 0.5, y: 1.05), startRadius: 0, endRadius: 260
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.muroAccent.opacity(0.22), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
         )
+    }
+
+    /// The group's name as a bubble in its own colour. A pair of identical grey
+    /// captions made New and Fixed look like the same thing twice.
+    private func groupBubble(_ section: WhatsNewSection) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(section.tint)
+                .frame(width: 5, height: 5)
+            Text(section.name.uppercased())
+                .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                .tracking(0.5)
+                .foregroundStyle(section.tint)
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 12)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(section.tint.opacity(0.14)))
+        .overlay(Capsule().strokeBorder(section.tint.opacity(0.30), lineWidth: 1))
     }
 
     // MARK: The update
@@ -380,45 +329,31 @@ struct WhatsNewView: View {
     // MARK: Notes
 
     private func sectionBlock(_ section: WhatsNewSection) -> some View {
-        VStack(alignment: .leading, spacing: 11) {
-            SectionLabel(section.name.uppercased())
+        VStack(alignment: .leading, spacing: 8) {
+            groupBubble(section)
+                .padding(.bottom, 1)
             ForEach(section.entries) { entry in
-                entryRow(entry, accent: section.isAccent)
+                entryRow(entry)
             }
         }
     }
 
-    private func earlierBlock(_ past: WhatsNewRelease) -> some View {
-        VStack(alignment: .leading, spacing: 11) {
-            SectionLabel("MURO \(past.version)", trailing: past.date)
-            ForEach(past.sections) { section in
-                ForEach(section.entries) { entry in
-                    entryRow(entry)
-                }
-            }
-        }
-    }
-
-    /// One line: a marker, what changed, and a clause saying what that means.
-    /// The 3.0 sheet gave every entry a glass card and a full sentence, so nine
-    /// changes read as nine identical blocks and nobody finished the list.
-    private func entryRow(_ entry: WhatsNewEntry, accent: Bool = false) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 11) {
-            Circle()
-                .fill(accent ? Color.muroAccent.opacity(0.9)
-                             : Color.muroSecondary.opacity(0.5))
-                .frame(width: 5, height: 5)
-                .offset(y: -4)
+    /// The name in a rounded face, the explanation in the normal one. The
+    /// contrast is what makes a name read as a name; when both were the same
+    /// face at the same weight the list read as undifferentiated prose.
+    private func entryRow(_ entry: WhatsNewEntry) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
             Text(entry.title)
-                .font(.system(size: 13.5, weight: .semibold))
+                .font(.system(size: 13.5, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
             Text(entry.detail)
-                .font(.system(size: 13))
+                .font(.system(size: 12))
                 .foregroundStyle(Color.muroSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 4)
     }
 
     /// What the sheet shows until the notes are written. It is a designed
@@ -466,7 +401,7 @@ struct WhatsNewView: View {
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(Color.muroSecondary)
         } actions: {
-            GhostPill(title: "All Releases") {
+            GhostPill(title: "Earlier releases") {
                 NSWorkspace.shared.open(WhatsNew.releasesURL)
             }
             PrimaryPill(title: "Done") { dismiss() }
