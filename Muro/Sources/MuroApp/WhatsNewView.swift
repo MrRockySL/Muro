@@ -56,10 +56,8 @@ enum WhatsNew {
                               detail: "It kept showing Apple's picture instead of your wallpaper."),
                 WhatsNewEntry(title: "Explore was empty on some networks",
                               detail: "Wallpapers now come from Muro's own domain."),
-                WhatsNewEntry(title: "Applying told the truth",
-                              detail: "Muro waits for macOS to confirm instead of checking itself."),
-                WhatsNewEntry(title: "Smaller things",
-                              detail: "The Dock, the menus, and Muro's Pick."),
+                WhatsNewEntry(title: "Applying now waits for macOS",
+                              detail: "Muro used to say it worked even when macOS had ignored it."),
             ]),
         ]
     )
