@@ -14,10 +14,14 @@ struct WhatsNewEntry: Identifiable {
 }
 
 /// Entries are grouped so a release reads as a few short lists rather than one
-/// long one: "Library", "Explore", "Fixed".
+/// long one: "New", "Also fixed".
 struct WhatsNewSection: Identifiable {
     let id = UUID()
     var name: String
+    /// Draws the row markers in the accent colour. Reserved for what is new,
+    /// so that the eye lands there first and the fixes read as the quieter
+    /// half of the release.
+    var isAccent: Bool = false
     var entries: [WhatsNewEntry]
 }
 
@@ -27,9 +31,13 @@ struct WhatsNewRelease: Identifiable {
     /// Free text, so a release can say "August 2026" or nothing at all.
     var date: String?
     var headline: String
+    /// The single change worth a picture, drawn as the one card on the sheet.
+    /// Everything else is a line. A release where every item shouts equally is
+    /// a release nobody reads, and that is what the old all-cards layout was.
+    var hero: WhatsNewEntry?
     var sections: [WhatsNewSection]
 
-    var isEmpty: Bool { sections.allSatisfy { $0.entries.isEmpty } }
+    var isEmpty: Bool { hero == nil && sections.allSatisfy { $0.entries.isEmpty } }
 }
 
 /// The release notes shown in the sheet.
@@ -40,46 +48,28 @@ enum WhatsNew {
     static let current = WhatsNewRelease(
         version: "4.0",
         date: "September 2026",
-        headline: "The lock screen now works on Macs where it never did, wallpapers load on networks that used to show nothing, and Muro runs on Intel.",
+        headline: "The lock screen works on every Mac now, and Explore loads on networks that used to show nothing.",
+        hero: WhatsNewEntry(
+            icon: "lock.display",
+            title: "The lock screen on macOS 26",
+            detail: "It kept showing Apple's picture. Muro was saving your choice somewhere macOS never reads."
+        ),
         sections: [
-            WhatsNewSection(name: "New", entries: [
-                WhatsNewEntry(
-                    icon: "desktopcomputer",
-                    title: "Intel Macs",
-                    detail: "Muro is built for Intel as well as Apple Silicon, so it runs natively on either one."
-                ),
-                WhatsNewEntry(
-                    icon: "bell.badge",
-                    title: "New versions from the menu bar",
-                    detail: "When a new Muro is out, the menu bar says so and takes you straight to it."
-                ),
-                WhatsNewEntry(
-                    icon: "paintpalette",
-                    title: "The menu bar matches your wallpaper",
-                    detail: "On macOS 15 and earlier the menu bar took its colour from whatever picture you had before installing Muro, not from what Muro is playing. It follows the wallpaper now. macOS 26 made the menu bar clear, so there is nothing to match there."
-                ),
+            WhatsNewSection(name: "New", isAccent: true, entries: [
+                WhatsNewEntry(icon: "cpu", title: "Intel Macs",
+                              detail: "native on Intel and Apple Silicon"),
+                WhatsNewEntry(icon: "bell.badge", title: "Update alerts",
+                              detail: "from the menu bar"),
+                WhatsNewEntry(icon: "paintpalette", title: "Menu bar colour",
+                              detail: "follows your wallpaper on macOS 15"),
             ]),
-            WhatsNewSection(name: "Fixed", entries: [
-                WhatsNewEntry(
-                    icon: "lock.display",
-                    title: "The lock screen on macOS 26",
-                    detail: "If your desktop and lock screen share one wallpaper, Muro was writing its choice somewhere macOS never reads, so the lock screen kept showing Apple's. It writes to the right place now."
-                ),
-                WhatsNewEntry(
-                    icon: "globe",
-                    title: "Explore was empty on some networks",
-                    detail: "Wallpapers came from an address shared with every other Cloudflare bucket, and some networks block the whole thing. They now come from Muro's own domain, which nobody else is on."
-                ),
-                WhatsNewEntry(
-                    icon: "checkmark.seal",
-                    title: "Applying to the lock screen tells the truth",
-                    detail: "Muro used to check its own work, so it passed every time even when macOS had ignored it. It waits for macOS to confirm now, and clears out old entries left behind by wallpapers you deleted."
-                ),
-                WhatsNewEntry(
-                    icon: "macwindow",
-                    title: "Smaller things",
-                    detail: "Muro stays out of the Dock and still opens when you click it there, Muro's Pick comes from the catalog, the menu says which screen a wallpaper is on and no longer jumps as you read it, and Muro no longer puts a CPU percentage on anything."
-                ),
+            WhatsNewSection(name: "Also fixed", entries: [
+                WhatsNewEntry(icon: "globe", title: "Explore was empty",
+                              detail: "on some networks"),
+                WhatsNewEntry(icon: "checkmark.seal", title: "Applying told the truth",
+                              detail: "Muro waits for macOS now"),
+                WhatsNewEntry(icon: "macwindow", title: "Smaller things",
+                              detail: "the Dock, menus, and Muro's Pick"),
             ]),
         ]
     )
@@ -154,7 +144,7 @@ struct WhatsNewView: View {
         VStack(spacing: 0) {
             header
             GlassScrollView(fadeTop: 14, fadeBottom: 22) {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 20) {
                     // A newer Muro comes first, above this build's own notes.
                     // Someone who opened this because of the badge is here for
                     // that, and should not have to scroll past old news.
@@ -162,7 +152,10 @@ struct WhatsNewView: View {
                         updateBlock(update)
                         SectionLabel("IN THE VERSION YOU HAVE")
                     }
-                    hero
+                    titleLine
+                    if let hero = release.hero {
+                        heroCard(hero)
+                    }
                     if release.isEmpty {
                         placeholder
                     } else {
@@ -209,62 +202,69 @@ struct WhatsNewView: View {
 
     // MARK: Hero
 
-    /// The version, big, with the accent light behind it. A release note that
-    /// opens with a heading the size of body text does not feel like an
-    /// occasion, and this is the one screen in the app whose whole job is to
-    /// make an update feel like one.
-    private var hero: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                versionPill
-                if let date = release.date {
-                    Text(date)
-                        .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(Color.muroSecondary)
-                }
-            }
+    /// Version and date on one line. The old layout opened with the version
+    /// set at 34pt inside its own glowing panel, which spent the top third of
+    /// the sheet telling you a number you already knew.
+    private var titleLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
             Text("Muro \(release.version)")
-                .font(.system(size: 34, weight: .bold))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(.white)
-            Text(release.headline)
-                .font(.system(size: 13.5))
-                .foregroundStyle(Color.muroSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if let date = release.date {
+                Circle()
+                    .fill(Color.muroSecondary.opacity(0.55))
+                    .frame(width: 3, height: 3)
+                    .offset(y: -4)
+                Text(date)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.muroSecondary)
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    /// The one card on the sheet, for the one change that earns it. Everything
+    /// else in the release is a single line, so this is the only thing with a
+    /// border, a glow and room to explain itself.
+    private func heroCard(_ entry: WhatsNewEntry) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Image(systemName: entry.icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color.muroAccent)
+                .frame(width: 40, height: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .fill(Color.muroAccent.opacity(0.16))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .strokeBorder(Color.muroAccent.opacity(0.28), lineWidth: 1)
+                )
+            VStack(alignment: .leading, spacing: 6) {
+                Text(entry.title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text(entry.detail)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color.muroSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(22)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.glassSheen(0.085, 0.03))
-                .overlay(
-                    RadialGradient(
-                        gradient: Gradient(colors: [
-                            Color.muroAccent.opacity(0.22), Color.muroAccent.opacity(0)
-                        ]),
-                        center: UnitPoint(x: 0.88, y: -0.1), startRadius: 0, endRadius: 300
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.muroAccent.opacity(0.16), Color.muroAccent.opacity(0.04)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.muroAccent.opacity(0.22), lineWidth: 1)
         )
-    }
-
-    private var versionPill: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 9.5, weight: .semibold))
-            Text("LATEST UPDATE")
-                .font(.system(size: 9.5, weight: .semibold))
-                .tracking(1.3)
-        }
-        .foregroundStyle(Color.muroAccent)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(Color.muroAccent.opacity(0.14)))
-        .overlay(Capsule().strokeBorder(Color.muroAccent.opacity(0.3), lineWidth: 1))
     }
 
     // MARK: The update
@@ -380,16 +380,16 @@ struct WhatsNewView: View {
     // MARK: Notes
 
     private func sectionBlock(_ section: WhatsNewSection) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 11) {
             SectionLabel(section.name.uppercased())
             ForEach(section.entries) { entry in
-                entryRow(entry)
+                entryRow(entry, accent: section.isAccent)
             }
         }
     }
 
     private func earlierBlock(_ past: WhatsNewRelease) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 11) {
             SectionLabel("MURO \(past.version)", trailing: past.date)
             ForEach(past.sections) { section in
                 ForEach(section.entries) { entry in
@@ -399,28 +399,26 @@ struct WhatsNewView: View {
         }
     }
 
-    private func entryRow(_ entry: WhatsNewEntry) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: entry.icon)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color.muroAccent)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(.glassSheen(0.13, 0.05)))
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.title)
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text(entry.detail)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.muroSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+    /// One line: a marker, what changed, and a clause saying what that means.
+    /// The 3.0 sheet gave every entry a glass card and a full sentence, so nine
+    /// changes read as nine identical blocks and nobody finished the list.
+    private func entryRow(_ entry: WhatsNewEntry, accent: Bool = false) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 11) {
+            Circle()
+                .fill(accent ? Color.muroAccent.opacity(0.9)
+                             : Color.muroSecondary.opacity(0.5))
+                .frame(width: 5, height: 5)
+                .offset(y: -4)
+            Text(entry.title)
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(entry.detail)
+                .font(.system(size: 13))
+                .foregroundStyle(Color.muroSecondary)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassPanel(cornerRadius: 18)
     }
 
     /// What the sheet shows until the notes are written. It is a designed
