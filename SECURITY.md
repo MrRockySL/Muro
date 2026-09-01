@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 3.0.x   | Yes |
-| < 3.0   | Please update |
+| 4.0.x   | Yes |
+| < 4.0   | Please update |
 
 Only the latest release receives security fixes. Updates are published on the
 [Releases](https://github.com/MrRockySL/Muro/releases) page.
@@ -126,9 +126,15 @@ fixes.
 With its default catalog, the current app makes unauthenticated HTTPS requests
 to:
 
-- Cloudflare R2 for the wallpaper catalog, thumbnails, previews, and wallpaper
-  downloads
+- `cdn.murowallpaper.com`, Muro's own domain in front of Cloudflare R2, for the
+  wallpaper catalog, thumbnails, previews, and wallpaper downloads
 - GitHub's Releases API to check for a newer Muro version
+
+Before 4.0 those requests went to a shared `pub-<id>.r2.dev` address. That
+hostname is common to every Cloudflare R2 bucket, so networks that block it
+block all of them at once, and Explore arrived empty for the people behind such
+a filter. The old address still answers, so copies of Muro older than 4.0 keep
+working.
 
 The catalog URL can be changed through macOS preferences. A custom catalog can
 therefore provide wallpaper URLs on different hosts.
@@ -202,7 +208,7 @@ You can inspect and compile the tagged source:
 ```bash
 git clone https://github.com/MrRockySL/Muro.git
 cd Muro
-git checkout v3.0
+git checkout v4.0
 swift build -c release --package-path Muro
 ```
 

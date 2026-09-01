@@ -30,6 +30,6 @@ Cloudflare API Token.rtf
 # catalog.json is generated into that clone, not kept here.
 Muro-Wallpapers/
 catalog.json
-TEST-3.0.md
-RELEASE-NOTES-3.0.md
-REDDIT-POST-3.0.md
+TEST-*.md
+RELEASE-NOTES-*.md
+REDDIT-POST-*.md
