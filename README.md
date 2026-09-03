@@ -238,8 +238,7 @@ nothing held back.
 ## Contribute
 
 Found a bug, have an idea, or want to improve something?
-[Open an issue](../../issues) or send a pull request. Muro already carries code
-from other people and it is better for it.
+[Open an issue](../../issues) or send a pull request.
 
 ---
 
