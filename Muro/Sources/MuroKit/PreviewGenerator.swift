@@ -72,26 +72,33 @@ public func generatePreview(
     let outputFPS = sourceFPS > 0 ? min(sourceFPS, 30) : 30
 
     let fullDuration = CMTimeGetSeconds(track.timeRange.duration)
-    let clipSeconds = min(spec.maxSeconds, fullDuration)
-    let clipDuration = CMTime(seconds: clipSeconds, preferredTimescale: 600)
 
-    // Start one source frame in, not at zero.
+    // Start a fixed quarter second in, not at zero.
     //
-    // Some clips carry an edit list that presents the first picture a frame
-    // late. The composition has nothing to draw in that gap, so it renders it,
-    // and the preview opened on a flash of black before the picture appeared.
-    // Two clips in one drop did exactly that, both offset by 0.0167s, one
-    // frame at 60 fps. Nothing in AVFoundation will admit to the offset:
-    // `timeRange.start` reads zero, and the first sample's stamp reads zero
-    // too, because the edit list has already been applied by then.
+    // Some clips present their first picture late. The composition has nothing
+    // to draw in that gap, so it renders it, and the preview opened on a flash
+    // of black before the picture appeared. Nothing in AVFoundation will admit
+    // to the offset: `timeRange.start` reads zero, and the first sample's
+    // stamp reads zero too, because the edit list has already been applied.
     //
-    // Rather than chase it, begin past it. One frame is below anything a
-    // person can see in a six second loop taken from a clip many times that
-    // long, and it cannot land inside a gap that is at most one frame wide.
-    let sourceFrame = sourceFPS > 0
-        ? CMTime(seconds: 1 / sourceFPS, preferredTimescale: 600)
-        : CMTime.zero
-    let clipStart = sourceFrame
+    // Counting source frames was tried twice and is the wrong shape. One frame
+    // left 13 of 42 clips in a drop still opening on black. Two frames fixed
+    // 11 of those, and the two survivors showed why: the real offset is a
+    // property of the file, not of the frame rate. `ffprobe` reads their
+    // `start_time` as 0.066733 and 0.100100, two and three frames at 29.97,
+    // and a two frame start lands exactly on the first one's boundary.
+    //
+    // So do not try to match it. Clear it. A quarter second is longer than any
+    // offset seen, and it is still invisible in a six second loop cut from a
+    // clip many times that long.
+    let headTrim = 0.25
+    let clipStart = CMTime(seconds: min(headTrim, fullDuration / 4),
+                           preferredTimescale: 600)
+
+    // Take the window from there, never past the end of the track.
+    let clipSeconds = min(spec.maxSeconds,
+                          fullDuration - CMTimeGetSeconds(clipStart))
+    let clipDuration = CMTime(seconds: clipSeconds, preferredTimescale: 600)
     let clipRange = CMTimeRange(start: clipStart, duration: clipDuration)
 
     let composition = AVMutableVideoComposition()
