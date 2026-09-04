@@ -7,7 +7,7 @@
 ### Live wallpapers for your Mac, with low CPU and RAM usage. Free.
 
 ![macOS](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)
-![Apple Silicon](https://img.shields.io/badge/Apple_Silicon-required-black?logo=apple)
+![Universal](https://img.shields.io/badge/Universal-Apple_Silicon_%2B_Intel-black?logo=apple)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Price](https://img.shields.io/badge/Price-Free-brightgreen)
 [![Download](https://img.shields.io/badge/⬇_Download-Muro-A9C4FF)](../../releases/latest)
@@ -30,8 +30,8 @@ RAM and keep your CPU warm all day, for a picture that moves.
 
 Muro is a native macOS app that plays looping video wallpapers on every display,
 and lets you browse them in a full screen gallery. It's written in Swift and
-SwiftUI, hands video decoding to the Apple Silicon media engine instead of the
-CPU, and pauses itself the moment you can't see it.
+SwiftUI, hands video decoding to your Mac's media hardware instead of the CPU,
+and pauses itself the moment you can't see it.
 
 Everything is free. No Pro tier, no paywall, no license key, no account. Every
 wallpaper and every feature is unlocked.
@@ -57,11 +57,10 @@ wallpaper and every feature is unlocked.
 - 💾 **Space control.** See what each wallpaper costs on disk, and remove downloads you're done with.
 - 🆓 **Free and open source** (MIT).
 
-> Requires macOS 14 (Sonoma) or newer on an Apple Silicon Mac. The build is
-> arm64 only for now, so it will not run on an Intel Mac. An Intel build is
-> planned. On macOS 26 and later the interface uses SwiftUI's native liquid
-> glass; on older versions it falls back to translucent materials, which looks
-> slightly different but works the same.
+> Requires macOS 14 (Sonoma) or newer. The build is universal, so it runs on
+> both Apple Silicon and Intel Macs. On macOS 26 and later the interface uses
+> SwiftUI's native liquid glass; on older versions it falls back to translucent
+> materials, which looks slightly different but works the same.
 
 ---
 
@@ -199,7 +198,7 @@ Muro is native the whole way down: Swift, SwiftUI and AVFoundation. No Electron,
 no web views.
 
 The wallpaper is a video playing in a window that sits just below your desktop
-icons, decoded in hardware by the Apple Silicon media engine, so the CPU barely
+icons, decoded in hardware by your Mac's video engine, so the CPU barely
 participates. The moment the wallpaper can't be seen, Muro pauses it, and a
 paused wallpaper costs nothing.
 
