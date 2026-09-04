@@ -67,11 +67,11 @@ wallpaper and every feature is unlocked.
 ## What it looks like
 
 <p align="center">
-  <img src="screenshots/home.png" width="820" alt="The Muro home gallery, showing a featured wallpaper and picks from your library">
+  <img src="screenshots/muro-demo.gif" width="820" alt="The Muro home gallery with a live wallpaper playing behind the featured banner">
 </p>
 
 <p align="center">
-  <a href="https://github.com/MrRockySL/Muro/releases/download/v3.0/muro-demo.mp4"><strong>Watch Muro in action</strong></a>
+  <a href="https://github.com/MrRockySL/Muro/releases/download/v4.0/muro-demo.mp4"><strong>Watch Muro in action</strong></a>
 </p>
 
 ---
