@@ -1,0 +1,114 @@
+name: Intel check
+
+# Runs Muro on real Intel hardware. GitHub's macos-*-intel images are standard
+# runners, and standard runners are free and unlimited on public repositories.
+#
+# Two jobs, because they answer two different questions.
+#
+# The build job asks whether Muro compiles and passes its tests on Intel. It
+# has to run on the macOS 26 image, since the interface uses the liquid glass
+# API that only the macOS 26 SDK carries. The older Xcode on the macOS 15
+# image cannot compile that call however the code is written, which is why
+# this is not a matrix over both.
+#
+# The macOS 15 job asks the question users actually care about: does the
+# binary we ship run on an older Intel Mac. It builds nothing. It takes the
+# binaries the first job produced and runs them, which is exactly what
+# somebody installing the DMG does.
+#
+# Run it by hand from the Actions tab. Deliberately not wired to push.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and test on Intel
+    runs-on: macos-26-intel
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: What machine is this
+        run: |
+          echo "arch: $(uname -m)"
+          echo "cpu:  $(sysctl -n machdep.cpu.brand_string)"
+          sw_vers
+          test "$(uname -m)" = "x86_64" || { echo "NOT an Intel runner"; exit 1; }
+
+      - name: Build release
+        run: swift build -c release --package-path Muro
+
+      - name: Architecture of every binary
+        run: |
+          for b in muro-app muro-engine muro-set muro-import muro-publish; do
+            echo "$b: $(lipo -archs "Muro/.build/release/$b")"
+          done
+
+      - name: Deployment target is still macOS 14
+        run: |
+          # A binary built against the macOS 26 SDK is only usable on the older
+          # Macs the README promises if its minimum stays 14.0. Xcode will
+          # happily raise this, and nothing else would notice until an install
+          # failed on somebody's Mac.
+          minos=$(otool -l Muro/.build/release/muro-app \
+                  | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')
+          echo "minos: $minos"
+          case "$minos" in
+            14.*) echo "ok" ;;
+            *) echo "minimum moved to $minos, macOS 14 Macs would be locked out"; exit 1 ;;
+          esac
+
+      - name: Tests
+        run: swift test --package-path Muro
+
+      - name: The binaries actually run
+        run: |
+          Muro/.build/release/muro-publish --help
+          Muro/.build/release/muro-set --displays || true
+
+      - name: Decode a real wallpaper with AVFoundation
+        run: swift .github/workflows/hevccheck.swift
+
+      - name: Keep the binaries for the macOS 15 job
+        uses: actions/upload-artifact@v4
+        with:
+          name: intel-binaries
+          path: |
+            Muro/.build/release/muro-app
+            Muro/.build/release/muro-engine
+            Muro/.build/release/muro-set
+            Muro/.build/release/muro-import
+            Muro/.build/release/muro-publish
+          retention-days: 1
+
+  older:
+    name: Run those binaries on macOS 15
+    needs: build
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: intel-binaries
+          path: bin
+
+      - name: What machine is this
+        run: |
+          echo "arch: $(uname -m)"
+          echo "cpu:  $(sysctl -n machdep.cpu.brand_string)"
+          sw_vers
+          test "$(uname -m)" = "x86_64" || { echo "NOT an Intel runner"; exit 1; }
+
+      - name: The shipped binaries load and run here
+        run: |
+          chmod +x bin/*
+          for b in bin/*; do echo "$(basename $b): $(lipo -archs $b)"; done
+          # A binary built against a newer SDK than this Mac has is exactly
+          # what the DMG contains, so failing to launch here is the failure
+          # worth catching.
+          bin/muro-publish --help
+          bin/muro-set --displays || true
+
+      - name: Decode a real wallpaper with AVFoundation
+        run: swift .github/workflows/hevccheck.swift

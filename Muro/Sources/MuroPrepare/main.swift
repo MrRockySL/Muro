@@ -109,7 +109,7 @@ for index in manifest.wallpapers.indices where selectedIDs.contains(manifest.wal
     // The efficient variant is served whole (never streamed), so only the
     // master is checked.
     switch isFastStart(masterURL) {
-    case false:
+    case .some(false):
         if opts.dryRun {
             print("· \(entry.title): would remux (moov at end)")
         } else {
@@ -133,9 +133,9 @@ for index in manifest.wallpapers.indices where selectedIDs.contains(manifest.wal
                 continue
             }
         }
-    case true:
+    case .some(true):
         break
-    case nil:
+    case .none:
         print("⚠︎ \(entry.title): could not parse atoms — skipped remux")
         failures += 1
     }
