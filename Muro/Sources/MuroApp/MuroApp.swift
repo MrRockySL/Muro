@@ -1,6 +1,8 @@
 import SwiftUI
 import AppKit
 import MuroKit
+import ServiceManagement
+import os
 
 /// The Muro app: gallery window + settings + menu bar, with the wallpaper
 /// engine embedded (one process, one config, instant hot-reload).
@@ -16,7 +18,10 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         // Read here and nowhere later. The launch Apple event only sits on the
         // queue while the app is starting, so by the time anything else could
         // ask, the answer is gone.
-        startedAtLogin = Self.launchedAsLoginItem()
+        startedAtLogin = Self.launchedAtLogin()
+        // After reading, never before: this is what sets the flag that the
+        // line above consumes.
+        watchForSessionEnd()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -29,7 +34,11 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         // boot, which had to be closed by hand every single time. It starts in
         // the menu bar now and waits to be asked.
         if startedAtLogin {
-            hideMainWindow()
+            // Twenty seconds because this is a cold boot and the window can be
+            // slow to appear. Nothing waits on it: any request for the gallery
+            // ends the suppression immediately.
+            GalleryLaunchSuppressor.shared.start(forUpTo: 20)
+            mainWindow?.orderOut(nil)
         } else {
             NSApp.activate(ignoringOtherApps: true)
         }
@@ -72,11 +81,53 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(wanted)
     }
 
-    /// Did macOS start us as a login item?
+    /// Did macOS start Muro at login, rather than a person opening it?
     ///
-    /// There is no flag on `NSApplication` for this. The launch Apple event
-    /// carries it: an `oapp` event with a `prdt` parameter of `lgit`. This is
-    /// the documented way and it is what `SMAppService` login starts send.
+    /// Two signals, because the documented one does not fire for the way Muro
+    /// registers itself.
+    ///
+    /// The first is the launch Apple event, which carries the answer for a
+    /// classic login item: an `oapp` event whose `prdt` parameter is `lgit`.
+    /// Muro registers with `SMAppService.mainApp`, and those starts arrive
+    /// without that parameter, so on its own this read false at every restart
+    /// and the gallery opened anyway. It is kept because when it is there it
+    /// is conclusive, and it costs nothing to ask.
+    ///
+    /// The second looks at how the last session ended instead of how this one
+    /// began. macOS tells a running app when the Mac is shutting down,
+    /// restarting or logging out, and the next launch after that is a login
+    /// start. Deliberately quitting Muro leaves the flag clear, so opening it
+    /// again by hand still opens the gallery, and so does a relaunch after a
+    /// crash.
+    ///
+    /// It is only believed when Muro is a registered login item, so a Mac shut
+    /// down with launch at login switched off still opens the gallery when
+    /// someone opens Muro themselves.
+    private static func launchedAtLogin() -> Bool {
+        let defaults = UserDefaults.standard
+        let sessionEnded = defaults.bool(forKey: sessionEndedKey)
+        defaults.set(false, forKey: sessionEndedKey)
+
+        let appleEvent = launchedAsLoginItem()
+        let isLoginItem = SMAppService.mainApp.status == .enabled
+        let result = appleEvent || (sessionEnded && isLoginItem)
+
+        // One line, to the unified log rather than to a file of our own, so a
+        // report of "it opened the window again" can be answered with which
+        // signal was missing instead of another guess:
+        //   log show --last 10m --predicate 'subsystem == "com.mrrockysl.muro"'
+        //
+        // notice, not info. Info level lives in a memory buffer that is dropped
+        // on its own schedule, and the whole point of this line is to still be
+        // readable after a restart. Notice is written to disk.
+        launchLog.notice(
+            "startedAtLogin=\(result, privacy: .public) appleEvent=\(appleEvent, privacy: .public) sessionEnded=\(sessionEnded, privacy: .public) loginItem=\(isLoginItem, privacy: .public)"
+        )
+        return result
+    }
+
+    /// The launch Apple event's own answer. Conclusive when present, absent
+    /// for `SMAppService` starts, which is why it is only half the test.
     private static func launchedAsLoginItem() -> Bool {
         guard let event = NSAppleEventManager.shared().currentAppleEvent,
               event.eventID == kAEOpenApplication
@@ -85,21 +136,27 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
             .enumCodeValue == keyAELaunchedAsLogInItem
     }
 
-    /// Put the gallery away without closing it.
-    ///
-    /// Run more than once on purpose. SwiftUI creates the `Window` scene's
-    /// `NSWindow` around launch rather than at a moment we control, so a
-    /// single pass here can happen before the window exists and miss it. The
-    /// later passes are cheap and catch that case.
-    private func hideMainWindow() {
-        mainWindow?.orderOut(nil)
-        Task { @MainActor in
-            mainWindow?.orderOut(nil)
-            try? await Task.sleep(nanoseconds: 250_000_000)
-            mainWindow?.orderOut(nil)
+    /// Record that this session ended with the Mac rather than with someone
+    /// quitting Muro. Read, and cleared, by `launchedAtLogin()` next time.
+    private func watchForSessionEnd() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willPowerOffNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            let defaults = UserDefaults.standard
+            defaults.set(true, forKey: Self.sessionEndedKey)
+            // The Mac is going down and Muro can be killed before the periodic
+            // flush, which would lose the one fact the next launch needs.
+            defaults.synchronize()
         }
     }
+
+    fileprivate static let sessionEndedKey = "sessionEndedWithSystem"
 }
+
+/// Why the gallery did or did not appear at this launch. One line per start.
+private let launchLog = Logger(subsystem: "com.mrrockysl.muro", category: "launch")
 
 @main
 struct MuroApp: App {

@@ -366,6 +366,10 @@ var mainWindow: NSWindow? { window(titled: MuroWindow.gallery) }
 /// for a window that is only ordered out.
 @MainActor
 func showMainWindow() {
+    // Every way a person can ask for the gallery arrives here, so this is the
+    // one place that has to call off a login start's suppression. Without it
+    // the window would be put away again in front of them.
+    GalleryLaunchSuppressor.shared.stop()
     NSApp.activate(ignoringOtherApps: true)
     mainWindow?.makeKeyAndOrderFront(nil)
 }
@@ -404,6 +408,66 @@ final class WindowButtonTarget: NSObject {
     /// serve every window rather than one per scene.
     @objc func hideWindow(_ sender: Any?) {
         (sender as? NSView)?.window?.orderOut(nil)
+    }
+}
+
+/// Keeps the gallery off screen while Muro is starting at login.
+///
+/// Ordering the window out once, at launch, does not work, and that is why the
+/// gallery kept appearing at every restart even after 4.0 set out to stop it.
+/// SwiftUI builds the `Window` scene's `NSWindow` and puts it on screen at a
+/// moment of its own choosing, and on a cold boot, with every app on the Mac
+/// competing for the disk, that moment lands well after the app delegate has
+/// finished. The first attempt ordered the window out three times across 250ms
+/// and still lost the race.
+///
+/// So this stops guessing at a moment. It puts the gallery away every time
+/// SwiftUI shows it, until the person asks for it or the deadline passes.
+///
+/// `NSWindow.didUpdateNotification` is the hook because AppKit has no "did
+/// become visible" notification to use instead. A window on screen is sent an
+/// update once per pass of the event loop, so it announces itself as soon as
+/// it is up, however late that is.
+@MainActor
+final class GalleryLaunchSuppressor {
+    static let shared = GalleryLaunchSuppressor()
+
+    private var observer: NSObjectProtocol?
+    private var deadline: Task<Void, Never>?
+
+    /// Start putting the gallery away, for at most `seconds`.
+    ///
+    /// The deadline exists so a login start cannot leave the app permanently
+    /// unable to show its own window if some future path shows it without
+    /// going through `showMainWindow()`. Until then the cost is one comparison
+    /// per event loop pass on a window that is not even on screen.
+    func start(forUpTo seconds: Double) {
+        guard observer == nil else { return }
+        observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.didUpdateNotification,
+            object: nil,
+            queue: .main
+        ) { note in
+            MainActor.assumeIsolated {
+                guard let window = note.object as? NSWindow,
+                      window.title == MuroWindow.gallery,
+                      window.isVisible
+                else { return }
+                window.orderOut(nil)
+            }
+        }
+        deadline = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            self.stop()
+        }
+    }
+
+    /// Stop. Called when someone asks for the gallery, and by the deadline.
+    func stop() {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        observer = nil
+        deadline?.cancel()
+        deadline = nil
     }
 }
 
