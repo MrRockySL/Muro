@@ -210,4 +210,169 @@ final class AppleWallpaperStoreTests: XCTestCase {
         XCTAssertEqual(choices?.count, 1)
         XCTAssertEqual(choices?.first?["Configuration"] as? Data, Data("two".utf8))
     }
+
+    // MARK: - kernelpanic-root, round two: the store with no node for his display
+
+    /// His `Index.plist`, rebuilt from the dump on the issue. One shared node
+    /// holding his wallpaper, and nothing carrying his display's UUID.
+    private var kernelpanicStore: Any {
+        [
+            "AllSpacesAndDisplays": ["Type": "linked", "Linked": surface(provider: "default")],
+            "SystemDefault": ["Type": "linked", "Linked": surface(provider: "default")],
+        ]
+    }
+
+    private let hisDisplay = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
+
+    /// The failure itself: a per-display apply matches nothing, because the
+    /// tree has no node carrying his UUID.
+    func testPerDisplayApplyMatchesNothingOnHisStore() {
+        var store = kernelpanicStore
+        XCTAssertEqual(
+            AppleWallpaperStore.applyChoice(choice("abc"), to: &store, targetKey: hisDisplay),
+            0,
+            "nothing in his tree carries his display UUID"
+        )
+    }
+
+    /// And the fix: the choice goes to the node he actually has, not to an
+    /// invented per-display one macOS will not read.
+    func testFallbackWritesTheSharedNodeHeAlreadyHas() {
+        var store = kernelpanicStore
+        AppleWallpaperStore.applyChoiceCreatingNode(
+            choice("abc"),
+            to: &store,
+            targetKey: hisDisplay,
+            desktopFallback: surface(provider: "default"),
+            idleFallback: surface(provider: "default")
+        )
+
+        let root = store as? [String: Any]
+        XCTAssertNil(root?["Displays"], "no invented per-display node")
+        for name in ["AllSpacesAndDisplays", "SystemDefault"] {
+            let node = root?[name] as? [String: Any]
+            XCTAssertEqual(providers(node, "Linked"), [muro], "\(name) must hold it under Linked")
+            XCTAssertNil(node?["Desktop"], "\(name) is linked, a Desktop key is the old bug")
+            XCTAssertEqual(node?["Type"] as? String, "linked", "his own arrangement is not rewritten")
+            XCTAssertTrue(AppleWallpaperStore.isWellFormed(node ?? [:]))
+        }
+        XCTAssertTrue(AppleWallpaperStore.containsProvider(muro, in: store))
+    }
+
+    /// A Mac that does have a node for the display is untouched by any of
+    /// this: it matches, so the fallback never runs.
+    func testDisplayWithItsOwnNodeStillWinsAndSharedNodeIsLeftAlone() {
+        var store: Any = [
+            "AllSpacesAndDisplays": ["Type": "linked", "Linked": surface(provider: "aerials")],
+            "Displays": [hisDisplay: ["Type": "linked", "Linked": surface(provider: "aerials")]],
+        ]
+        let written = AppleWallpaperStore.applyChoiceCreatingNode(
+            choice("abc"),
+            to: &store,
+            targetKey: hisDisplay,
+            desktopFallback: surface(provider: "default"),
+            idleFallback: surface(provider: "default")
+        )
+
+        XCTAssertEqual(written, 1)
+        let root = store as? [String: Any]
+        let mine = (root?["Displays"] as? [String: Any])?[hisDisplay]
+        XCTAssertEqual(providers(mine, "Linked"), [muro])
+        XCTAssertEqual(
+            providers(root?["AllSpacesAndDisplays"], "Linked"),
+            ["aerials"],
+            "the shared node is not dragged along when the display has its own"
+        )
+    }
+
+    /// A tree with neither keeps the old behaviour rather than writing nothing.
+    func testStoreWithNoSharedNodeStillGetsAPerDisplayNode() {
+        var store: Any = ["Spaces": [String: Any]()]
+        AppleWallpaperStore.applyChoiceCreatingNode(
+            choice("abc"),
+            to: &store,
+            targetKey: hisDisplay,
+            desktopFallback: surface(provider: "default"),
+            idleFallback: surface(provider: "default")
+        )
+
+        let made = ((store as? [String: Any])?["Displays"] as? [String: Any])?[hisDisplay] as? [String: Any]
+        XCTAssertEqual(providers(made, "Desktop"), [muro])
+        XCTAssertTrue(AppleWallpaperStore.isWellFormed(made ?? [:]))
+    }
+
+    /// An all-displays apply is unchanged.
+    func testAllDisplaysFallbackIsStillTheAllDisplaysNode() {
+        XCTAssertEqual(
+            AppleWallpaperStore.fallbackNodePaths(in: kernelpanicStore, targetKey: "all"),
+            [["AllSpacesAndDisplays"]]
+        )
+    }
+
+    // MARK: - Removal has to reach the same node the apply wrote
+
+    /// Otherwise the fix above leaves a wallpaper the app cannot take off.
+    func testRemovingOneDisplayReachesTheSharedNodeItWrote() {
+        XCTAssertTrue(
+            AppleWallpaperStore.surfaceBelongsToTarget(["AllSpacesAndDisplays", "Linked"], targetKey: hisDisplay)
+        )
+        XCTAssertTrue(
+            AppleWallpaperStore.surfaceBelongsToTarget(["SystemDefault", "Linked"], targetKey: hisDisplay)
+        )
+    }
+
+    /// But it must not reach another display's own wallpaper.
+    func testRemovingOneDisplayLeavesAnotherDisplaysNodeAlone() {
+        XCTAssertFalse(
+            AppleWallpaperStore.surfaceBelongsToTarget(
+                ["Displays", "B7F3F6DA-9AA1-42F6-A1EF-B788BB495B27", "Linked"],
+                targetKey: hisDisplay
+            )
+        )
+        XCTAssertTrue(
+            AppleWallpaperStore.surfaceBelongsToTarget(["Displays", hisDisplay, "Linked"], targetKey: hisDisplay)
+        )
+        XCTAssertTrue(
+            AppleWallpaperStore.surfaceBelongsToTarget(["Displays", "anything", "Linked"], targetKey: "all")
+        )
+    }
+
+    /// A Space under the shared node is not the shared node.
+    func testSpacesUnderSharedNameAreNotTreatedAsShared() {
+        XCTAssertFalse(
+            AppleWallpaperStore.surfaceBelongsToTarget(
+                ["Spaces", "Default", "Displays", "OTHER", "Linked"],
+                targetKey: hisDisplay
+            )
+        )
+    }
+
+    /// The end of it, in the terms the issue is actually argued in.
+    ///
+    /// Muro's own diagnostics log prints, per store, the surface and node type
+    /// every Muro record sits on. His five applies all printed
+    /// `Index.plist=Desktop/individual`, which is the wallpaper sitting on a
+    /// key macOS does not read on his Mac. After the fix the same store prints
+    /// what a working System Settings apply printed on his machine.
+    func testHisDiagnosticLineNowReadsLinked() {
+        var store = kernelpanicStore
+        AppleWallpaperStore.applyChoiceCreatingNode(
+            choice("abc"),
+            to: &store,
+            targetKey: hisDisplay,
+            desktopFallback: surface(provider: "default"),
+            idleFallback: surface(provider: "default")
+        )
+
+        var seen: Set<String> = []
+        AppleWallpaperStore.forEachNode(in: store) { _, node in
+            for name in AppleWallpaperStore.surfaceNames {
+                guard let s = node[name] as? [String: Any],
+                      AppleWallpaperStore.providers(of: s).contains(muro)
+                else { continue }
+                seen.insert("\(name)/\(node["Type"] as? String ?? "none")")
+            }
+        }
+        XCTAssertEqual(seen.sorted().joined(separator: ","), "Linked/linked")
+    }
 }
