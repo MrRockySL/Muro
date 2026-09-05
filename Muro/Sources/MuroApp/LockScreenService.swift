@@ -692,39 +692,16 @@ final class LockScreenService {
             // Each node says which surface it keeps its wallpaper under, and
             // that is the one to write. Writing `Desktop` on a node whose
             // desktop and lock screen are linked put the wallpaper somewhere
-            // macOS never reads, which is issue #11.
-            let changed = AppleWallpaperStore.applyChoice(
-                choice, to: &store, targetKey: targetKey
+            // macOS never reads, which is issue #11. A store can also offer
+            // no node for this display at all, and then the choice goes where
+            // that store already keeps its wallpaper.
+            AppleWallpaperStore.applyChoiceCreatingNode(
+                choice,
+                to: &store,
+                targetKey: targetKey,
+                desktopFallback: firstNonMuroSurface(named: "Desktop", in: store) ?? defaultSurface(),
+                idleFallback: firstNonMuroSurface(named: "Idle", in: store) ?? defaultSurface()
             )
-
-            if changed == 0 {
-                // A real store can offer nowhere to write: one reporter's Mac
-                // kept every node linked, so an apply looking only for
-                // `Desktop` matched nothing at all. Create the node that means
-                // "everywhere" rather than succeeding silently against a tree
-                // with no room in it.
-                let desktopFallback = firstNonMuroSurface(named: "Desktop", in: store)
-                    ?? defaultSurface()
-                let idleFallback = firstNonMuroSurface(named: "Idle", in: store)
-                    ?? defaultSurface()
-                if targetKey == "all" {
-                    ensureNode(
-                        at: ["AllSpacesAndDisplays"],
-                        choice: choice,
-                        desktopFallback: desktopFallback,
-                        idleFallback: idleFallback,
-                        root: &store
-                    )
-                } else {
-                    ensureNode(
-                        at: ["Displays", targetKey],
-                        choice: choice,
-                        desktopFallback: desktopFallback,
-                        idleFallback: idleFallback,
-                        root: &store
-                    )
-                }
-            }
 
             try writePropertyList(store, to: storeURL)
             // Written twice with a pause, because WallpaperAgent may rewrite
@@ -856,7 +833,7 @@ final class LockScreenService {
     ) {
         mutateSurfaces(named: name, in: &value, path: path) { surfacePath, surface in
             guard isMuroSurface(surface),
-                  targetKey == "all" || surfacePath.contains(targetKey)
+                  AppleWallpaperStore.surfaceBelongsToTarget(surfacePath, targetKey: targetKey)
             else { return surface }
             return replacement(surfacePath, surface)
         }
@@ -935,53 +912,6 @@ final class LockScreenService {
             current = next
         }
         return current as? [String: Any]
-    }
-
-    /// Writes the choice at one path in the tree, whether or not a node is
-    /// already there.
-    ///
-    /// Replaces two helpers that each bolted a `Desktop` key onto whatever
-    /// they found and stamped `Type` as `individual` without adding the `Idle`
-    /// that word promises. That left nodes describing a shape they did not
-    /// have, and one reporter's Mac carried exactly that while macOS never
-    /// asked the extension for a single frame.
-    private static func ensureNode(
-        at path: [String],
-        choice: [String: Any],
-        desktopFallback: [String: Any],
-        idleFallback: [String: Any],
-        root: inout Any
-    ) {
-        guard let first = path.first, var rootDictionary = root as? [String: Any] else { return }
-        if path.count == 1 {
-            let existing = rootDictionary[first] as? [String: Any]
-            rootDictionary[first] = existing.map {
-                AppleWallpaperStore.nodeApplying(
-                    choice: choice,
-                    to: $0,
-                    desktopFallback: desktopFallback,
-                    idleFallback: idleFallback
-                )
-            } ?? AppleWallpaperStore.makeNode(
-                choice: choice,
-                desktopFallback: desktopFallback,
-                idleFallback: idleFallback
-            )
-            root = rootDictionary
-            return
-        }
-        var container = rootDictionary[first] as? [String: Any] ?? [:]
-        var nested: Any = container
-        ensureNode(
-            at: Array(path.dropFirst()),
-            choice: choice,
-            desktopFallback: desktopFallback,
-            idleFallback: idleFallback,
-            root: &nested
-        )
-        container = nested as? [String: Any] ?? container
-        rootDictionary[first] = container
-        root = rootDictionary
     }
 
     private static func defaultSurface() -> [String: Any] {
