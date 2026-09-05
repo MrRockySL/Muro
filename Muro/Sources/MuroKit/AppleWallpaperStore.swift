@@ -169,6 +169,142 @@ public enum AppleWallpaperStore {
         return written
     }
 
+    /// The nodes a store already keeps a shared wallpaper in, nearest first.
+    ///
+    /// `AllSpacesAndDisplays` is the one macOS reads when a display has no
+    /// node of its own. `SystemDefault` sits behind it and Apple writes both,
+    /// so both are offered.
+    public static let sharedNodePaths = [["AllSpacesAndDisplays"], ["SystemDefault"]]
+
+    /// Whether a wallpaper node already sits at `path`.
+    public static func hasNode(at path: [String], in store: Any) -> Bool {
+        var current = store
+        for component in path {
+            guard let dictionary = current as? [String: Any],
+                  let next = dictionary[component]
+            else { return false }
+            current = next
+        }
+        guard let node = current as? [String: Any] else { return false }
+        return isWallpaperNode(node)
+    }
+
+    /// Where to put a choice that `applyChoice` found no room for.
+    ///
+    /// This is issue #11's second half. A per-display apply matches on the
+    /// display's UUID, and a Mac that has never been given a different
+    /// wallpaper per screen has no node carrying that UUID at all: its one
+    /// wallpaper lives in `AllSpacesAndDisplays`. The old fallback invented
+    /// `Displays/<uuid>` for it, which is a node macOS does not read while
+    /// that shared node exists, so the apply wrote a file nothing rendered and
+    /// then read its own writing back as success.
+    ///
+    /// So prefer the shared nodes the store already has, and keep inventing a
+    /// per-display node only for a store that has neither. Writing the shared
+    /// node cannot take a wallpaper away from another display: this is only
+    /// reached when no per-display node matched, and a display that has its
+    /// own node is served by that node rather than this one.
+    public static func fallbackNodePaths(in store: Any, targetKey: String) -> [[String]] {
+        if targetKey == "all" { return [["AllSpacesAndDisplays"]] }
+        let shared = sharedNodePaths.filter { hasNode(at: $0, in: store) }
+        return shared.isEmpty ? [["Displays", targetKey]] : shared
+    }
+
+    /// Whether a surface at `surfacePath` belongs to the display being applied
+    /// to, or removed from.
+    ///
+    /// A shared node is everybody's. It is where a Mac with no per-display
+    /// node keeps its one wallpaper, so a per-display apply has to write it
+    /// and a per-display remove has to be able to take it back out again.
+    /// Without this second half the fallback above would leave a wallpaper
+    /// that nothing in the app could remove.
+    public static func surfaceBelongsToTarget(_ surfacePath: [String], targetKey: String) -> Bool {
+        if targetKey == "all" { return true }
+        if surfacePath.contains(targetKey) { return true }
+        return sharedNodePaths.contains { Array(surfacePath.dropLast()) == $0 }
+    }
+
+    /// Writes the choice at one path in the tree, whether or not a node is
+    /// already there.
+    ///
+    /// Replaces two helpers that each bolted a `Desktop` key onto whatever
+    /// they found and stamped `Type` as `individual` without adding the `Idle`
+    /// that word promises. That left nodes describing a shape they did not
+    /// have, and one reporter's Mac carried exactly that while macOS never
+    /// asked the extension for a single frame.
+    public static func ensureNode(
+        at path: [String],
+        choice: [String: Any],
+        desktopFallback: [String: Any],
+        idleFallback: [String: Any],
+        root: inout Any,
+        now: Date = Date()
+    ) {
+        guard let first = path.first, var rootDictionary = root as? [String: Any] else { return }
+        if path.count == 1 {
+            let existing = rootDictionary[first] as? [String: Any]
+            rootDictionary[first] = existing.map {
+                nodeApplying(
+                    choice: choice,
+                    to: $0,
+                    desktopFallback: desktopFallback,
+                    idleFallback: idleFallback,
+                    now: now
+                )
+            } ?? makeNode(
+                choice: choice,
+                desktopFallback: desktopFallback,
+                idleFallback: idleFallback,
+                now: now
+            )
+            root = rootDictionary
+            return
+        }
+        var container = rootDictionary[first] as? [String: Any] ?? [:]
+        var nested: Any = container
+        ensureNode(
+            at: Array(path.dropFirst()),
+            choice: choice,
+            desktopFallback: desktopFallback,
+            idleFallback: idleFallback,
+            root: &nested,
+            now: now
+        )
+        container = nested as? [String: Any] ?? container
+        rootDictionary[first] = container
+        root = rootDictionary
+    }
+
+    /// The whole write: put the choice in every node that already serves this
+    /// target, and when the tree has none, put it where that tree keeps its
+    /// wallpaper.
+    ///
+    /// Returns how many existing nodes were written, so a caller can still
+    /// tell a normal apply from one that had to fall back.
+    @discardableResult
+    public static func applyChoiceCreatingNode(
+        _ choice: [String: Any],
+        to store: inout Any,
+        targetKey: String,
+        desktopFallback: [String: Any],
+        idleFallback: [String: Any],
+        now: Date = Date()
+    ) -> Int {
+        let written = applyChoice(choice, to: &store, targetKey: targetKey, now: now)
+        guard written == 0 else { return written }
+        for path in fallbackNodePaths(in: store, targetKey: targetKey) {
+            ensureNode(
+                at: path,
+                choice: choice,
+                desktopFallback: desktopFallback,
+                idleFallback: idleFallback,
+                root: &store,
+                now: now
+            )
+        }
+        return written
+    }
+
     /// Puts the choice on one node, creating the surface key when the node
     /// does not have one yet.
     ///
