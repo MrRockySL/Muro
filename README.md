@@ -228,7 +228,11 @@ nothing held back.
 
 <sub>Muro is free because of the people who pay for it anyway.</sub>
 
-### [Be the first](https://github.com/sponsors/MrRockySL)
+<a href="https://github.com/deimosfr"><img src="assets/sponsors/deimosfr.png" width="72" alt="Pierre Mavro"></a>
+
+**[Pierre Mavro](https://github.com/deimosfr)**
+
+<sub>Muro's first sponsor.</sub>
 
 </div>
 
