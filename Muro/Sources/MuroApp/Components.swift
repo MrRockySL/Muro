@@ -1,7 +1,6 @@
 import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
-import MuroKit
 
 // MARK: - Image loading
 
@@ -483,13 +482,14 @@ func openWhatsNew(_ store: AppStore) {
     store.markUpdateSeen()
 }
 
-/// Opens the existing Settings window. The function makes the app active first.
 @MainActor
 func openSettingsWindow() {
-    AppMenuSettings.present(
-        activate: { NSApp.activate(ignoringOtherApps: true) },
-        open: SettingsWindowOpener.shared.open
-    )
+    // Environment openWindow isn't reachable from plain helpers; the
+    // Settings scene registers this callback at launch. Activate first —
+    // when called from the (non-activating) menu bar panel the app isn't
+    // active and the window would open behind others.
+    NSApp.activate(ignoringOtherApps: true)
+    SettingsWindowOpener.shared.open?()
 }
 
 @MainActor
