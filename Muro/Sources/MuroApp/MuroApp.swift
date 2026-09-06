@@ -171,7 +171,7 @@ struct MuroApp: App {
                 .frame(minWidth: 1180, minHeight: 760)
                 .preferredColorScheme(.dark)
                 .onAppear {
-                    SettingsWindowOpener.shared.open = { openWindow(id: "settings") }
+                    registerSettingsOpener()
                     // Here rather than in the delegate: the window is what is
                     // being reconfigured, and by the time its content appears
                     // it definitely exists. Re-applied on every appearance, so
@@ -181,8 +181,17 @@ struct MuroApp: App {
         }
         .defaultSize(width: 1440, height: 920)
         .windowStyle(.hiddenTitleBar)
+        // This group puts Settings in the app menu after About.
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button(AppMenuSettings.title) {
+                    openSettingsWindow()
+                }
+                .keyboardShortcut(KeyEquivalent(AppMenuSettings.shortcut), modifiers: .command)
+            }
+        }
 
-        Window(MuroWindow.settings, id: "settings") {
+        Window(MuroWindow.settings, id: AppMenuSettings.windowID) {
             SettingsView()
                 .environmentObject(store)
                 .preferredColorScheme(.dark)
@@ -190,6 +199,12 @@ struct MuroApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
+    }
+
+    /// Stores the function that opens the Settings window.
+    /// The gallery stores this function when it appears.
+    private func registerSettingsOpener() {
+        SettingsWindowOpener.shared.open = { openWindow(id: AppMenuSettings.windowID) }
     }
 }
 
