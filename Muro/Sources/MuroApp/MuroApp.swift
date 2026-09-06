@@ -181,6 +181,14 @@ struct MuroApp: App {
         }
         .defaultSize(width: 1440, height: 920)
         .windowStyle(.hiddenTitleBar)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    openSettingsWindow()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
+        }
 
         Window(MuroWindow.settings, id: "settings") {
             SettingsView()
