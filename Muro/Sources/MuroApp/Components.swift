@@ -356,6 +356,19 @@ func window(titled title: String) -> NSWindow? {
     NSApp.windows.first { $0.title == title }
 }
 
+/// The two windows a person opens and closes: the gallery and Settings.
+///
+/// Named, rather than picked out by a property. The status item's own window
+/// answers to most of those, and ordering that one out takes the menu bar icon
+/// off the screen with it. The wallpaper is absent for its own reason: it says
+/// it cannot be hidden at all.
+@MainActor
+var muroDocumentWindows: [NSWindow] {
+    NSApp.orderedWindows.filter {
+        $0.title == MuroWindow.gallery || $0.title == MuroWindow.settings
+    }
+}
+
 /// The gallery window itself. `Window("Muro", id: "main")` is a SwiftUI scene,
 /// and closing it only orders it out, so it can always be brought back.
 @MainActor
