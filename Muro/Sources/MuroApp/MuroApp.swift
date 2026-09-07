@@ -28,6 +28,7 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         Self.applyActivationPolicy()
         engine.start()
         statusBar = StatusBarController(store: AppStore.shared)
+        watchForHideKey()
 
         // Starting at login is the Mac booting, not a person asking to see the
         // gallery. Muro used to throw its full window on screen every single
@@ -64,6 +65,42 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
     /// know the trick.
     func applicationDidBecomeActive(_ notification: Notification) {
         Self.applyActivationPolicy()
+    }
+
+    /// Command-H, when Muro has no menu bar to answer it.
+    ///
+    /// With the Dock icon off Muro is an accessory app, which has no menu bar,
+    /// so it has no Hide item and nothing responds to the key at all: AppKit
+    /// beeps. Hiding is an older habit than the Dock and the people who switch
+    /// the Dock icon off are exactly the people who use it.
+    ///
+    /// The windows are put away rather than the app being marked hidden. Waking
+    /// a hidden app is defined as putting every window it hid back on screen,
+    /// and opening the menu bar dropdown wakes the app, so a real hide came
+    /// straight back up with the dropdown. Windows that were simply ordered out
+    /// stay out until someone asks for them, which is always `showMainWindow`.
+    ///
+    /// With the Dock icon on this stands aside: there is a menu bar, and the
+    /// Hide item does the job properly, including bringing the windows back on
+    /// command-tab.
+    private func watchForHideKey() {
+        hideKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard NSApp.activationPolicy() == .accessory,
+                  event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  event.charactersIgnoringModifiers?.lowercased() == "h"
+            else { return event }
+
+            MainActor.assumeIsolated {
+                for window in muroDocumentWindows where window.isVisible {
+                    window.orderOut(nil)
+                }
+            }
+            // Hiding hands the keyboard back to whatever was in front before,
+            // and an app left holding it with nothing on screen swallows the
+            // next thing typed.
+            NSApp.deactivate()
+            return nil
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -153,6 +190,10 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     fileprivate static let sessionEndedKey = "sessionEndedWithSystem"
+
+    /// Held for the life of the app. A local monitor is removed by handing this
+    /// token back, so losing it would leak the monitor.
+    private var hideKeyMonitor: Any?
 }
 
 /// Why the gallery did or did not appear at this launch. One line per start.

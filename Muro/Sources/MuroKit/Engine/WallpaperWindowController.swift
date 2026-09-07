@@ -67,6 +67,12 @@ public final class WallpaperWindowController {
         window.backgroundColor = .black
         window.hasShadow = false
         window.ignoresMouseEvents = true
+        // Hiding an app hides every window it owns, and the wallpaper is one
+        // of Muro's windows, so command-H took the desktop down with it and
+        // left the plain background showing. Hiding is meant to put an app's
+        // interface away, not to switch the wallpaper off, so this window opts
+        // out of it and keeps playing while the rest of Muro disappears.
+        window.canHide = false
         window.isReleasedWhenClosed = false
         window.animationBehavior = .none
 
