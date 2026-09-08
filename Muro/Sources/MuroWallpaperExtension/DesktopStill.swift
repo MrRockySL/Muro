@@ -22,9 +22,43 @@ enum DesktopStill {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
+    /// The last decode, kept against the file it came from.
+    ///
+    /// The app asks for this again on every apply, every playlist step and
+    /// every launch, and the surface asks for it again itself after it is
+    /// built. That is a 4K JPEG each time, for a picture that usually has not
+    /// changed, so it is decoded once per version of the file. Size and
+    /// modification date together are what change when the app stages a new
+    /// one, since it copies the picture in rather than writing it.
+    private static let memoryLock = NSLock()
+    nonisolated(unsafe) private static var memory: (key: String, image: CGImage)?
+
     static func current() -> CGImage? {
-        guard let url else { return nil }
-        return image(at: url)
+        guard let url else {
+            memoryLock.lock()
+            memory = nil
+            memoryLock.unlock()
+            return nil
+        }
+        let key = identity(of: url)
+        memoryLock.lock()
+        let remembered = memory?.key == key ? memory?.image : nil
+        memoryLock.unlock()
+        if let remembered { return remembered }
+
+        guard let decoded = image(at: url) else { return nil }
+        memoryLock.lock()
+        memory = (key, decoded)
+        memoryLock.unlock()
+        return decoded
+    }
+
+    /// What the file is right now, cheaply: its size and modification date.
+    private static func identity(of url: URL) -> String {
+        let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let size = values?.fileSize ?? -1
+        let modified = values?.contentModificationDate?.timeIntervalSince1970 ?? -1
+        return "\(size)-\(modified)"
     }
 
     /// ImageIO rather than AppKit: this is decoded on the renderer's own queue

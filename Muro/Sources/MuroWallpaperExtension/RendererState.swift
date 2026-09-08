@@ -64,14 +64,23 @@ struct WallpaperSurfaceKey: Hashable {
 
 final class ActiveWallpaper: @unchecked Sendable {
     let context: CAContext
+
+    /// The layer the remote context itself owns, and the layer that carries
+    /// the desktop's frozen picture.
+    ///
+    /// The picture used to live in a sublayer added underneath the video after
+    /// the context had already been handed to macOS. Putting it here means the
+    /// surface carries it from the moment it exists, and removes a layer that
+    /// could be on screen holding nothing.
     let rootLayer: CALayer
+
     let renderer: VideoRenderer
     let choiceID: String?
 
-    /// The frozen picture behind the video. Nil for a System Settings preview,
-    /// which is showing the lock wallpaper on purpose and should not be handed
-    /// the desktop's.
-    let stillLayer: CALayer?
+    /// Whether this surface draws the desktop's own picture at all. False for
+    /// a System Settings preview, which is showing the lock wallpaper on
+    /// purpose and should not be handed the desktop's.
+    let drawsStill: Bool
 
     /// A frame of this wallpaper itself, kept so a desktop still going away
     /// falls back to something rather than to nothing.
@@ -79,22 +88,25 @@ final class ActiveWallpaper: @unchecked Sendable {
 
     /// What was last asked for, which is not always what is on screen: the
     /// still can only win while it has a picture. Kept so that a still
-    /// arriving late, or being taken away, lands on the right layer.
+    /// arriving late, or being taken away, lands the right way round.
     private var wantsStill = false
+
+    /// Whether there is a picture to fall back to right now.
+    var hasStill: Bool { rootLayer.contents != nil }
 
     init(
         context: CAContext,
         rootLayer: CALayer,
         renderer: VideoRenderer,
         choiceID: String?,
-        stillLayer: CALayer?,
+        drawsStill: Bool,
         fallback: CGImage?
     ) {
         self.context = context
         self.rootLayer = rootLayer
         self.renderer = renderer
         self.choiceID = choiceID
-        self.stillLayer = stillLayer
+        self.drawsStill = drawsStill
         self.fallback = fallback
     }
 
@@ -104,35 +116,30 @@ final class ActiveWallpaper: @unchecked Sendable {
     /// become empty must give the screen back to the video rather than sit
     /// there drawing nothing.
     func setStill(_ image: CGImage?) {
-        guard let stillLayer else { return }
+        guard drawsStill else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        stillLayer.contents = image ?? fallback
+        rootLayer.contents = image ?? fallback
+        rootLayer.isOpaque = rootLayer.contents != nil
         CATransaction.commit()
         CATransaction.flush()
         setShowingStill(wantsStill)
     }
 
-    /// Show the still and hide the video, or the other way round.
+    /// Show the desktop's picture and hide the video, or the other way round.
     ///
-    /// The video is hidden rather than left paused underneath, because a
-    /// paused video layer that composited a frame would cover the still, and
-    /// one that failed to composite is the black desktop this exists to stop.
+    /// The video is hidden rather than left paused on top, because a paused
+    /// video layer that composited a frame would cover the picture, and one
+    /// that failed to composite is the black desktop this exists to stop.
     ///
-    /// The one thing that must never happen is both layers being empty at
-    /// once, and that is the whole of the rule here: the still only wins while
-    /// it actually holds a picture. With no picture the video stays on screen
-    /// whatever was asked for, because a frozen frame of the lock wallpaper is
-    /// still a wallpaper and a hidden video over an empty layer is black.
+    /// The one thing that must never happen is nothing being drawn at all, and
+    /// that is the whole of the rule here: the picture only wins while there
+    /// actually is one. With no picture the video stays on screen whatever was
+    /// asked for, because a frozen frame of the lock wallpaper is still a
+    /// wallpaper and a hidden video over an empty surface is black.
     func setShowingStill(_ showing: Bool) {
         wantsStill = showing
-        let effective = showing && stillLayer?.contents != nil
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        stillLayer?.isHidden = !effective
-        CATransaction.commit()
-        CATransaction.flush()
-        renderer.setHidden(effective)
+        renderer.setHidden(showing && rootLayer.contents != nil)
     }
 }
 
@@ -293,6 +300,29 @@ final class RendererState: @unchecked Sendable {
         let image = DesktopStill.current()
         forEachWallpaper { $0.setStill(image) }
         applyCurrentPlaybackPolicy()
+    }
+
+    /// Asserts the desktop picture again, a few times, shortly after a surface
+    /// is built.
+    ///
+    /// **Why a surface is not trusted to come up right.** Measured on the
+    /// owner's Mac on 2026-09-08: macOS acquires the wallpaper about two
+    /// seconds after logging in, and for roughly the next forty seconds
+    /// quitting Muro left a black desktop. Nothing on disk changed in that
+    /// time, the staged picture was there and readable throughout, the
+    /// lifecycle never invalidated the surface, and no second acquire ever
+    /// happened. What cleared it was any later run of this same code: opening
+    /// Muro and waiting a few seconds, or locking and unlocking.
+    ///
+    /// So the picture is asserted again rather than assumed to have landed.
+    /// Three cheap file reads, once per acquire, spread across the window in
+    /// which the desktop was seen to be wrong.
+    func scheduleStillReassert() {
+        for delay in [2.0, 8.0, 20.0] {
+            Self.lifecycleQueue.asyncAfter(deadline: .now() + delay) {
+                RendererState.shared.refreshDesktopStill()
+            }
+        }
     }
 
     private func remove(_ key: WallpaperSurfaceKey) {
