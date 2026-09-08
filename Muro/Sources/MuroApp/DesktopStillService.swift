@@ -119,6 +119,7 @@ final class DesktopStillService {
     ) -> [(id: String, video: URL)] {
         var missing: [(id: String, video: URL)] = []
         var stillForExtension: URL?
+        var anyWallpaper = false
 
         for screen in NSScreen.screens {
             guard let uuid = displayUUID(for: screen) else { continue }
@@ -129,6 +130,7 @@ final class DesktopStillService {
                 restore(screen: screen, uuid: uuid)
                 continue
             }
+            anyWallpaper = true
             let still = stillURL(for: entry.id)
             guard FileManager.default.fileExists(atPath: still.path) else {
                 let video = resolveVideoURL(entry: entry, mode: assignment.mode, root: root)
@@ -147,7 +149,16 @@ final class DesktopStillService {
         // the main display's. Muro's own window is per screen and still shows
         // the right video everywhere; this is only the frozen fallback for
         // when Muro is not running.
-        LockScreenService.publishDesktopStill(stillForExtension)
+        //
+        // Nothing is taken away while a still is only late. The first time a
+        // wallpaper is applied its still has to be decoded out of the video,
+        // and this ran before that finished with nothing to hand over, so
+        // choosing a wallpaper Muro had not shown before pulled the picture
+        // out from under the desktop for as long as the decode took. Clearing
+        // is for a Mac with no Muro wallpaper at all.
+        if stillForExtension != nil || !anyWallpaper {
+            LockScreenService.publishDesktopStill(stillForExtension)
+        }
         return missing
     }
 
