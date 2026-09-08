@@ -127,6 +127,9 @@ private protocol WallpaperExtensionXPCProtocol {
 }
 
 private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
+    private static let snapshotQueue = DispatchQueue(
+        label: "com.mrrockysl.muro.wallpaper-snapshot"
+    )
     private var acquiredAsPreview = false
 
     func acquire(
@@ -148,11 +151,18 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
     ) {
         let info = inspectWallpaperRequest(request)
         acquiredAsPreview = info.isPreview
+        RendererState.shared.noteDestination(info)
         let key = RendererState.shared.surfaceKey(id: id, request: info)
+        // The mode is logged because it is what decides still against video,
+        // and a lock screen showing the wrong one of the two is answered by
+        // this line and nothing else.
         extensionLog(
             "acquire \(info.destinationSize.width)x\(info.destinationSize.height) "
                 + "display=\(info.displayID.map(String.init) ?? "default") "
-                + "preview=\(info.isPreview) choice=\(info.choiceID ?? "none")"
+                + "preview=\(info.isPreview) choice=\(info.choiceID ?? "none") "
+                + "mode=\(info.presentationMode ?? "unset") "
+                + "activity=\(info.activityState ?? "unset") "
+                + "covered=\(ScreenState.isCovered())"
         )
 
         if let existing = RendererState.shared.context(for: key),
@@ -242,7 +252,20 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             let contextID = context.contextId
             let choiceID = info.choiceID
             let isPreview = info.isPreview
-            let shouldPlay = RendererState.shared.shouldPlayNow(isPreview: info.isPreview)
+            // The request's own mode, not whatever this process was last told
+            // about some other surface. A surface created for a locked screen
+            // has to start playing, and after a restart nothing has said the
+            // screen is locked. See RendererState.shouldPlayNow.
+            if !info.isPreview {
+                RendererState.shared.adopt(
+                    mode: info.presentationMode, activity: info.activityState
+                )
+            }
+            let shouldPlay = RendererState.shared.shouldPlayNow(
+                mode: info.presentationMode,
+                activity: info.activityState,
+                isPreview: info.isPreview
+            )
             // Read before the reply closure, which is Sendable and cannot reach
             // into a layer.
             let showingStill = !shouldPlay && stillLayer?.contents != nil
@@ -294,11 +317,33 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         reply(nil)
     }
 
+    /// macOS asking what this wallpaper looks like as a picture. It exports
+    /// the answer to the Preboot volume, and that is what the login screen
+    /// shows while the Mac is still asking for a password, before any of this
+    /// code can be running. Answering nothing left the login screen on a
+    /// desktop picture from months ago. See `WallpaperSnapshot`.
     func snapshot(
         withId id: Any?,
         reply: @escaping @Sendable (Any?, NSError?) -> Void
     ) {
-        reply(nil, nil)
+        nonisolated(unsafe) let unsafeID = id
+        // Its own queue, not the lifecycle one: the first snapshot decodes a
+        // frame, and queueing that behind an acquire would hold up the
+        // wallpaper itself.
+        Self.snapshotQueue.async {
+            let identifier = extractWallpaperUUID(from: unsafeID)?.uuidString
+            let choiceID = RendererState.shared.choiceID(forIdentifier: identifier)
+                ?? soleStagedChoiceID()
+            guard let snapshot = WallpaperSnapshot.make(
+                choiceID: choiceID,
+                size: RendererState.shared.snapshotSize
+            ) else {
+                reply(nil, self.extensionError(6, "No Muro wallpaper to snapshot."))
+                return
+            }
+            extensionTrace("snapshot provided for \(choiceID ?? "none")")
+            reply(snapshot, nil)
+        }
     }
 
     func provideSettingsViewModels(

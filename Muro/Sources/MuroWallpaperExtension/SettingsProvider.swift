@@ -56,6 +56,16 @@ func stagedThumbnailURL(for choiceID: String?) -> URL? {
     return stagedEntries().first { $0.0.id == choiceID }?.2
 }
 
+/// The wallpaper this Mac has staged, when macOS asks about a surface this
+/// process has not been given yet.
+///
+/// Muro keeps exactly one lock-screen wallpaper, so there is nothing to choose
+/// between. It is only a guess when an older install still has more than one,
+/// and a picture of the wrong Muro wallpaper is a better answer than refusing.
+func soleStagedChoiceID() -> String? {
+    stagedEntries().first?.0.id
+}
+
 func makeSettingsResponse() -> AnyObject? {
     let provider = ChoiceProviderID(rawValue: extensionDomain)
     let items = stagedEntries().enumerated().map { offset, staged in

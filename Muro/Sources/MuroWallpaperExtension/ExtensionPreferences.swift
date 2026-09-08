@@ -76,5 +76,18 @@ final class ExtensionPlaybackCoordinator: @unchecked Sendable {
         ) { _ in
             RendererState.shared.setPresentation(mode: "default", activity: "active")
         })
+        // Logging in at the login window is not an unlock and posts neither of
+        // the two above. A surface created there is playing because the screen
+        // was covered, and without this it would carry on playing behind the
+        // desktop once somebody logged in.
+        for name in ["com.apple.sessionDidMoveOnConsole", "com.apple.sessionDidMoveOffConsole"] {
+            tokens.append(center.addObserver(
+                forName: .init(name),
+                object: nil,
+                queue: nil
+            ) { _ in
+                RendererState.shared.applyCurrentPlaybackPolicy()
+            })
+        }
     }
 }

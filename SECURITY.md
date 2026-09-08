@@ -116,6 +116,14 @@ extension. When you apply a lock-screen wallpaper, the main app:
 Muro attempts to restore the previous wallpaper settings if applying fails and
 when you remove its lock-screen wallpaper.
 
+The extension also answers macOS when it asks what the lock wallpaper looks
+like as a still picture. macOS keeps that picture on the Preboot volume and
+draws it on the login screen, before anything of Muro's is running. The image
+is a frame of the wallpaper you chose and nothing else; Muro hands it over and
+macOS decides where it is stored. Answering was added because refusing left the
+login screen showing a picture from whatever wallpaper had last been exported
+successfully, which could be months old.
+
 This feature depends on private macOS wallpaper interfaces, including
 `WallpaperExtensionKit` and runtime-only wallpaper types. Apple can change these
 interfaces without notice, so future macOS releases may require compatibility
