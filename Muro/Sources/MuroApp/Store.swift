@@ -900,10 +900,13 @@ final class AppStore: ObservableObject {
     var lockScreenAvailable: Bool { lockScreen.isAvailable }
     var lockScreenWallpaperID: String? { lockScreen.activeWallpaperID }
 
-    /// `surface == nil` is a legacy/menu-bar desktop action: it preserves any
-    /// existing lock-screen selection. The preview picker passes an explicit
-    /// surface, where Desktop means desktop-only and therefore removes Muro
-    /// from the matching Apple Idle target.
+    /// Applying to one surface leaves the other alone.
+    ///
+    /// Desktop used to mean "desktop and not the lock screen", so setting a new
+    /// desktop wallpaper silently tore the lock screen wallpaper out. Nobody
+    /// asked for that: choosing where a wallpaper goes is not the same as
+    /// asking for the wallpaper already somewhere else to be removed. Removing
+    /// one is its own action, the Remove button on that surface.
     func setWallpaper(
         _ item: WallpaperItem,
         mode: String,
@@ -967,14 +970,6 @@ final class AppStore: ObservableObject {
                 } else {
                     pushRecent(entry.id)
                 }
-                objectWillChange.send()
-                recomputeSize()
-            } catch {
-                applyError = error.localizedDescription
-            }
-        } else if explicitSurface == .desktop, !lockScreen.activeWallpaperIDs.isEmpty {
-            do {
-                try await lockScreen.remove(target: target)
                 objectWillChange.send()
                 recomputeSize()
             } catch {
