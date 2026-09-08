@@ -153,16 +153,34 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         acquiredAsPreview = info.isPreview
         RendererState.shared.noteDestination(info)
         let key = RendererState.shared.surfaceKey(id: id, request: info)
+
+        // Resolved before anything is built, because it is also the answer to
+        // "why was the desktop black". A surface with no picture has only the
+        // video to show, and a video that is created paused may composite no
+        // frame at all, which is a black rectangle where the desktop was.
+        //
+        // Nothing is resolved for a System Settings preview: that is showing
+        // the lock wallpaper on purpose, and the desktop's own picture there
+        // would be the wrong one.
+        //
+        // The fallback is a frame of this wallpaper rather than its thumbnail,
+        // because a thumbnail can be missing. See WallpaperFrame.
+        let fallbackStill = info.isPreview ? nil : WallpaperFrame.image(for: info.choiceID)
+        let desktopStill = info.isPreview ? nil : (DesktopStill.current() ?? fallbackStill)
+
         // The mode is logged because it is what decides still against video,
         // and a lock screen showing the wrong one of the two is answered by
-        // this line and nothing else.
+        // this line and nothing else. `still` is logged for the same reason on
+        // the desktop side: a black desktop is either "no" here, or something
+        // outside this process.
         extensionLog(
             "acquire \(info.destinationSize.width)x\(info.destinationSize.height) "
                 + "display=\(info.displayID.map(String.init) ?? "default") "
                 + "preview=\(info.isPreview) choice=\(info.choiceID ?? "none") "
                 + "mode=\(info.presentationMode ?? "unset") "
                 + "activity=\(info.activityState ?? "unset") "
-                + "covered=\(ScreenState.isCovered())"
+                + "covered=\(ScreenState.isCovered()) "
+                + "still=\(info.isPreview ? "n/a" : (desktopStill != nil ? "yes" : "no"))"
         )
 
         if let existing = RendererState.shared.context(for: key),
@@ -204,6 +222,13 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         rootLayer.frame = CGRect(origin: .zero, size: info.destinationSize)
         rootLayer.contentsScale = info.scaleFactor
         rootLayer.contentsGravity = .resizeAspectFill
+        // Underneath the video, on the context's own layer, and set before the
+        // context is handed over, so the first thing macOS composites already
+        // carries the desktop's picture. It used to be a sublayer added after
+        // the handover: one more thing that had to arrive before the desktop
+        // was anything at all.
+        rootLayer.contents = desktopStill
+        rootLayer.isOpaque = desktopStill != nil
         context.layer = rootLayer
         CATransaction.flush()
 
@@ -215,31 +240,6 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             return
         }
 
-        // Underneath the video, and only for the real desktop: a preview in
-        // System Settings is showing the lock wallpaper on purpose, and the
-        // desktop's own picture there would be wrong.
-        var stillLayer: CALayer?
-        var fallbackStill: CGImage?
-        if !info.isPreview {
-            let layer = CALayer()
-            layer.frame = rootLayer.bounds
-            layer.contentsGravity = .resizeAspectFill
-            layer.contentsScale = info.scaleFactor
-            layer.isOpaque = true
-            // A frame of this wallpaper, not its thumbnail: the thumbnail can
-            // be missing, and a still layer with nothing in it is the black
-            // desktop. See WallpaperFrame.
-            fallbackStill = WallpaperFrame.image(for: info.choiceID)
-            layer.contents = DesktopStill.current() ?? fallbackStill
-            layer.isHidden = layer.contents == nil
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            rootLayer.addSublayer(layer)
-            CATransaction.commit()
-            CATransaction.flush()
-            stillLayer = layer
-        }
-
         do {
             let renderer = try VideoRenderer.create(rootLayer: rootLayer, videoURL: videoURL)
             let wallpaper = ActiveWallpaper(
@@ -247,10 +247,13 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 rootLayer: rootLayer,
                 renderer: renderer,
                 choiceID: info.choiceID,
-                stillLayer: stillLayer,
+                drawsStill: !info.isPreview,
                 fallback: fallbackStill
             )
             RendererState.shared.install(wallpaper, for: key)
+            // A surface is not trusted to have come up right. See
+            // RendererState.scheduleStillReassert for what was measured.
+            if !info.isPreview { RendererState.shared.scheduleStillReassert() }
             let responseBox = SendableBox(value: response)
             let contextID = context.contextId
             let choiceID = info.choiceID
@@ -271,7 +274,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             )
             // Read before the reply closure, which is Sendable and cannot reach
             // into a layer.
-            let showingStill = !shouldPlay && stillLayer?.contents != nil
+            let showingStill = !shouldPlay && desktopStill != nil
             wallpaper.setShowingStill(!shouldPlay)
             renderer.start(initiallyPaused: !shouldPlay) { composited in
                 extensionTrace("remote context \(contextID) ready")

@@ -718,7 +718,15 @@ final class LockScreenService {
             return
         }
 
-        guard staged != url.path || !manager.fileExists(atPath: image.path) else { return }
+        // Already the picture that is staged. Nothing is copied, but the
+        // extension is still told, because this is also how Muro puts a
+        // desktop right that came up wrong: opening Muro has to fix it at
+        // once rather than whenever the wallpaper next happens to change.
+        // The extension decodes the file only when it is a different one.
+        guard staged != url.path || !manager.fileExists(atPath: image.path) else {
+            notifyDesktopStillChanged()
+            return
+        }
         // Copied beside it and moved into place, never written through. The
         // extension decodes this file whenever it is told the preferences
         // changed, and the app posts that same notification for other reasons,
