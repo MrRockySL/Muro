@@ -31,6 +31,20 @@ public final class EngineController {
         })
     }
 
+    /// Takes every wallpaper window off the screen, for a quit.
+    ///
+    /// Muro's own window is what the desktop shows while Muro runs, so this is
+    /// what hands the screen back to the picture macOS itself holds. Done
+    /// before the process goes rather than by the process going, so the app is
+    /// still alive afterwards to ask for that picture to be drawn again while
+    /// it is the thing on screen.
+    public func stopAll() {
+        for controller in controllers.values { controller.stop() }
+        controllers.removeAll()
+        frames.removeAll()
+        videos.removeAll()
+    }
+
     /// Watches the library root for writes; config.json is saved atomically
     /// so directory-level write events are the reliable signal.
     private func watchConfigDirectory() {

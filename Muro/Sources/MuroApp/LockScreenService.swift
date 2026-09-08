@@ -749,6 +749,16 @@ final class LockScreenService {
         notifyDesktopStillChanged()
     }
 
+    /// Ask the extension to draw the desktop's picture again, without staging
+    /// a different one.
+    ///
+    /// For quitting. Muro's window comes down first, so this lands while the
+    /// surface macOS draws is the thing on screen, and a surface that came up
+    /// with nothing on it is repainted at exactly the moment it is uncovered.
+    static func repaintDesktopStill() {
+        notifyDesktopStillChanged()
+    }
+
     private static func notifyDesktopStillChanged() {
         let center = CFNotificationCenterGetDarwinNotifyCenter()
         CFNotificationCenterPostNotification(

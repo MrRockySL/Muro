@@ -187,7 +187,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
            existing.choiceID == info.choiceID,
            let response = createRemoteContextXPC(contextId: existing.context.contextId)
         {
-            extensionTrace("reusing remote context \(existing.context.contextId)")
+            extensionLog("reusing surface ctx=\(existing.context.contextId)")
             AcquireReceipt.record(
                 id: info.choiceID, preview: info.isPreview, ok: true, detail: "reused"
             )
@@ -217,6 +217,8 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             reply(nil, extensionError(3, "Could not create the remote wallpaper context."))
             return
         }
+
+        extensionLog("built surface ctx=\(context.contextId)")
 
         let rootLayer = CALayer()
         rootLayer.frame = CGRect(origin: .zero, size: info.destinationSize)

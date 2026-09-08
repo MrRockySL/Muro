@@ -63,8 +63,15 @@ enum DesktopStill {
 
     /// ImageIO rather than AppKit: this is decoded on the renderer's own queue
     /// and `NSImage` is not the thing to reach for off the main thread.
+    ///
+    /// Decoded here rather than the first time it is drawn. ImageIO hands back
+    /// a picture that decodes lazily, and the first draw is inside the commit
+    /// that gives macOS the surface: a 4K JPEG decoded there is time the
+    /// desktop spends with nothing on it. It also means the copies handed to
+    /// the layer afterwards share one decoded bitmap.
     static func image(at url: URL) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        let options = [kCGImageSourceShouldCacheImmediately: true] as CFDictionary
+        return CGImageSourceCreateImageAtIndex(source, 0, options)
     }
 }
