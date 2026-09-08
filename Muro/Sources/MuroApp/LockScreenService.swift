@@ -626,8 +626,18 @@ final class LockScreenService {
         do {
             try manager.copyItem(at: videoURL, to: staging.appendingPathComponent("wallpaper.mov"))
             try manager.copyItem(at: thumbnailURL, to: staging.appendingPathComponent("thumbnail.jpg"))
-            if manager.fileExists(atPath: destination.path) { try manager.removeItem(at: destination) }
-            try manager.moveItem(at: staging, to: destination)
+            // Swapped, not deleted and rebuilt. macOS can ask the extension
+            // for this video at any moment, and the old code took the folder
+            // away first: an acquire landing in that gap was answered with
+            // "not staged", which leaves macOS with nothing to draw. That is
+            // the black screen that only happened sometimes, and only when a
+            // wallpaper was being replaced. It also removes the failure where
+            // the move found the folder still there and threw.
+            if manager.fileExists(atPath: destination.path) {
+                _ = try manager.replaceItemAt(destination, withItemAt: staging)
+            } else {
+                try manager.moveItem(at: staging, to: destination)
+            }
         } catch {
             try? manager.removeItem(at: staging)
             throw error
@@ -709,8 +719,24 @@ final class LockScreenService {
         }
 
         guard staged != url.path || !manager.fileExists(atPath: image.path) else { return }
-        try? manager.removeItem(at: image)
-        guard (try? manager.copyItem(at: url, to: image)) != nil else { return }
+        // Copied beside it and moved into place, never written through. The
+        // extension decodes this file whenever it is told the preferences
+        // changed, and the app posts that same notification for other reasons,
+        // so a plain copy left a window in which the picture on the desktop
+        // was being read out of a half written file.
+        let incoming = documents.appendingPathComponent("desktop-still.incoming.jpg")
+        try? manager.removeItem(at: incoming)
+        guard (try? manager.copyItem(at: url, to: incoming)) != nil else { return }
+        do {
+            if manager.fileExists(atPath: image.path) {
+                _ = try manager.replaceItemAt(image, withItemAt: incoming)
+            } else {
+                try manager.moveItem(at: incoming, to: image)
+            }
+        } catch {
+            try? manager.removeItem(at: incoming)
+            return
+        }
         try? url.path.write(to: marker, atomically: true, encoding: .utf8)
         notifyDesktopStillChanged()
     }

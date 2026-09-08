@@ -226,7 +226,10 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             layer.contentsGravity = .resizeAspectFill
             layer.contentsScale = info.scaleFactor
             layer.isOpaque = true
-            fallbackStill = stagedThumbnailURL(for: info.choiceID).flatMap(DesktopStill.image)
+            // A frame of this wallpaper, not its thumbnail: the thumbnail can
+            // be missing, and a still layer with nothing in it is the black
+            // desktop. See WallpaperFrame.
+            fallbackStill = WallpaperFrame.image(for: info.choiceID)
             layer.contents = DesktopStill.current() ?? fallbackStill
             layer.isHidden = layer.contents == nil
             CATransaction.begin()
@@ -272,6 +275,10 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             wallpaper.setShowingStill(!shouldPlay)
             renderer.start(initiallyPaused: !shouldPlay) { composited in
                 extensionTrace("remote context \(contextID) ready")
+                // A video that drew nothing must not be the layer on screen,
+                // whatever the mode says. The still is the only thing left
+                // that can be a wallpaper rather than a black rectangle.
+                if !composited { wallpaper.setShowingStill(true) }
                 // Recorded whether or not a frame landed. A paused start still
                 // composites one, so this stays true for the desktop surface,
                 // where the extension is deliberately frozen.

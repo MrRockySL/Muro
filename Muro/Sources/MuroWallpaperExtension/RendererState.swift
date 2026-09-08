@@ -73,9 +73,14 @@ final class ActiveWallpaper: @unchecked Sendable {
     /// the desktop's.
     let stillLayer: CALayer?
 
-    /// The lock wallpaper's own thumbnail, kept so a desktop still going away
+    /// A frame of this wallpaper itself, kept so a desktop still going away
     /// falls back to something rather than to nothing.
     private let fallback: CGImage?
+
+    /// What was last asked for, which is not always what is on screen: the
+    /// still can only win while it has a picture. Kept so that a still
+    /// arriving late, or being taken away, lands on the right layer.
+    private var wantsStill = false
 
     init(
         context: CAContext,
@@ -94,6 +99,10 @@ final class ActiveWallpaper: @unchecked Sendable {
     }
 
     /// Swap in a newly staged desktop still, or go back to the fallback.
+    ///
+    /// Re-asserts the visibility afterwards, because a still that has just
+    /// become empty must give the screen back to the video rather than sit
+    /// there drawing nothing.
     func setStill(_ image: CGImage?) {
         guard let stillLayer else { return }
         CATransaction.begin()
@@ -101,6 +110,7 @@ final class ActiveWallpaper: @unchecked Sendable {
         stillLayer.contents = image ?? fallback
         CATransaction.commit()
         CATransaction.flush()
+        setShowingStill(wantsStill)
     }
 
     /// Show the still and hide the video, or the other way round.
@@ -108,14 +118,21 @@ final class ActiveWallpaper: @unchecked Sendable {
     /// The video is hidden rather than left paused underneath, because a
     /// paused video layer that composited a frame would cover the still, and
     /// one that failed to composite is the black desktop this exists to stop.
+    ///
+    /// The one thing that must never happen is both layers being empty at
+    /// once, and that is the whole of the rule here: the still only wins while
+    /// it actually holds a picture. With no picture the video stays on screen
+    /// whatever was asked for, because a frozen frame of the lock wallpaper is
+    /// still a wallpaper and a hidden video over an empty layer is black.
     func setShowingStill(_ showing: Bool) {
-        guard let stillLayer, stillLayer.contents != nil else { return }
+        wantsStill = showing
+        let effective = showing && stillLayer?.contents != nil
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        stillLayer.isHidden = !showing
+        stillLayer?.isHidden = !effective
         CATransaction.commit()
         CATransaction.flush()
-        renderer.setHidden(showing)
+        renderer.setHidden(effective)
     }
 }
 
