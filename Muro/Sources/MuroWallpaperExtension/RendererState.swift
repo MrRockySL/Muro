@@ -14,6 +14,16 @@ struct WallpaperRequestInfo {
     var isPreview = false
     var choiceID: String?
     var files: [URL] = []
+
+    /// What macOS says this surface is for, when it says anything. Nil means
+    /// the request carried none, not that the desktop is showing.
+    ///
+    /// The creation request has carried this all along and it was read only
+    /// off `update`, which arrives later or not at all. Taking it here is what
+    /// lets the very first wallpaper of a session know whether it is being
+    /// put on a lock screen.
+    var presentationMode: String?
+    var activityState: String?
 }
 
 func inspectWallpaperRequest(_ request: Any?) -> WallpaperRequestInfo {
@@ -27,6 +37,8 @@ func inspectWallpaperRequest(_ request: Any?) -> WallpaperRequestInfo {
         result.choiceID = String(data: configuration, encoding: .utf8)
     }
     if let files = mirrorProperty("files", in: request) as? [URL] { result.files = files }
+    result.presentationMode = mirrorProperty("presentationMode", in: request).map(wallpaperEnumCase)
+    result.activityState = mirrorProperty("activityState", in: request).map(wallpaperEnumCase)
     return result
 }
 
@@ -114,8 +126,51 @@ final class RendererState: @unchecked Sendable {
     private let lock = NSLock()
     private var active: [WallpaperSurfaceKey: ActiveWallpaper] = [:]
     private var teardown: [WallpaperSurfaceKey: DispatchWorkItem] = [:]
-    private var presentationMode = "default"
+
+    /// Nil until macOS says. It used to start at `"default"`, which reads as
+    /// "the desktop is showing" and is a claim nothing had made yet.
+    private var presentationMode: String?
     private var activityState = "active"
+
+    /// The pixel size of the last real surface macOS asked for, so a snapshot
+    /// is made at the size of the screen it will be shown on rather than at a
+    /// guess. Zero until the first acquire.
+    private var lastPixelSize: CGSize = .zero
+
+    func noteDestination(_ request: WallpaperRequestInfo) {
+        guard !request.isPreview else { return }
+        let size = CGSize(
+            width: request.destinationSize.width * request.scaleFactor,
+            height: request.destinationSize.height * request.scaleFactor
+        )
+        lock.lock()
+        if size.width > lastPixelSize.width { lastPixelSize = size }
+        lock.unlock()
+    }
+
+    /// The size to render a snapshot at: the biggest screen this process has
+    /// been asked to fill, or a sensible desktop size before it has.
+    var snapshotSize: CGSize {
+        lock.lock()
+        let known = lastPixelSize
+        lock.unlock()
+        guard known.width >= 1, known.height >= 1 else {
+            return CGSize(width: 2_560, height: 1_600)
+        }
+        return known
+    }
+
+    /// The wallpaper a surface id is showing, for a request that names one
+    /// surface rather than describing a wallpaper.
+    func choiceID(forIdentifier identifier: String?) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        if let identifier,
+           let match = active.first(where: { $0.key.identifier == identifier }) {
+            return match.value.choiceID
+        }
+        return active.values.compactMap(\.choiceID).first
+    }
 
     func surfaceKey(id: Any?, request: WallpaperRequestInfo) -> WallpaperSurfaceKey {
         let identifier = extractWallpaperUUID(from: id)?.uuidString
@@ -170,15 +225,41 @@ final class RendererState: @unchecked Sendable {
         applyCurrentPlaybackPolicy()
     }
 
-    func shouldPlayNow(isPreview: Bool = false) -> Bool {
+    /// Adopts what an acquire request said about itself, so the surface being
+    /// created decides its own first frame rather than inheriting whatever the
+    /// process last heard about some other surface.
+    func adopt(mode: String?, activity: String?) {
+        lock.lock()
+        if let mode { presentationMode = mode }
+        if let activity { activityState = activity }
+        lock.unlock()
+    }
+
+    /// Whether a surface should be playing rather than showing the still.
+    ///
+    /// `mode` and `activity` are the ones the acquire request carried, when it
+    /// carried any; otherwise the last thing macOS said.
+    ///
+    /// The screen state is consulted whenever the answer would otherwise be
+    /// "the desktop is showing". After a restart nothing has told this process
+    /// anything: the login window posts no lock notification, so the lock
+    /// screen used to come up frozen on the desktop's own picture. Asking the
+    /// session settles it without waiting to be told. See `ScreenState`.
+    func shouldPlayNow(
+        mode requestedMode: String? = nil,
+        activity requestedActivity: String? = nil,
+        isPreview: Bool = false
+    ) -> Bool {
         guard !isPreview else { return false }
         lock.lock()
-        let mode = presentationMode
-        let activity = activityState
+        let mode = requestedMode ?? presentationMode
+        let activity = requestedActivity ?? activityState
         lock.unlock()
-        if activity.contains("suspended") || mode == "idle" { return false }
-        if ExtensionPreferences.shared.alwaysPauseDesktop { return mode == "locked" }
-        return true
+        if activity.contains("suspended") { return false }
+        if mode == "locked" { return true }
+        if ScreenState.isCovered() { return true }
+        if mode == "idle" { return false }
+        return !ExtensionPreferences.shared.alwaysPauseDesktop
     }
 
     func applyCurrentPlaybackPolicy() {
