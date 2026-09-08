@@ -147,10 +147,11 @@ final class LockScreenService {
         // A healthy selection can still sit alongside records left by earlier
         // wallpapers, so this path sweeps rather than simply returning.
         guard !stillSelected else {
+            let collapsed = collapseToOneSelection()
             let changed = await Task.detached(priority: .utility) {
                 (try? Self.purgeDeadMuroSurfaces(root: root)) == true
             }.value
-            if changed {
+            if changed || collapsed {
                 await Task.detached(priority: .utility) { Self.restartWallpaperAgent() }.value
             }
             return
@@ -166,6 +167,48 @@ final class LockScreenService {
             Self.restartWallpaperAgent()
         }.value
         state = SelectionState()
+    }
+
+    /// Older builds kept a lock-screen selection per display, so a Mac with
+    /// two screens ended up with two staged wallpapers and two rows in System
+    /// Settings that read as leftovers nobody could clear. One at a time is
+    /// the rule now; this brings an install that predates it into line, once.
+    ///
+    /// The one kept is whatever Apple's store is pointing at, because that is
+    /// the wallpaper actually on screen. Only the others lose their staged
+    /// files, and `purgeDeadMuroSurfaces` hands their records back to the
+    /// user's own wallpaper.
+    private func collapseToOneSelection() -> Bool {
+        let ids = Set(state.selections.values.filter { $0 != Self.removedSelection })
+        guard ids.count > 1 else { return false }
+        guard let keep = Self.storeWallpaperID().flatMap({ ids.contains($0) ? $0 : nil })
+            ?? activeWallpaperID
+        else { return false }
+        state.selections = ["all": keep]
+        try? Self.saveState(state, root: root)
+        try? Self.pruneStagedLibrary(keeping: [keep])
+        return true
+    }
+
+    /// The Muro wallpaper Apple's own store is pointing at right now.
+    private static func storeWallpaperID() -> String? {
+        for url in wallpaperStoreURLs {
+            guard let store = loadWallpaperStore(at: url) else { continue }
+            var found: String?
+            AppleWallpaperStore.forEachNode(in: store) { _, node in
+                guard found == nil else { return }
+                for name in AppleWallpaperStore.surfaceNames {
+                    guard let surface = node[name] as? [String: Any],
+                          isMuroSurface(surface),
+                          let id = muroWallpaperID(of: surface), !id.isEmpty
+                    else { continue }
+                    found = id
+                    return
+                }
+            }
+            if let found { return found }
+        }
+        return nil
     }
 
     var isAvailable: Bool {
@@ -188,6 +231,20 @@ final class LockScreenService {
         state.selections
             .filter { $0.value != Self.removedSelection && ids.contains($0.value) }
             .map { $0.key == "all" ? .all : .display($0.key) }
+    }
+
+    /// True when Muro's lock screen is sitting on this display's macOS
+    /// wallpaper slot.
+    ///
+    /// Asked before the desktop still is written, because there is only one
+    /// slot per display and writing a picture into it would throw the lock
+    /// screen away. Answered from Muro's own record rather than from
+    /// `NSWorkspace.desktopImageURL`, which does not reliably name an
+    /// extension as the owner.
+    func ownsWallpaperSurface(displayUUID: String) -> Bool {
+        let effective = state.selections[displayUUID] ?? state.selections["all"]
+        guard let effective, effective != Self.removedSelection else { return false }
+        return true
     }
 
     func isApplied(wallpaperID: String, target: ApplyTarget) -> Bool {
@@ -265,11 +322,12 @@ final class LockScreenService {
         let targetKey = Self.targetKey(target)
         let previousState = state
         var nextState = state
-        if targetKey == "all" {
-            nextState.selections = ["all": entry.id]
-        } else {
-            nextState.selections[targetKey] = entry.id
-        }
+        // One lock-screen wallpaper at a time, whatever it was applied to.
+        // Every staged wallpaper appears as its own row in System Settings, so
+        // keeping a selection per display grew that list a row at a time and
+        // the extra rows read as leftovers nobody could clear. Picking a new
+        // one now replaces the old one rather than joining it.
+        nextState.selections = [targetKey: entry.id]
 
         let extensionURL = extensionBundleURL
         let root = root
@@ -614,6 +672,58 @@ final class LockScreenService {
             options: .atomic
         )
         notifyLibraryChanged()
+    }
+
+    /// Hand the extension the picture the desktop is set to.
+    ///
+    /// macOS keeps one wallpaper per display and a lock-screen apply puts this
+    /// extension on it, so once Muro's own window is gone the extension is
+    /// also what the desktop falls back to. On its own it would freeze a frame
+    /// of the *lock* wallpaper there, which is not the wallpaper the desktop
+    /// was set to, and when that frame failed to composite it drew nothing at
+    /// all: the black desktop people reported after quitting Muro.
+    ///
+    /// Staging the desktop still separately is what lets the extension show
+    /// the right one of the two, the desktop's own picture while unlocked and
+    /// the lock wallpaper's video once locked.
+    ///
+    /// Nothing is created for somebody who has never used the lock screen: if
+    /// the extension has no container yet there is nothing to hand it.
+    static func publishDesktopStill(_ url: URL?) {
+        let manager = FileManager.default
+        let documents = extensionDocumentsURL
+        guard manager.fileExists(atPath: documents.path) else { return }
+        let image = documents.appendingPathComponent("desktop-still.jpg")
+        // The source path doubles as the record of what is already staged, so
+        // a playlist stepping through wallpapers it has shown before does not
+        // recopy a 4K frame on every step.
+        let marker = documents.appendingPathComponent("desktop-still.source")
+        let staged = try? String(contentsOf: marker, encoding: .utf8)
+
+        guard let url else {
+            guard staged != nil || manager.fileExists(atPath: image.path) else { return }
+            try? manager.removeItem(at: image)
+            try? manager.removeItem(at: marker)
+            notifyDesktopStillChanged()
+            return
+        }
+
+        guard staged != url.path || !manager.fileExists(atPath: image.path) else { return }
+        try? manager.removeItem(at: image)
+        guard (try? manager.copyItem(at: url, to: image)) != nil else { return }
+        try? url.path.write(to: marker, atomically: true, encoding: .utf8)
+        notifyDesktopStillChanged()
+    }
+
+    private static func notifyDesktopStillChanged() {
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        CFNotificationCenterPostNotification(
+            center,
+            .init("com.mrrockysl.muro.wallpaper.preferences-changed" as CFString),
+            nil,
+            nil,
+            true
+        )
     }
 
     private static func writePreferences() throws {

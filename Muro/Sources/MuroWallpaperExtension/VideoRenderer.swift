@@ -157,6 +157,20 @@ final class VideoRenderer: @unchecked Sendable {
         }
     }
 
+    /// Hidden while the desktop is showing its own still. Not the same as
+    /// pausing: a paused layer still draws its last frame, which is the wrong
+    /// wallpaper, or nothing at all when the first frame never composited.
+    func setHidden(_ hidden: Bool) {
+        queue.async { [weak self] in
+            guard let self, isRunning else { return }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            displayLayer.isHidden = hidden
+            CATransaction.commit()
+            CATransaction.flush()
+        }
+    }
+
     func stop() {
         queue.async { [weak self] in
             guard let self else { return }

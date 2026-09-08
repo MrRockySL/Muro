@@ -205,22 +205,49 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
             return
         }
 
+        // Underneath the video, and only for the real desktop: a preview in
+        // System Settings is showing the lock wallpaper on purpose, and the
+        // desktop's own picture there would be wrong.
+        var stillLayer: CALayer?
+        var fallbackStill: CGImage?
+        if !info.isPreview {
+            let layer = CALayer()
+            layer.frame = rootLayer.bounds
+            layer.contentsGravity = .resizeAspectFill
+            layer.contentsScale = info.scaleFactor
+            layer.isOpaque = true
+            fallbackStill = stagedThumbnailURL(for: info.choiceID).flatMap(DesktopStill.image)
+            layer.contents = DesktopStill.current() ?? fallbackStill
+            layer.isHidden = layer.contents == nil
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            rootLayer.addSublayer(layer)
+            CATransaction.commit()
+            CATransaction.flush()
+            stillLayer = layer
+        }
+
         do {
             let renderer = try VideoRenderer.create(rootLayer: rootLayer, videoURL: videoURL)
-            RendererState.shared.install(
-                ActiveWallpaper(
-                    context: context,
-                    rootLayer: rootLayer,
-                    renderer: renderer,
-                    choiceID: info.choiceID
-                ),
-                for: key
+            let wallpaper = ActiveWallpaper(
+                context: context,
+                rootLayer: rootLayer,
+                renderer: renderer,
+                choiceID: info.choiceID,
+                stillLayer: stillLayer,
+                fallback: fallbackStill
             )
+            RendererState.shared.install(wallpaper, for: key)
             let responseBox = SendableBox(value: response)
             let contextID = context.contextId
             let choiceID = info.choiceID
             let isPreview = info.isPreview
-            renderer.start(initiallyPaused: !RendererState.shared.shouldPlayNow(isPreview: info.isPreview)) { composited in
+            let shouldPlay = RendererState.shared.shouldPlayNow(isPreview: info.isPreview)
+            // Read before the reply closure, which is Sendable and cannot reach
+            // into a layer.
+            let showingStill = !shouldPlay && stillLayer?.contents != nil
+            wallpaper.setShowingStill(!shouldPlay)
+            renderer.start(initiallyPaused: !shouldPlay) { composited in
                 extensionTrace("remote context \(contextID) ready")
                 // Recorded whether or not a frame landed. A paused start still
                 // composites one, so this stays true for the desktop surface,
@@ -228,8 +255,10 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 AcquireReceipt.record(
                     id: choiceID,
                     preview: isPreview,
-                    ok: composited,
-                    detail: composited ? "rendering" : "no first frame"
+                    // A still covering a video that never composited is a
+                    // desktop showing the right picture, not a failed apply.
+                    ok: composited || showingStill,
+                    detail: composited ? "rendering" : "still only"
                 )
                 reply(responseBox.value, nil)
             }

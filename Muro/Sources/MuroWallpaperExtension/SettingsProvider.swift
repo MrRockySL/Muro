@@ -13,7 +13,7 @@ private struct ExtensionWallpaperLibrary: Codable {
     let wallpapers: [ExtensionWallpaperEntry]
 }
 
-private var documentsURL: URL {
+var documentsURL: URL {
     FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Documents", isDirectory: true)
 }
@@ -46,6 +46,14 @@ private func stagedEntries() -> [(ExtensionWallpaperEntry, URL, URL)] {
 func stagedVideoURL(for choiceID: String?) -> URL? {
     guard let choiceID else { return nil }
     return stagedEntries().first { $0.0.id == choiceID }?.1
+}
+
+/// The lock wallpaper's own thumbnail. The last fallback for the desktop,
+/// used when the app has not staged a desktop still: a frame of the wrong
+/// wallpaper is still better than the black screen that came before it.
+func stagedThumbnailURL(for choiceID: String?) -> URL? {
+    guard let choiceID else { return nil }
+    return stagedEntries().first { $0.0.id == choiceID }?.2
 }
 
 func makeSettingsResponse() -> AnyObject? {
