@@ -11,14 +11,11 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
     let engine = EngineController()
     private var statusBar: StatusBarController?
 
-    /// True when macOS started Muro at login rather than a person opening it.
-    private var startedAtLogin = false
-
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Read here and nowhere later. The launch Apple event only sits on the
         // queue while the app is starting, so by the time anything else could
         // ask, the answer is gone.
-        startedAtLogin = Self.launchedAtLogin()
+        Self.recordLaunchKind()
         // After reading, never before: this is what sets the flag that the
         // line above consumes.
         watchForSessionEnd()
@@ -30,18 +27,32 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         statusBar = StatusBarController(store: AppStore.shared)
         watchForHideKey()
 
-        // Starting at login is the Mac booting, not a person asking to see the
-        // gallery. Muro used to throw its full window on screen every single
-        // boot, which had to be closed by hand every single time. It starts in
-        // the menu bar now and waits to be asked.
-        if startedAtLogin {
-            // Twenty seconds because this is a cold boot and the window can be
-            // slow to appear. Nothing waits on it: any request for the gallery
-            // ends the suppression immediately.
+        // A launch is not a request to see the gallery. Muro lives in the menu
+        // bar and keeps running, so the window is asked for, never announced.
+        //
+        // This used to try to work out whether macOS or a person had started
+        // the app, and stay quiet only for the first. That read is wrong on
+        // any Mac it cannot prove itself on: no launch Apple event arrives for
+        // an `SMAppService` start, and the shutdown flag it falls back to is
+        // missing when launch at login is off or the Mac lost power. So the
+        // window appeared for some people and not others, on the same build,
+        // which is exactly why nobody could reproduce it on demand.
+        //
+        // Nothing is inferred now. Every way a person can ask for the gallery
+        // goes through `showMainWindow()`: clicking Muro while it runs, and
+        // the menu bar dropdown. Both call the suppression off.
+        //
+        // The single exception is the first launch after installing, where a
+        // menu bar icon and nothing else would read as an app that failed to
+        // start.
+        if Self.isFirstEverLaunch() {
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            // Twenty seconds because a cold boot can be slow to put the window
+            // up. Nothing waits on it: any request for the gallery ends the
+            // suppression immediately.
             GalleryLaunchSuppressor.shared.start(forUpTo: 20)
             mainWindow?.orderOut(nil)
-        } else {
-            NSApp.activate(ignoringOtherApps: true)
         }
     }
 
@@ -118,49 +129,53 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(wanted)
     }
 
-    /// Did macOS start Muro at login, rather than a person opening it?
+    /// Write down how this launch began. Evidence only: nothing decides
+    /// anything from it any more.
     ///
-    /// Two signals, because the documented one does not fire for the way Muro
-    /// registers itself.
+    /// It used to be the test for whether to show the gallery, and it was not
+    /// good enough to be one. The launch Apple event carries the answer for a
+    /// classic login item, an `oapp` event whose `prdt` parameter is `lgit`,
+    /// but Muro registers with `SMAppService.mainApp` and those starts arrive
+    /// without it. The fallback, "the last session ended with the Mac and Muro
+    /// is a login item", is missing whenever launch at login is off or the Mac
+    /// went down without warning. Both hold on this machine and fail on
+    /// somebody else's, which is what made the reports irreproducible.
     ///
-    /// The first is the launch Apple event, which carries the answer for a
-    /// classic login item: an `oapp` event whose `prdt` parameter is `lgit`.
-    /// Muro registers with `SMAppService.mainApp`, and those starts arrive
-    /// without that parameter, so on its own this read false at every restart
-    /// and the gallery opened anyway. It is kept because when it is there it
-    /// is conclusive, and it costs nothing to ask.
+    /// The line is kept because a future report deserves an answer better than
+    /// another guess, and because whether an `oapp` event arrives at all for an
+    /// `SMAppService` start is still an open question worth one line of proof:
+    ///   log show --last 10m --predicate 'subsystem == "com.mrrockysl.muro"'
     ///
-    /// The second looks at how the last session ended instead of how this one
-    /// began. macOS tells a running app when the Mac is shutting down,
-    /// restarting or logging out, and the next launch after that is a login
-    /// start. Deliberately quitting Muro leaves the flag clear, so opening it
-    /// again by hand still opens the gallery, and so does a relaunch after a
-    /// crash.
-    ///
-    /// It is only believed when Muro is a registered login item, so a Mac shut
-    /// down with launch at login switched off still opens the gallery when
-    /// someone opens Muro themselves.
-    private static func launchedAtLogin() -> Bool {
+    /// notice, not info. Info level lives in a memory buffer that is dropped
+    /// on its own schedule, and the whole point of this line is to still be
+    /// readable after a restart. Notice is written to disk.
+    private static func recordLaunchKind() {
         let defaults = UserDefaults.standard
         let sessionEnded = defaults.bool(forKey: sessionEndedKey)
         defaults.set(false, forKey: sessionEndedKey)
 
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        let openEvent = event?.eventID == kAEOpenApplication
         let appleEvent = launchedAsLoginItem()
         let isLoginItem = SMAppService.mainApp.status == .enabled
-        let result = appleEvent || (sessionEnded && isLoginItem)
 
-        // One line, to the unified log rather than to a file of our own, so a
-        // report of "it opened the window again" can be answered with which
-        // signal was missing instead of another guess:
-        //   log show --last 10m --predicate 'subsystem == "com.mrrockysl.muro"'
-        //
-        // notice, not info. Info level lives in a memory buffer that is dropped
-        // on its own schedule, and the whole point of this line is to still be
-        // readable after a restart. Notice is written to disk.
         launchLog.notice(
-            "startedAtLogin=\(result, privacy: .public) appleEvent=\(appleEvent, privacy: .public) sessionEnded=\(sessionEnded, privacy: .public) loginItem=\(isLoginItem, privacy: .public)"
+            "openEvent=\(openEvent, privacy: .public) appleEvent=\(appleEvent, privacy: .public) sessionEnded=\(sessionEnded, privacy: .public) loginItem=\(isLoginItem, privacy: .public)"
         )
-        return result
+    }
+
+    /// True only the first time this Mac ever runs Muro.
+    ///
+    /// Deliberately not a guess about who started the app, which is the thing
+    /// that kept getting this wrong: it is a fact written down once and never
+    /// true again. An install that predates the flag is not a first launch,
+    /// and the config it has already written is what says so.
+    private static func isFirstEverLaunch() -> Bool {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: firstLaunchKey) { return false }
+        defaults.set(true, forKey: firstLaunchKey)
+        let config = EngineConfig.configURL(root: LibraryManifest.defaultRoot())
+        return !FileManager.default.fileExists(atPath: config.path)
     }
 
     /// The launch Apple event's own answer. Conclusive when present, absent
@@ -174,7 +189,7 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Record that this session ended with the Mac rather than with someone
-    /// quitting Muro. Read, and cleared, by `launchedAtLogin()` next time.
+    /// quitting Muro. Read, and cleared, by `recordLaunchKind()` next time.
     private func watchForSessionEnd() {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.willPowerOffNotification,
@@ -190,6 +205,7 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     fileprivate static let sessionEndedKey = "sessionEndedWithSystem"
+    fileprivate static let firstLaunchKey = "hasLaunchedBefore"
 
     /// Held for the life of the app. A local monitor is removed by handing this
     /// token back, so losing it would leak the monitor.
