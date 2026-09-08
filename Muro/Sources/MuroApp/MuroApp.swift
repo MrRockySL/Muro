@@ -118,6 +118,23 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         false   // keep playing wallpapers from the menu bar
     }
 
+    /// Hand the desktop back before going.
+    ///
+    /// Quitting leaves the screen showing the surface Muro's extension draws,
+    /// and after a restart that surface has been seen to come up with nothing
+    /// on it: the first quit of the session showed a black desktop, every
+    /// later one showed the picture. Nothing had changed on disk in between,
+    /// and no repaint had been asked for either, because re-asserting a
+    /// picture that is already on the layer changes nothing.
+    ///
+    /// So the windows come down first, and then the picture is drawn again
+    /// while it is the thing on screen. Both halves matter: the repaint has to
+    /// land after Muro has stopped covering the desktop.
+    func applicationWillTerminate(_ notification: Notification) {
+        engine.stopAll()
+        LockScreenService.repaintDesktopStill()
+    }
+
     // MARK: - Helpers
 
     /// The Dock icon setting, applied. Idempotent, so it is safe to call on

@@ -115,15 +115,31 @@ final class ActiveWallpaper: @unchecked Sendable {
     /// Re-asserts the visibility afterwards, because a still that has just
     /// become empty must give the screen back to the video rather than sit
     /// there drawing nothing.
+    ///
+    /// **Always a real repaint, even when the picture has not changed.** This
+    /// is also how a desktop that came up showing nothing is put right, and
+    /// that only works if something in the layer actually changes: assigning
+    /// the image that is already on the layer changes nothing, so nothing is
+    /// drawn again, which is why re-asserting a black desktop could not fix
+    /// one. `repaintable` hands over a separate object each time. It shares
+    /// the decoded bitmap, so it costs a pointer rather than a decode.
     func setStill(_ image: CGImage?) {
         guard drawsStill else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        rootLayer.contents = image ?? fallback
+        rootLayer.contents = Self.repaintable(image ?? fallback)
         rootLayer.isOpaque = rootLayer.contents != nil
         CATransaction.commit()
         CATransaction.flush()
         setShowingStill(wantsStill)
+    }
+
+    /// The same picture in a different object, so assigning it counts as a
+    /// change. Falls back to the image itself, which is no worse than what
+    /// was there before.
+    private static func repaintable(_ image: CGImage?) -> CGImage? {
+        guard let image else { return nil }
+        return image.copy() ?? image
     }
 
     /// Show the desktop's picture and hide the video, or the other way round.
@@ -233,6 +249,14 @@ final class RendererState: @unchecked Sendable {
         keys.forEach(scheduleRemoval)
     }
 
+    /// How many surfaces macOS is holding right now. Logged once per acquire
+    /// so a bug report says whether the reassert had anything to draw on.
+    var activeCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return active.count
+    }
+
     func forEachWallpaper(_ body: (ActiveWallpaper) -> Void) {
         lock.lock()
         let wallpapers = Array(active.values)
@@ -246,7 +270,11 @@ final class RendererState: @unchecked Sendable {
         activityState = activity
         lock.unlock()
         extensionTrace("presentation mode=\(mode) activity=\(activity)")
-        applyCurrentPlaybackPolicy()
+        // The picture is drawn again, not only re-paused. Unlocking, and
+        // logging in, are the moments the desktop comes back into view, and a
+        // desktop that came up with nothing on it has to be repainted at the
+        // moment somebody can see it.
+        refreshDesktopStill()
     }
 
     /// Adopts what an acquire request said about itself, so the surface being
@@ -320,7 +348,16 @@ final class RendererState: @unchecked Sendable {
     func scheduleStillReassert() {
         for delay in [2.0, 8.0, 20.0] {
             Self.lifecycleQueue.asyncAfter(deadline: .now() + delay) {
-                RendererState.shared.refreshDesktopStill()
+                let state = RendererState.shared
+                state.refreshDesktopStill()
+                // One line, on the last pass, so a bug report can say whether
+                // this ran at all and what it had to draw. The earlier two are
+                // silent on purpose: a playlist would otherwise fill the log.
+                guard delay == 20.0 else { return }
+                extensionLog(
+                    "still reasserted surfaces=\(state.activeCount) "
+                        + "still=\(DesktopStill.url != nil ? "yes" : "no")"
+                )
             }
         }
     }
