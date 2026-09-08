@@ -48,10 +48,10 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         if Self.isFirstEverLaunch() {
             NSApp.activate(ignoringOtherApps: true)
         } else {
-            // Twenty seconds because a cold boot can be slow to put the window
-            // up. Nothing waits on it: any request for the gallery ends the
-            // suppression immediately.
-            GalleryLaunchSuppressor.shared.start(forUpTo: 20)
+            // No time limit. Any request for the gallery ends this
+            // immediately, and a launch that is slow to put the window up must
+            // not outlast the thing watching for it.
+            GalleryLaunchSuppressor.shared.start()
             mainWindow?.orderOut(nil)
         }
     }

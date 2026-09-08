@@ -38,9 +38,11 @@ final class ExtensionPreferences: @unchecked Sendable {
         return pauseDesktop
     }
 
+    /// The app writes preferences and the desktop still through the same
+    /// notification, so both are picked up here.
     func reloadAndApply() {
         reload()
-        RendererState.shared.applyCurrentPlaybackPolicy()
+        RendererState.shared.refreshDesktopStill()
     }
 
     private func reload() {

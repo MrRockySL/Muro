@@ -56,11 +56,54 @@ final class ActiveWallpaper: @unchecked Sendable {
     let renderer: VideoRenderer
     let choiceID: String?
 
-    init(context: CAContext, rootLayer: CALayer, renderer: VideoRenderer, choiceID: String?) {
+    /// The frozen picture behind the video. Nil for a System Settings preview,
+    /// which is showing the lock wallpaper on purpose and should not be handed
+    /// the desktop's.
+    let stillLayer: CALayer?
+
+    /// The lock wallpaper's own thumbnail, kept so a desktop still going away
+    /// falls back to something rather than to nothing.
+    private let fallback: CGImage?
+
+    init(
+        context: CAContext,
+        rootLayer: CALayer,
+        renderer: VideoRenderer,
+        choiceID: String?,
+        stillLayer: CALayer?,
+        fallback: CGImage?
+    ) {
         self.context = context
         self.rootLayer = rootLayer
         self.renderer = renderer
         self.choiceID = choiceID
+        self.stillLayer = stillLayer
+        self.fallback = fallback
+    }
+
+    /// Swap in a newly staged desktop still, or go back to the fallback.
+    func setStill(_ image: CGImage?) {
+        guard let stillLayer else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stillLayer.contents = image ?? fallback
+        CATransaction.commit()
+        CATransaction.flush()
+    }
+
+    /// Show the still and hide the video, or the other way round.
+    ///
+    /// The video is hidden rather than left paused underneath, because a
+    /// paused video layer that composited a frame would cover the still, and
+    /// one that failed to composite is the black desktop this exists to stop.
+    func setShowingStill(_ showing: Bool) {
+        guard let stillLayer, stillLayer.contents != nil else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stillLayer.isHidden = !showing
+        CATransaction.commit()
+        CATransaction.flush()
+        renderer.setHidden(showing)
     }
 }
 
@@ -111,11 +154,11 @@ final class RendererState: @unchecked Sendable {
         keys.forEach(scheduleRemoval)
     }
 
-    func forEachRenderer(_ body: (VideoRenderer) -> Void) {
+    func forEachWallpaper(_ body: (ActiveWallpaper) -> Void) {
         lock.lock()
-        let renderers = active.values.map(\.renderer)
+        let wallpapers = Array(active.values)
         lock.unlock()
-        renderers.forEach(body)
+        wallpapers.forEach(body)
     }
 
     func setPresentation(mode: String, activity: String) {
@@ -140,9 +183,18 @@ final class RendererState: @unchecked Sendable {
 
     func applyCurrentPlaybackPolicy() {
         let shouldPlay = shouldPlayNow()
-        forEachRenderer { renderer in
-            shouldPlay ? renderer.resume() : renderer.pause()
+        forEachWallpaper { wallpaper in
+            shouldPlay ? wallpaper.renderer.resume() : wallpaper.renderer.pause()
+            wallpaper.setShowingStill(!shouldPlay)
         }
+    }
+
+    /// The app has staged a different desktop picture: a new wallpaper, a
+    /// playlist step, or the last one being removed.
+    func refreshDesktopStill() {
+        let image = DesktopStill.current()
+        forEachWallpaper { $0.setStill(image) }
+        applyCurrentPlaybackPolicy()
     }
 
     private func remove(_ key: WallpaperSurfaceKey) {

@@ -265,8 +265,9 @@ final class AppStore: ObservableObject {
     private let scheduler = AutomationScheduler()
     private let defaults = UserDefaults.standard
     private lazy var lockScreen = LockScreenService(root: root)
-    /// Only ever does anything on macOS 14 and 15. See DesktopTintService.
-    private lazy var desktopTint = DesktopTintService(root: root)
+    /// The still frame behind the video, so the desktop still shows the right
+    /// wallpaper when Muro is not running. See DesktopStillService.
+    private lazy var desktopStill = DesktopStillService(root: root)
 
     private init() {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -283,7 +284,9 @@ final class AppStore: ObservableObject {
         // Installs that applied a wallpaper before this shipped have never had
         // a still written, and a display plugged in while Muro was closed has
         // no still either.
-        desktopTint.reconcile(config: config, manifest: manifest)
+        desktopStill.reconcile(
+            config: config, manifest: manifest, lockScreenDisplays: lockScreenOwnedDisplays
+        )
         if !lockScreen.isAvailable { applySurface = .desktop }
         // Seed the default so the Settings field shows the real URL instead
         // of an empty placeholder (getter also falls back when cleared).
@@ -316,6 +319,21 @@ final class AppStore: ObservableObject {
         // Reads Apple's wallpaper plists and may run pluginkit and restart
         // WallpaperAgent, so it must never sit on the launch path.
         Task { await lockScreen.healIfNeeded() }
+        // A monitor plugged in after Muro started has no desktop picture of
+        // its own yet, and one unplugged leaves a record to give back.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.desktopStill.reconcile(
+                    config: self.config,
+                    manifest: self.manifest,
+                    lockScreenDisplays: self.lockScreenOwnedDisplays
+                )
+            }
+        }
         // Newly published wallpapers should show up without quitting the app,
         // so re-check whenever Muro is brought back to the front.
         NotificationCenter.default.addObserver(
@@ -586,6 +604,13 @@ final class AppStore: ObservableObject {
         playlists = PlaylistStore.load(root: root)
         automations = AutomationStore.load(root: root)
         syncScheduler()
+        // A wallpaper set from the command line, or by the engine, has to move
+        // the desktop picture too. Cheap when nothing changed: a still that is
+        // already on disk is set in this same turn, and a screen already
+        // showing it is left alone.
+        desktopStill.reconcile(
+            config: config, manifest: manifest, lockScreenDisplays: lockScreenOwnedDisplays
+        )
     }
 
     /// The scheduler owns the running schedule; the store owns what is on
@@ -871,12 +896,8 @@ final class AppStore: ObservableObject {
         return (def == "efficient" && item.fps > 40) ? "efficient" : "smooth"
     }
 
-    /// Lock screens need macOS 26. The legacy simulation used to exercise
-    /// the 14/15 desktop-tint path has to take this with it, otherwise the
-    /// simulated old Mac would still offer a feature an old Mac cannot have.
-    var lockScreenAvailable: Bool {
-        !DesktopTintService.isNeeded && lockScreen.isAvailable
-    }
+    /// Lock screens need macOS 26 and the embedded extension.
+    var lockScreenAvailable: Bool { lockScreen.isAvailable }
     var lockScreenWallpaperID: String? { lockScreen.activeWallpaperID }
 
     /// `surface == nil` is a legacy/menu-bar desktop action: it preserves any
@@ -1112,9 +1133,20 @@ final class AppStore: ObservableObject {
 
     private func saveConfig() {
         try? config.save(root: root)
-        // Every apply, remove and clear lands here, so this is the one place
-        // the desktop still has to be kept in step with. Inert on macOS 26+.
-        desktopTint.reconcile(config: config, manifest: manifest)
+        // Every apply, remove and clear lands here, including every playlist
+        // and automation step, so this is the one place the desktop picture
+        // has to be kept in step with.
+        desktopStill.reconcile(
+            config: config, manifest: manifest, lockScreenDisplays: lockScreenOwnedDisplays
+        )
+    }
+
+    /// Displays whose macOS wallpaper slot Muro's lock screen is sitting on.
+    /// There is only one slot per display, so the desktop still has to leave
+    /// those alone or it would throw the lock screen away.
+    private var lockScreenOwnedDisplays: Set<String> {
+        guard lockScreenAvailable else { return [] }
+        return Set(displays.map(\.id).filter { lockScreen.ownsWallpaperSurface(displayUUID: $0) })
     }
 
     private func pushRecent(_ id: String) {

@@ -445,42 +445,51 @@ final class WindowButtonTarget: NSObject {
 final class GalleryLaunchSuppressor {
     static let shared = GalleryLaunchSuppressor()
 
-    private var observer: NSObjectProtocol?
-    private var deadline: Task<Void, Never>?
+    private var observers: [NSObjectProtocol] = []
 
-    /// Start putting the gallery away, for at most `seconds`.
+    /// Start putting the gallery away, and keep doing it until it is asked for.
     ///
-    /// The deadline exists so a login start cannot leave the app permanently
-    /// unable to show its own window if some future path shows it without
-    /// going through `showMainWindow()`. Until then the cost is one comparison
-    /// per event loop pass on a window that is not even on screen.
-    func start(forUpTo seconds: Double) {
-        guard observer == nil else { return }
-        observer = NotificationCenter.default.addObserver(
-            forName: NSWindow.didUpdateNotification,
-            object: nil,
-            queue: .main
-        ) { note in
-            MainActor.assumeIsolated {
-                guard let window = note.object as? NSWindow,
-                      window.title == MuroWindow.gallery,
-                      window.isVisible
-                else { return }
-                window.orderOut(nil)
-            }
-        }
-        deadline = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            self.stop()
+    /// There used to be a twenty second deadline on this, and that deadline is
+    /// what people were reporting. SwiftUI does not always have the window on
+    /// screen inside those twenty seconds: on a launch busy with anything else,
+    /// a cold boot or the lock-screen housekeeping, it can arrive afterwards,
+    /// by which time nothing was left watching for it. The same build then
+    /// opened the window on some starts and not others, which is why nobody
+    /// could reproduce it to order.
+    ///
+    /// Holding it open ended is safe because every way a person can ask for the
+    /// gallery calls `showMainWindow()`, and that is what stops this. The cost
+    /// while it runs is one title comparison per window update.
+    func start() {
+        guard observers.isEmpty else { return }
+        // Three notifications rather than one. A window can be put on screen
+        // and take the keyboard without a `didUpdate` ever naming it, and the
+        // point of this is that there is no gap left to fall through.
+        for name in [
+            NSWindow.didUpdateNotification,
+            NSWindow.didBecomeKeyNotification,
+            NSWindow.didBecomeMainNotification,
+        ] {
+            observers.append(NotificationCenter.default.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { note in
+                MainActor.assumeIsolated {
+                    guard let window = note.object as? NSWindow,
+                          window.title == MuroWindow.gallery,
+                          window.isVisible
+                    else { return }
+                    window.orderOut(nil)
+                }
+            })
         }
     }
 
-    /// Stop. Called when someone asks for the gallery, and by the deadline.
+    /// Stop. Called the moment someone asks for the gallery.
     func stop() {
-        if let observer { NotificationCenter.default.removeObserver(observer) }
-        observer = nil
-        deadline?.cancel()
-        deadline = nil
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
+        observers = []
     }
 }
 
