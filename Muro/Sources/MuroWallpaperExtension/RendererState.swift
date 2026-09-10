@@ -71,6 +71,23 @@ struct WallpaperSurfaceKey: Hashable {
     let identifier: String
 }
 
+/// A staged file's identity, enough to tell an in-place atomic replace from
+/// no change at all: the filename behind a rotation id never varies, so a URL
+/// compare cannot see a swap, but the inode and size both move when
+/// `replaceItemAt` swings a new file into place.
+struct FileIdentity: Equatable {
+    let inode: Int
+    let size: Int
+
+    static func of(_ url: URL) -> FileIdentity? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let inode = attributes[.systemFileNumber] as? Int,
+              let size = attributes[.size] as? Int
+        else { return nil }
+        return FileIdentity(inode: inode, size: size)
+    }
+}
+
 final class ActiveWallpaper: @unchecked Sendable {
     let context: CAContext
 
@@ -85,6 +102,12 @@ final class ActiveWallpaper: @unchecked Sendable {
 
     let renderer: VideoRenderer
     let choiceID: String?
+
+    /// The file this renderer was built on, and that file's identity when it
+    /// was built. `library-changed` re-checks the identity to decide whether a
+    /// rotation step has replaced the video underneath a live surface.
+    let videoURL: URL
+    var stagedIdentity: FileIdentity?
 
     /// Whether this surface draws the desktop's own picture at all. False for
     /// a System Settings preview, which is showing the lock wallpaper on
@@ -108,7 +131,7 @@ final class ActiveWallpaper: @unchecked Sendable {
 
     /// A frame of this wallpaper itself, kept so a desktop still going away
     /// falls back to something rather than to nothing.
-    private let fallback: CGImage?
+    let fallback: CGImage?
 
     /// What was last asked for, which is not always what is on screen: the
     /// still can only win while it has a picture. Kept so that a still
@@ -123,6 +146,8 @@ final class ActiveWallpaper: @unchecked Sendable {
         rootLayer: CALayer,
         renderer: VideoRenderer,
         choiceID: String?,
+        videoURL: URL,
+        stagedIdentity: FileIdentity? = nil,
         drawsStill: Bool,
         isScreenSaverSurface: Bool = false,
         displayID: UInt32? = nil,
@@ -133,6 +158,8 @@ final class ActiveWallpaper: @unchecked Sendable {
         self.rootLayer = rootLayer
         self.renderer = renderer
         self.choiceID = choiceID
+        self.videoURL = videoURL
+        self.stagedIdentity = stagedIdentity
         self.drawsStill = drawsStill
         self.isScreenSaverSurface = isScreenSaverSurface
         self.fallback = fallback
@@ -292,6 +319,77 @@ final class RendererState: @unchecked Sendable {
         wallpapers.forEach(body)
     }
 
+    /// True only while macOS has told this process the screen is locked. The
+    /// `library-changed` observer swaps nothing on the desktop: unlocked, the
+    /// renderer is paused and a stale staged file is harmless until the next
+    /// lock.
+    var isLocked: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return presentationMode == "locked"
+    }
+
+    /// A rotation step has staged a new video. While locked, rebuild the
+    /// renderer for every surface whose staged file identity has moved,
+    /// serialized on the lifecycle queue so rapid next/previous collapses to
+    /// the latest file.
+    func handleLibraryChanged() {
+        guard isLocked else { return }
+        Self.lifecycleQueue.async { [weak self] in self?.swapChangedRotations() }
+    }
+
+    private func swapChangedRotations() {
+        lock.lock()
+        let entries = Array(active)
+        lock.unlock()
+        for (key, wallpaper) in entries {
+            guard let url = stagedVideoURL(for: wallpaper.choiceID) else { continue }
+            let identity = FileIdentity.of(url)
+            if url == wallpaper.videoURL,
+               let recorded = wallpaper.stagedIdentity,
+               recorded == identity {
+                continue
+            }
+            swapRenderer(for: key, from: wallpaper, to: url, identity: identity)
+        }
+    }
+
+    private func swapRenderer(
+        for key: WallpaperSurfaceKey,
+        from old: ActiveWallpaper,
+        to url: URL,
+        identity: FileIdentity?
+    ) {
+        let renderer: VideoRenderer
+        do {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            renderer = try VideoRenderer.create(rootLayer: old.rootLayer, videoURL: url)
+            CATransaction.commit()
+            CATransaction.flush()
+        } catch {
+            extensionLog("rotation-swap \(old.choiceID ?? "?") failed: \(error.localizedDescription)")
+            return
+        }
+        let fresh = ActiveWallpaper(
+            context: old.context,
+            rootLayer: old.rootLayer,
+            renderer: renderer,
+            choiceID: old.choiceID,
+            videoURL: url,
+            stagedIdentity: identity,
+            drawsStill: old.drawsStill,
+            isScreenSaverSurface: old.isScreenSaverSurface,
+            displayID: old.displayID,
+            fallback: old.fallback
+        )
+        install(fresh, for: key)
+        let play = shouldPlayNow()
+        renderer.start(initiallyPaused: !play) { _ in }
+        fresh.setShowingStill(!play)
+        extensionLog("rotation-swap \(old.choiceID ?? "?") \(url.lastPathComponent)")
+    }
+
     func setPresentation(mode: String, activity: String) {
         lock.lock()
         presentationMode = mode
@@ -336,7 +434,7 @@ final class RendererState: @unchecked Sendable {
         let activity = requestedActivity ?? activityState
         lock.unlock()
         if activity.contains("suspended") { return false }
-        if mode == "locked" { return true }
+        if mode == "locked" { return !ExtensionPreferences.shared.pauseLockScreen }
         if ScreenState.isCovered() { return true }
         if mode == "idle" { return false }
         return !ExtensionPreferences.shared.alwaysPauseDesktop

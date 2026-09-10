@@ -8,10 +8,12 @@ final class ExtensionPreferences: @unchecked Sendable {
 
     private struct FileContents: Codable {
         var alwaysPauseDesktop: Bool
+        var pauseLockScreen: Bool?
     }
 
     private let lock = NSLock()
     private var pauseDesktop = true
+    private var lockScreenPaused = false
 
     private static var url: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -30,12 +32,28 @@ final class ExtensionPreferences: @unchecked Sendable {
             nil,
             .deliverImmediately
         )
+        CFNotificationCenterAddObserver(
+            center,
+            Unmanaged.passUnretained(self).toOpaque(),
+            { _, _, _, _, _ in RendererState.shared.handleLibraryChanged() },
+            "com.mrrockysl.muro.wallpaper.library-changed" as CFString,
+            nil,
+            .deliverImmediately
+        )
     }
 
     var alwaysPauseDesktop: Bool {
         lock.lock()
         defer { lock.unlock() }
         return pauseDesktop
+    }
+
+    /// The locked wallpaper holds its current frame while this is true (Muro
+    /// is paused with a lock-screen rotation running).
+    var pauseLockScreen: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return lockScreenPaused
     }
 
     /// The app writes preferences and the desktop still through the same
@@ -51,6 +69,7 @@ final class ExtensionPreferences: @unchecked Sendable {
         else { return }
         lock.lock()
         pauseDesktop = contents.alwaysPauseDesktop
+        lockScreenPaused = contents.pauseLockScreen ?? false
         lock.unlock()
     }
 }

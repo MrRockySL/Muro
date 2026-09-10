@@ -22,13 +22,17 @@ import MuroKit
 final class AutomationScheduler {
     /// What the scheduler should apply, handed back to the store rather than
     /// applied here, so there is still exactly one place that sets wallpapers.
-    var apply: ((String) -> Void)?
+    /// The tick carries the running schedule's surface so the store can fan it
+    /// out to the desktop, the lock screen, or both on the same tick.
+    var apply: ((_ id: String, _ surface: ApplySurface, _ target: ApplyTarget) -> Void)?
     var currentIDForOrdering: (() -> String?)?
 
     private(set) var automations: [Automation] = []
     private(set) var playlists: [Playlist] = []
 
     private var timer: Timer?
+    private(set) var isPaused = false
+    private var pauseStartedAt: Date?
     private let defaults = UserDefaults.standard
 
     private(set) var activeAutomationID: String? {
@@ -81,6 +85,22 @@ final class AutomationScheduler {
         activeAutomation?.name ?? activePlaylist?.name
     }
 
+    /// The wallpaper id the running schedule is on right now, or `nil` when
+    /// nothing runs. The lock-screen catch-up re-stages this without advancing
+    /// the clock.
+    var currentStepWallpaperID: String? {
+        if let automation = activeAutomation {
+            switch automation.mode {
+            case .timer: return automation.steps[safe: stepIndex]?.wallpaperID
+            case .clock: return automation.clockStep(at: Self.minuteOfDay())?.wallpaperID
+            }
+        }
+        if activePlaylist != nil {
+            return currentIDForOrdering?()
+        }
+        return nil
+    }
+
     /// Called whenever the library's schedules change on disk or in the app.
     func update(automations: [Automation], playlists: [Playlist]) {
         self.automations = automations
@@ -119,7 +139,7 @@ final class AutomationScheduler {
         activePlaylistID = playlist.id
         stepIndex = 0
         stepStartedAt = Date()
-        apply?(playlist.wallpaperIDs[0])
+        apply?(playlist.wallpaperIDs[0], playlist.surface, .all)
         schedule()
     }
 
@@ -134,17 +154,41 @@ final class AutomationScheduler {
         cancelTimer()
     }
 
+    /// Freeze or thaw the running schedule. Pausing cancels the timer and
+    /// remembers when; resuming pushes the current step's start forward by the
+    /// paused span (`SchedulePause`) so nothing is lost or skipped, then
+    /// re-arms. Safe to call repeatedly with the same value.
+    func setPaused(_ paused: Bool) {
+        guard paused != isPaused else { return }
+        isPaused = paused
+        if paused {
+            pauseStartedAt = Date()
+            cancelTimer()
+        } else {
+            if let pauseStartedAt {
+                stepStartedAt = SchedulePause.rebasedStepStart(
+                    stepStartedAt, heldFor: Date().timeIntervalSince(pauseStartedAt)
+                )
+            }
+            pauseStartedAt = nil
+            schedule()
+        }
+    }
+
     /// Manual step, used by the menu bar's next/previous.
     func advancePlaylist(forward: Bool) {
         guard let playlist = activePlaylist else { return }
         let ids = playlist.wallpaperIDs
         guard !ids.isEmpty else { return }
         if playlist.shuffle {
-            apply?(ids.filter { $0 != currentIDForOrdering?() }.randomElement() ?? ids[0])
+            apply?(
+                ids.filter { $0 != currentIDForOrdering?() }.randomElement() ?? ids[0],
+                playlist.surface, .all
+            )
         } else {
             let current = currentIDForOrdering?().flatMap { ids.firstIndex(of: $0) } ?? 0
             let step = forward ? 1 : ids.count - 1
-            apply?(ids[(current + step) % ids.count])
+            apply?(ids[(current + step) % ids.count], playlist.surface, .all)
         }
         stepStartedAt = Date()
         schedule()
@@ -156,6 +200,7 @@ final class AutomationScheduler {
     /// on every start, edit, fire and wake, so there is one path and it is
     /// always driven by absolute time.
     private func reevaluate() {
+        guard !isPaused else { return }
         if let automation = activeAutomation {
             switch automation.mode {
             case .clock:
@@ -191,11 +236,11 @@ final class AutomationScheduler {
         switch automation.mode {
         case .timer:
             guard let step = automation.steps[safe: stepIndex] else { return }
-            apply?(step.wallpaperID)
+            apply?(step.wallpaperID, automation.surface, .all)
         case .clock:
             // A gap keeps whatever is playing, which is the documented rule.
             if let step = automation.clockStep(at: Self.minuteOfDay()) {
-                apply?(step.wallpaperID)
+                apply?(step.wallpaperID, automation.surface, .all)
             }
         }
     }
@@ -204,7 +249,7 @@ final class AutomationScheduler {
     /// next boundary, not one per window.
     private func schedule() {
         cancelTimer()
-        guard let interval = nextInterval(), interval > 0 else { return }
+        guard !isPaused, let interval = nextInterval(), interval > 0 else { return }
         let timer = Timer(timeInterval: interval, repeats: false) { [weak self] _ in
             Task { @MainActor in self?.fire() }
         }
@@ -214,6 +259,7 @@ final class AutomationScheduler {
     }
 
     private func fire() {
+        guard !isPaused else { return }
         if let automation = activeAutomation, automation.mode == .timer {
             stepIndex = (stepIndex + 1) % max(1, automation.steps.count)
             stepStartedAt = Date()

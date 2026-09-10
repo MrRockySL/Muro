@@ -21,6 +21,11 @@ STATUS.md
 PUBLISH.md
 Muro/lock screen status.md
 
+# Local tooling, not part of the public project
+.claude/commands/
+.claude/skills/
+.hermes/
+
 # Credentials must never be committable (R2 keys live in ~/.config/muro/)
 Cloudflare API Token.rtf
 
