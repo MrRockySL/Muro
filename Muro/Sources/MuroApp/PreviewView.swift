@@ -397,6 +397,26 @@ struct PreviewView: View {
 /// card is what actually applies the wallpaper; displays already showing
 /// it get a green dot. Works with any number of connected displays.
 struct ChooseDisplayPopover: View {
+    /// Every button in this popover is exactly this size: the cards in the
+    /// grid, a lone display's card, and the screen saver's All Screens card.
+    /// They used to be three different widths, and an applied card grew taller
+    /// than an unapplied one because a Remove pill is bigger than a line of
+    /// grey text, so the whole popover moved when you applied a wallpaper
+    /// (owner, 2026-09-10: "all the display buttons have to be the same size,
+    /// 100% the same size").
+    static let cardWidth: CGFloat = 148
+    static let cardHeight: CGFloat = 88
+    static let cardGap: CGFloat = 10
+    /// Two cards across is what sets the card's width, and the tab row has to
+    /// fit inside the same space. Measured with the real font at 11.5
+    /// semibold: the four labels are 288pt of text and padding at 11, plus
+    /// three gaps, against the 310pt these cards leave. See the tab row.
+    static let pillPadding: CGFloat = 11
+    static let pillGap: CGFloat = 3
+    /// One animation for the whole popover, so the tab pill, the crossfade and
+    /// a card turning green all move together instead of at three speeds.
+    static let ease = Animation.spring(response: 0.34, dampingFraction: 0.86)
+
     @EnvironmentObject var store: AppStore
     let item: WallpaperItem
     @Namespace private var surfaceNS
@@ -407,18 +427,18 @@ struct ChooseDisplayPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // 3 and 11 below, not 4 and 14, because this row is what decides
-            // how wide the popover has to be and nothing else comes close.
-            // Measured with the real font: 324pt at 14, 297pt at 11, so the
-            // card could come in from 400 to 340 (owner, 2026-09-10: "reduce
-            // the length of the card and increase the height a little bit").
-            HStack(spacing: 3) {
-                Spacer()
+            // No Spacers. A `Spacer` carries a default minimum length of its
+            // own, and two of them plus the extra gaps added 22pt to a row
+            // that had 13pt of room, which is what wrapped "Lockscreen" onto
+            // two lines. The row centres itself against the card's width
+            // instead, and every label is pinned to one line so this can never
+            // be a silent wrap again.
+            HStack(spacing: Self.pillGap) {
                 ForEach(ApplySurface.allCases, id: \.self) { surface in
                     surfacePill(surface)
                 }
-                Spacer()
             }
+            .frame(maxWidth: .infinity)
             // The chooser stays laid out underneath so it keeps defining the
             // width and height. The popover must never resize: it is anchored
             // at the bottom, so a change of height moves the top edge and the
@@ -462,7 +482,7 @@ struct ChooseDisplayPopover: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Button {
-                withAnimation(.easeOut(duration: 0.18)) { showLockRequirement = false }
+                withAnimation(Self.ease) { showLockRequirement = false }
             } label: {
                 Text("Set my desktop instead")
                     .font(.system(size: 11.5, weight: .semibold))
@@ -511,33 +531,38 @@ struct ChooseDisplayPopover: View {
                     .allowsHitTesting(!isScreenSaver)
                 if isScreenSaver { screenSaverCard.transition(.opacity) }
             }
+            .animation(Self.ease, value: isScreenSaver)
+            .animation(Self.ease, value: store.currentAppliedID)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// One card per connected display, for the surfaces that can really be set
     /// per display.
-    @ViewBuilder private var displayChooser: some View {
-        // One display has no second column to sit beside, so the grid left it
-        // hard against the edge with the popover's whole width empty next to
-        // it. On its own it is centred instead, and kept to about the width it
-        // would have had in the grid so it does not stretch into a banner.
-        if store.displays.count == 1, let only = store.displays.first {
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                displayCard(only).frame(maxWidth: 165)
-                Spacer(minLength: 0)
-            }
-        } else {
-            LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
-                spacing: 10
-            ) {
-                ForEach(store.displays) { display in
-                    displayCard(display)
+    ///
+    /// Rows of two, each row centred on the card, rather than a two column
+    /// grid. A grid stretches its columns to whatever width it is given, which
+    /// is what made a lone display's card a different size from a pair of
+    /// them, and it leaves an odd last card hard against the left edge. Rows
+    /// of fixed cards look the same at one display, at two, and at three,
+    /// where the popover simply grows a row taller.
+    private var displayRows: [[DisplayInfo]] {
+        stride(from: 0, to: store.displays.count, by: 2).map { start in
+            Array(store.displays[start..<min(start + 2, store.displays.count)])
+        }
+    }
+
+    private var displayChooser: some View {
+        VStack(spacing: Self.cardGap) {
+            ForEach(Array(displayRows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: Self.cardGap) {
+                    ForEach(row) { display in
+                        displayCard(display)
+                    }
                 }
             }
         }
+        .frame(maxWidth: .infinity)
     }
 
     /// One card, never one per screen.
@@ -551,8 +576,7 @@ struct ChooseDisplayPopover: View {
     /// button, for a single setting (owner, 2026-09-10).
     private var screenSaverCard: some View {
         let applied = store.isApplied(item, surface: .screensaver, target: .all)
-        return HStack(spacing: 0) {
-            Spacer(minLength: 0)
+        return Group {
             Button {
                 if applied {
                     store.removeWallpaper(item, target: .all, surface: .screensaver)
@@ -568,14 +592,13 @@ struct ChooseDisplayPopover: View {
                 )
             }
             .buttonStyle(.plain)
-            .frame(maxWidth: 165)
             .accessibilityLabel(
                 applied
                     ? "Remove \(item.title) from the screen saver"
                     : "Apply \(item.title) to the screen saver"
             )
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity)
     }
 
     /// The card chrome both choosers draw.
@@ -592,9 +615,9 @@ struct ChooseDisplayPopover: View {
         sublabel: String,
         applied: Bool
     ) -> some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 6) {
             Image(systemName: symbol)
-                .font(.system(size: 22))
+                .font(.system(size: 21))
                 .foregroundStyle(.white.opacity(0.9))
             HStack(spacing: 5) {
                 if applied {
@@ -604,7 +627,9 @@ struct ChooseDisplayPopover: View {
                     .font(.system(size: 11.5, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
+            .padding(.horizontal, 8)
             if applied {
                 Text("Remove")
                     .font(.system(size: 10, weight: .semibold))
@@ -619,8 +644,10 @@ struct ChooseDisplayPopover: View {
                     .foregroundStyle(Color.muroSecondary)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 15)
+        // Fixed, not `maxWidth: .infinity` with padding. That is the whole of
+        // "the same size": the frame is the card, and what is inside it can
+        // change without the card changing.
+        .frame(width: Self.cardWidth, height: Self.cardHeight)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
             .fill(.glassSheen(0.12, 0.05)))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -651,18 +678,20 @@ struct ChooseDisplayPopover: View {
             guard enabled else {
                 // Not disabled any more. A dead button tells someone their
                 // click failed; this tells them what the rule is.
-                withAnimation(.easeOut(duration: 0.18)) { showLockRequirement = true }
+                withAnimation(Self.ease) { showLockRequirement = true }
                 return
             }
-            withAnimation(.easeOut(duration: 0.18)) {
+            withAnimation(Self.ease) {
                 showLockRequirement = false
                 store.applySurface = surface
             }
         } label: {
             Text(surface.rawValue)
                 .font(.system(size: 11.5, weight: .semibold))
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(selected ? Color.black : Color.white.opacity(enabled ? 0.8 : 0.3))
-                .padding(.horizontal, 11)
+                .padding(.horizontal, Self.pillPadding)
                 .padding(.vertical, 6)
                 .background {
                     if selected {
