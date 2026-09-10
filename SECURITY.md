@@ -45,6 +45,7 @@ The main app uses normal user-level access to:
 - Observe display sleep, screen lock, its wallpaper windows' visibility, and
   power state
 - Register Muro as a login item only when you enable **Launch at Login**
+- Set your Mac's screen saver, and how long it waits, when you ask it to
 
 Imported videos stay on your Mac and are not uploaded.
 
@@ -129,6 +130,31 @@ This feature depends on private macOS wallpaper interfaces, including
 `WallpaperExtensionKit` and runtime-only wallpaper types. Apple can change these
 interfaces without notice, so future macOS releases may require compatibility
 fixes.
+
+### Screen saver
+
+Since 4.0.3, Muro can be your screen saver as well as your desktop and lock
+screen. macOS keeps all three in the same user-level wallpaper stores, and it
+files the screen saver under a role it calls `idle`, so applying one writes the
+same `Index.plist` and `Index2.plist` described above and takes the same backups
+first. The screen saver is one setting for the whole Mac rather than one per
+display, because macOS has no per-display screen saver.
+
+Muro checks at launch that it still holds the screen saver it recorded, and puts
+it back if macOS has given it to something else. That check exists because
+replacing **Muro.app** while Muro is running makes macOS drop the wallpaper
+extension and hand the screen saver to Apple's aerials, and macOS does not hand
+it back on its own.
+
+Settings has a **Start Screen Saver** row that sets how long your Mac waits
+before the screen saver begins. It writes the key `idleTime` in the
+`com.apple.screensaver` preferences domain, for the current user and the current
+host, which is the single place macOS keeps that setting and the same place
+System Settings writes it. This is disclosed because that preference is state
+outside Muro's own data directories. Muro writes only that one key, only when
+you change that row, and it writes **Never** as `0`, which is how macOS itself
+records it. No other key, domain, user or host is touched, and nothing is read
+from or written to the preference unless you open Settings.
 
 ### Network access
 
@@ -217,7 +243,7 @@ You can inspect and compile the tagged source:
 ```bash
 git clone https://github.com/MrRockySL/Muro.git
 cd Muro
-git checkout v4.0
+git checkout v4.0.3
 swift build -c release --package-path Muro
 ```
 
