@@ -120,6 +120,9 @@ final class DesktopStillService {
         var missing: [(id: String, video: URL)] = []
         var stillForExtension: URL?
         var anyWallpaper = false
+        // One entry per display, so the extension can draw each screen's own
+        // wallpaper rather than the main display's on all of them.
+        var perDisplay: [CGDirectDisplayID: URL] = [:]
 
         for screen in NSScreen.screens {
             guard let uuid = displayUUID(for: screen) else { continue }
@@ -142,13 +145,14 @@ final class DesktopStillService {
             if stillForExtension == nil || screen == NSScreen.screens.first {
                 stillForExtension = still
             }
+            if let id = directDisplayID(for: screen) { perDisplay[id] = still }
             set(still, on: screen, uuid: uuid, isLockScreenOwned: lockScreenDisplays.contains(uuid))
         }
 
-        // The extension draws one picture for the whole Mac, so it is given
-        // the main display's. Muro's own window is per screen and still shows
-        // the right video everywhere; this is only the frozen fallback for
-        // when Muro is not running.
+        // One picture per display, plus the main display's as the fallback for
+        // a surface macOS names no display for. Muro's own window is per screen
+        // and shows the right video everywhere while it is running; this is the
+        // frozen fallback for when it is not.
         //
         // Nothing is taken away while a still is only late. The first time a
         // wallpaper is applied its still has to be decoded out of the video,
@@ -157,7 +161,9 @@ final class DesktopStillService {
         // out from under the desktop for as long as the decode took. Clearing
         // is for a Mac with no Muro wallpaper at all.
         if stillForExtension != nil || !anyWallpaper {
-            LockScreenService.publishDesktopStill(stillForExtension)
+            LockScreenService.publishDesktopStills(
+                perDisplay: perDisplay, main: stillForExtension
+            )
         }
         return missing
     }

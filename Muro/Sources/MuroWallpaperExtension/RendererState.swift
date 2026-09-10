@@ -92,6 +92,12 @@ final class ActiveWallpaper: @unchecked Sendable {
     /// screen saver, which is not the desktop either.
     let drawsStill: Bool
 
+    /// The display this surface is drawing on, as macOS named it in the
+    /// acquire request. Kept so a reassert can fetch this display's own
+    /// desktop picture rather than the main display's. Nil when macOS named
+    /// no display, which is the whole-Mac fallback.
+    let displayID: UInt32?
+
     /// Whether macOS built this surface to *be* the screen saver.
     ///
     /// Fixed at creation, and the only thing that separates the screen saver
@@ -119,8 +125,10 @@ final class ActiveWallpaper: @unchecked Sendable {
         choiceID: String?,
         drawsStill: Bool,
         isScreenSaverSurface: Bool = false,
+        displayID: UInt32? = nil,
         fallback: CGImage?
     ) {
+        self.displayID = displayID
         self.context = context
         self.rootLayer = rootLayer
         self.renderer = renderer
@@ -289,7 +297,7 @@ final class RendererState: @unchecked Sendable {
         presentationMode = mode
         activityState = activity
         lock.unlock()
-        extensionTrace("presentation mode=\(mode) activity=\(activity)")
+        extensionLog("presentation mode=\(mode) activity=\(activity)")
         // The picture is drawn again, not only re-paused. Unlocking, and
         // logging in, are the moments the desktop comes back into view, and a
         // desktop that came up with nothing on it has to be repainted at the
@@ -355,6 +363,16 @@ final class RendererState: @unchecked Sendable {
     func applyCurrentPlaybackPolicy() {
         let shouldPlay = shouldPlayNow()
         let saverPlays = shouldScreenSaverPlay()
+        // The line `7ee55c0` asked for and nobody added. A desktop that comes
+        // back wrong is answered by this and nothing else: it says, per
+        // surface, what was decided and whether there was a picture to decide
+        // it with.
+        extensionLog(
+            "policy desktop=\(shouldPlay ? "play" : "still") "
+                + "saver=\(saverPlays ? "play" : "still") "
+                + "covered=\(ScreenState.isCovered()) "
+                + surfaceSummary()
+        )
         forEachWallpaper { wallpaper in
             // The desktop's answer is not the screen saver's. While the screen
             // saver is up the desktop is behind it and holding still, and
@@ -367,9 +385,28 @@ final class RendererState: @unchecked Sendable {
 
     /// The app has staged a different desktop picture: a new wallpaper, a
     /// playlist step, or the last one being removed.
+    /// `display=1 still=yes shown=still` for each surface, for the log line
+    /// above. Short on purpose: the extension log is capped at 32 KB.
+    private func surfaceSummary() -> String {
+        forEachWallpaperCollect { wallpaper in
+            "[d=\(wallpaper.displayID.map(String.init) ?? "-")"
+                + (wallpaper.isScreenSaverSurface ? " saver" : "")
+                + " still=\(wallpaper.hasStill ? "yes" : "NO")]"
+        }.joined(separator: " ")
+    }
+
+    func forEachWallpaperCollect(_ body: (ActiveWallpaper) -> String) -> [String] {
+        lock.lock()
+        let wallpapers = Array(active.values)
+        lock.unlock()
+        return wallpapers.map(body)
+    }
+
     func refreshDesktopStill() {
-        let image = DesktopStill.current()
-        forEachWallpaper { $0.setStill(image) }
+        // Per surface, not one picture for the Mac: two displays have two
+        // desktop wallpapers and each surface has to be handed its own.
+        DesktopStill.forgetMissingFiles()
+        forEachWallpaper { $0.setStill(DesktopStill.current(displayID: $0.displayID)) }
         applyCurrentPlaybackPolicy()
     }
 
@@ -411,6 +448,8 @@ final class RendererState: @unchecked Sendable {
         let removed = active.removeValue(forKey: key)
         lock.unlock()
         removed?.renderer.stop()
-        if removed != nil { extensionTrace("released inactive wallpaper surface") }
+        if removed != nil {
+            extensionLog("released surface d=\(key.displayID) left=\(activeCount)")
+        }
     }
 }
