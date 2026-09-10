@@ -239,13 +239,20 @@ struct MuroApp: App {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Scene {
+        // Registered here rather than in a window's `onAppear`, because this
+        // body is evaluated while Muro starts whether or not a window is ever
+        // shown, and a launch at login never shows one. See `WindowOpener`.
+        let _ = WindowOpener.shared.install(
+            gallery: { openWindow(id: "main") },
+            settings: { openWindow(id: "settings") }
+        )
+
         Window(MuroWindow.gallery, id: "main") {
             RootView()
                 .environmentObject(store)
                 .frame(minWidth: 1180, minHeight: 760)
                 .preferredColorScheme(.dark)
                 .onAppear {
-                    SettingsWindowOpener.shared.open = { openWindow(id: "settings") }
                     // Here rather than in the delegate: the window is what is
                     // being reconfigured, and by the time its content appears
                     // it definitely exists. Re-applied on every appearance, so

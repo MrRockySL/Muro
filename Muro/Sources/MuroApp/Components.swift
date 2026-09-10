@@ -384,7 +384,24 @@ func showMainWindow() {
     // the window would be put away again in front of them.
     GalleryLaunchSuppressor.shared.stop()
     NSApp.activate(ignoringOtherApps: true)
-    mainWindow?.makeKeyAndOrderFront(nil)
+
+    // The window does not always exist yet. SwiftUI builds a `Window` scene's
+    // `NSWindow` the first time that window is actually shown, and a Mac
+    // started with Muro set to launch at login never shows it, so on that
+    // launch there was nothing here to bring forward and this did nothing at
+    // all. Reported after a restart: the menu bar opened, Open Muro did
+    // nothing, and opening Muro some other way fixed it for the rest of the
+    // session. Asking SwiftUI for the window by its id is the only thing that
+    // can create one.
+    guard let window = mainWindow else {
+        WindowOpener.shared.gallery?()
+        // It arrives on a later pass of the event loop, so taking the
+        // keyboard has to wait for it. `openWindow` has already put it in
+        // front, this is only insurance.
+        DispatchQueue.main.async { mainWindow?.makeKeyAndOrderFront(nil) }
+        return
+    }
+    window.makeKeyAndOrderFront(nil)
 }
 
 /// Make a window's yellow button put it away rather than minimise it.
@@ -506,18 +523,37 @@ func openWhatsNew(_ store: AppStore) {
 
 @MainActor
 func openSettingsWindow() {
-    // Environment openWindow isn't reachable from plain helpers; the
-    // Settings scene registers this callback at launch. Activate first —
-    // when called from the (non-activating) menu bar panel the app isn't
-    // active and the window would open behind others.
+    // Environment openWindow is not reachable from plain helpers, so the app
+    // registers it at launch. Activate first: called from the menu bar panel,
+    // which never activates the app, the window would open behind everything
+    // else.
     NSApp.activate(ignoringOtherApps: true)
-    SettingsWindowOpener.shared.open?()
+    WindowOpener.shared.settings?()
 }
 
+/// SwiftUI's `openWindow`, kept somewhere AppKit code can reach it.
+///
+/// Both closures are registered by the `App` itself while Muro starts, and
+/// that is the whole point of this type. Settings used to be registered in the
+/// gallery window's `onAppear`, which only runs once that window has been
+/// shown. A Mac restarted with Muro launching at login never shows it, so both
+/// menu bar rows were dead until Muro was opened some other way: Open Muro had
+/// no window to bring forward, and Settings had no way to ask for one.
 @MainActor
-final class SettingsWindowOpener {
-    static let shared = SettingsWindowOpener()
-    var open: (() -> Void)?
+final class WindowOpener {
+    static let shared = WindowOpener()
+
+    var gallery: (() -> Void)?
+    var settings: (() -> Void)?
+
+    /// Called from the `App`'s body, which is evaluated while the app starts
+    /// whether or not any window is ever put on screen. Re-registering is
+    /// harmless, and the body is evaluated again whenever SwiftUI feels like
+    /// it.
+    func install(gallery: @escaping () -> Void, settings: @escaping () -> Void) {
+        self.gallery = gallery
+        self.settings = settings
+    }
 }
 
 // MARK: - Styled dropdown menus
