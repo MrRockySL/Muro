@@ -16,6 +16,10 @@ struct SettingsView: View {
     /// Apple's preference rather than stored here and re-read whenever this
     /// window comes forward: System Settings can change it behind our back.
     @State private var screenSaverDelay = ScreenSaverDelay.current()
+    /// Set the moment the delay is changed, cleared when the window is next
+    /// brought forward. It is the only place the user is told that macOS does
+    /// not pick a new delay up straight away.
+    @State private var screenSaverDelayJustChanged = false
     /// The window keeps this view alive across close/reopen, which used to
     /// preserve the scroll position — reopening must always show the header.
     @State private var scrollToTopOnNextOpen = false
@@ -150,7 +154,10 @@ struct SettingsView: View {
                                 MenuOption(
                                     title: ScreenSaverDelay.label(seconds),
                                     checked: screenSaverDelay == seconds
-                                ) { screenSaverDelay = ScreenSaverDelay.set(seconds) }
+                                ) {
+                                    screenSaverDelay = ScreenSaverDelay.set(seconds)
+                                    screenSaverDelayJustChanged = true
+                                }
                             }
                         }) {
                             HStack(spacing: 6) {
@@ -282,6 +289,7 @@ struct SettingsView: View {
             )) { note in
                 guard (note.object as? NSWindow)?.title == MuroWindow.settings else { return }
                 screenSaverDelay = ScreenSaverDelay.current()
+                screenSaverDelayJustChanged = false
             }
             }
         }
@@ -315,6 +323,20 @@ struct SettingsView: View {
     /// there is no system-wide plist to read it from and loginwindow does not
     /// publish the number it falls back to.
     private var screenSaverSubtitle: String {
+        // Said once, right after a change, because it is the moment it matters
+        // and it is the difference between "this is broken" and "this is how
+        // macOS works". Measured on the owner's Mac on 2026-09-10: the delay
+        // was set to 10 minutes at 18:36:51, macOS read it and armed a timer
+        // for the full 600 seconds, and did not look at the setting again
+        // until 18:46:51. Two further changes in between were ignored. This is
+        // not Muro: `loginwindow` reads the preference only when its own timer
+        // fires or when the screen is locked, and there is no notification,
+        // XPC message or public API that makes it look sooner. Apple's own
+        // Settings panel writes the same key the same way and behaves
+        // identically.
+        if screenSaverDelayJustChanged {
+            return "Saved. macOS uses it after the current wait ends, or now if you lock the screen."
+        }
         guard let seconds = screenSaverDelay else {
             return "macOS is deciding. Pick a time to set it."
         }
