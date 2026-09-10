@@ -26,3 +26,17 @@ public func displayIsBuiltIn(_ screen: NSScreen) -> Bool? {
     }
     return CGDisplayIsBuiltin(CGDirectDisplayID(number.uint32Value)) != 0
 }
+
+/// The `CGDirectDisplayID` macOS puts in a wallpaper extension's acquire
+/// request, so the app can name a staged file the extension will look for.
+///
+/// The UUID is the stable identity and is what everything else keys on. This
+/// number is not stable across reboots or replugs, which is exactly why it is
+/// used for nothing but the filename of a picture that is restaged whenever
+/// the displays change.
+public func directDisplayID(for screen: NSScreen) -> CGDirectDisplayID? {
+    guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")]
+        as? NSNumber
+    else { return nil }
+    return CGDirectDisplayID(number.uint32Value)
+}

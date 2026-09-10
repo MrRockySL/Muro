@@ -87,3 +87,49 @@ final class LockScreenSelectionsTests: XCTestCase {
         XCTAssertEqual(s.count, 2)
     }
 }
+
+/// The behaviour the owner specified on 2026-09-10, written as a test so the
+/// "one at a time" rule cannot come back by accident. Two displays hold five
+/// wallpapers: a desktop and a lock screen each, plus one screen saver.
+final class TwoDisplayLockScreenSpecTests: XCTestCase {
+    let macBook = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
+    let dell = "C4497200-61AC-4C2C-B727-10348E552634"
+
+    /// C on the MacBook, D on the DELL, E as the screen saver. All three
+    /// survive, and the screen saver is kept in its own record so a lock
+    /// screen apply can never prune its staged file.
+    func testCDandEAllSurvive() {
+        var locks: [String: String] = [:]
+        let connected: Set<String> = [macBook, dell]
+        locks = LockScreenSelections.afterApply(
+            current: locks, targetKey: macBook, wallpaperID: "C", connectedDisplays: connected
+        )
+        locks = LockScreenSelections.afterApply(
+            current: locks, targetKey: dell, wallpaperID: "D", connectedDisplays: connected
+        )
+        let saver = LockScreenSelections.afterApply(
+            current: [:], targetKey: LockScreenSelections.allKey,
+            wallpaperID: "E", connectedDisplays: connected
+        )
+        XCTAssertEqual(locks, [macBook: "C", dell: "D"])
+        XCTAssertEqual(saver, ["all": "E"])
+        // Everything that must stay staged: both lock screens and the saver.
+        let held = Set(locks.values).union(saver.values)
+        XCTAssertEqual(held, ["C", "D", "E"])
+    }
+
+    /// Four displays, same shape: four lock screens plus one screen saver.
+    func testItScalesToFourDisplays() {
+        let ids = (1...4).map { "display-\($0)" }
+        let connected = Set(ids)
+        var locks: [String: String] = [:]
+        for (i, id) in ids.enumerated() {
+            locks = LockScreenSelections.afterApply(
+                current: locks, targetKey: id, wallpaperID: "lock\(i)",
+                connectedDisplays: connected
+            )
+        }
+        XCTAssertEqual(locks.count, 4)
+        XCTAssertEqual(Set(locks.values).count, 4)
+    }
+}

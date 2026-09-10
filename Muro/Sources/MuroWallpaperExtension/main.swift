@@ -127,6 +127,14 @@ private protocol WallpaperExtensionXPCProtocol {
 }
 
 private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol {
+    override init() {
+        super.init()
+        // The process coming and going is half of every desktop report: a
+        // wallpaper macOS has no running provider for is drawn as the system
+        // default, which reads as the wallpaper having been replaced.
+        extensionLog("extension started pid=\(ProcessInfo.processInfo.processIdentifier)")
+    }
+
     private static let snapshotQueue = DispatchQueue(
         label: "com.mrrockysl.muro.wallpaper-snapshot"
     )
@@ -172,7 +180,9 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         // because this surface plays.
         let desktopStill = info.isPreview
             ? nil
-            : (info.isScreenSaver ? fallbackStill : (DesktopStill.current() ?? fallbackStill))
+            : (info.isScreenSaver
+                ? fallbackStill
+                : (DesktopStill.current(displayID: info.displayID) ?? fallbackStill))
 
         // The mode is logged because it is what decides still against video,
         // and a lock screen showing the wrong one of the two is answered by
@@ -260,6 +270,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 // the desktop's picture must not reach across onto it.
                 drawsStill: !info.isPreview && !info.isScreenSaver,
                 isScreenSaverSurface: info.isScreenSaver,
+                displayID: info.displayID,
                 fallback: fallbackStill
             )
             RendererState.shared.install(wallpaper, for: key)
