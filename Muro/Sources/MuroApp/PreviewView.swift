@@ -153,7 +153,7 @@ struct PreviewView: View {
                 // A popover paints its own square grey sheet behind whatever
                 // it is given, which is what made this the one panel in the
                 // app that was a flat dark box (owner, 2026-08-24).
-                .anchoredCard(isPresented: $showDisplayPopover, width: 330, align: .trailing) {
+                .anchoredCard(isPresented: $showDisplayPopover, width: 400, align: .trailing) {
                     ChooseDisplayPopover(item: item)
                         .environmentObject(store)
                 }
@@ -445,11 +445,11 @@ struct ChooseDisplayPopover: View {
             }
             .frame(width: 40, height: 40)
 
-            Text("Lock screen needs macOS 26")
+            Text("This needs macOS 26")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
 
-            Text("Live lock screen wallpapers use a part of macOS that arrived in macOS 26. This Mac runs \(Self.osLabel), so Muro can set your desktop but not your lock screen.")
+            Text("The lock screen and the screen saver use a part of macOS that arrived in macOS 26. This Mac runs \(Self.osLabel), so Muro can set your desktop but not those.")
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(Color.muroSecondary)
                 .multilineTextAlignment(.center)
@@ -484,11 +484,19 @@ struct ChooseDisplayPopover: View {
     private var chooser: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Choose display")
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(Color.muroSecondary)
+                // The screen saver is one setting for the whole Mac, so there
+                // is no display to choose. Saying so is better than a picker
+                // whose choice does not matter, and better than hiding the
+                // card people are used to clicking.
+                Text(
+                    store.applySurface == .screensaver
+                        ? "Every display"
+                        : "Choose display"
+                )
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(Color.muroSecondary)
                 Spacer()
-                if store.displays.count > 1 { allPill }
+                if store.displays.count > 1, store.applySurface != .screensaver { allPill }
             }
             // One display has no second column to sit beside, so the grid
             // left it hard against the edge with the popover's whole width
@@ -528,7 +536,7 @@ struct ChooseDisplayPopover: View {
 
     private func surfacePill(_ surface: ApplySurface) -> some View {
         let selected = store.applySurface == surface
-        let enabled = surface == .desktop || store.lockScreenAvailable
+        let enabled = !surface.needsAppleExtension || store.lockScreenAvailable
         // Constant font weight: weight changes used to resize the labels and
         // make "Lockscreen" jump sideways when switching Both → Desktop.
         return Button {
@@ -571,7 +579,7 @@ struct ChooseDisplayPopover: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Apply to \(surface.rawValue.lowercased())")
         .accessibilityValue(selected ? "Selected" : "Not selected")
-        .help(enabled ? "" : "Lock-screen live wallpapers require macOS 26 or later")
+        .help(enabled ? "" : "The lock screen and screen saver require macOS 26 or later")
     }
 
     private var allPill: some View {
@@ -583,7 +591,7 @@ struct ChooseDisplayPopover: View {
                 apply(.all)
             }
         } label: {
-            Text(appliedEverywhere ? "Remove All" : "All")
+            Text(appliedEverywhere ? "Remove all" : "All displays")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(appliedEverywhere ? Color(hex: 0xFF6B6B) : .white)
                 .padding(.horizontal, 13)

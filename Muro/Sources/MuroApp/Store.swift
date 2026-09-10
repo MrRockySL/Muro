@@ -50,8 +50,32 @@ enum ApplyTarget: Equatable {
     case display(String)
 }
 
+/// Where a wallpaper is being put.
+///
+/// `all` was called "Both" while there were two of them. The screen saver is
+/// the third, and it is a separate key in Apple's own store from the one the
+/// lock screen renders, so it is set separately here too.
 enum ApplySurface: String, CaseIterable {
-    case both = "Both", desktop = "Desktop", lockscreen = "Lockscreen"
+    case all = "All", desktop = "Desktop", lockscreen = "Lockscreen"
+    case screensaver = "Screensaver"
+
+    /// Whether this choice covers Muro's own desktop engine.
+    var coversDesktop: Bool { self == .desktop || self == .all }
+    /// Whether it covers the Apple-managed surface the lock screen renders.
+    var coversLockScreen: Bool { self == .lockscreen || self == .all }
+    /// Whether it covers the screen saver.
+    var coversScreenSaver: Bool { self == .screensaver || self == .all }
+
+    /// The Apple store roles this choice writes, in the order they are applied.
+    var appleSurfaces: [AppleWallpaperStore.Surface] {
+        var out: [AppleWallpaperStore.Surface] = []
+        if coversLockScreen { out.append(.desktop) }
+        if coversScreenSaver { out.append(.screenSaver) }
+        return out
+    }
+
+    /// Whether macOS 26 is needed for this choice.
+    var needsAppleExtension: Bool { self != .desktop }
 }
 
 /// What to call the screen built into this Mac.
@@ -216,7 +240,7 @@ final class AppStore: ObservableObject {
     @Published var whatsNewOpen = false
     @Published var previewItem: WallpaperItem?
     @Published var previewMode = "smooth"
-    @Published var applySurface: ApplySurface = .both
+    @Published var applySurface: ApplySurface = .all
     @Published var heroID: String?
     @Published var libraryBytes: Int64 = 0
     /// What the last Clear actually did. Shown in Settings, because a Clear
@@ -899,6 +923,7 @@ final class AppStore: ObservableObject {
     /// Lock screens need macOS 26 and the embedded extension.
     var lockScreenAvailable: Bool { lockScreen.isAvailable }
     var lockScreenWallpaperID: String? { lockScreen.activeWallpaperID }
+    var screenSaverWallpaperID: String? { lockScreen.screenSaverWallpaperID }
 
     /// Applying to one surface leaves the other alone.
     ///
@@ -934,14 +959,15 @@ final class AppStore: ObservableObject {
             entry = refreshed
         }
 
-        // A Both apply is committed to the desktop engine only after the
-        // lock-screen transaction succeeds, so a failed extension/store write
+        // An All apply is committed to the desktop engine only after the
+        // Apple-side transaction succeeds, so a failed extension/store write
         // cannot leave the UI in a silently half-applied state.
         if surface == .desktop {
             applyAssignment(id: entry.id, mode: resolvedMode, target: target)
         }
 
-        if surface == .lockscreen || surface == .both {
+        let appleSurfaces = surface.appleSurfaces
+        if !appleSurfaces.isEmpty {
             guard lockScreenAvailable else {
                 applyError = LockScreenServiceError.requiresTahoe.localizedDescription
                 return
@@ -958,14 +984,20 @@ final class AppStore: ObservableObject {
             applyingLockScreen = true
             defer { applyingLockScreen = false }
             do {
-                let outcome = try await lockScreen.apply(
-                    entry: entry,
-                    videoURL: videoURL,
-                    thumbnailURL: thumbnailURL,
-                    target: target
-                )
-                if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
-                if surface == .both {
+                // One pass per role. They write different keys in Apple's
+                // store, so the screen saver does not displace the lock screen
+                // and neither has to be given up for the other.
+                for appleSurface in appleSurfaces {
+                    let outcome = try await lockScreen.apply(
+                        entry: entry,
+                        videoURL: videoURL,
+                        thumbnailURL: thumbnailURL,
+                        target: target,
+                        surface: appleSurface
+                    )
+                    if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
+                }
+                if surface == .all {
                     applyAssignment(id: entry.id, mode: resolvedMode, target: target)
                 } else {
                     pushRecent(entry.id)
@@ -1008,10 +1040,14 @@ final class AppStore: ObservableObject {
             desktopApplied = config.assignment(forDisplayUUID: uuid)?.wallpaperID == item.id
         }
         let lockApplied = lockScreen.isApplied(wallpaperID: item.id, target: target)
+        let saverApplied = lockScreen.isApplied(
+            wallpaperID: item.id, target: target, surface: .screenSaver
+        )
         switch surface {
         case .desktop: return desktopApplied
         case .lockscreen: return lockApplied
-        case .both: return desktopApplied && lockApplied
+        case .screensaver: return saverApplied
+        case .all: return desktopApplied && lockApplied && saverApplied
         }
     }
 
@@ -1023,7 +1059,7 @@ final class AppStore: ObservableObject {
         target: ApplyTarget,
         surface: ApplySurface = .desktop
     ) {
-        if surface == .desktop || surface == .both {
+        if surface.coversDesktop {
             switch target {
             case .all:
                 if config.allDisplays?.wallpaperID == item.id { config.allDisplays = nil }
@@ -1042,15 +1078,17 @@ final class AppStore: ObservableObject {
             }
             saveConfig()
         }
-        if surface == .lockscreen || surface == .both {
-            Task {
-                do {
-                    try await lockScreen.remove(target: target)
-                    objectWillChange.send()
-                    recomputeSize()
-                } catch {
-                    applyError = error.localizedDescription
+        let appleSurfaces = surface.appleSurfaces
+        guard !appleSurfaces.isEmpty else { return }
+        Task {
+            do {
+                for appleSurface in appleSurfaces {
+                    try await lockScreen.remove(target: target, surface: appleSurface)
                 }
+                objectWillChange.send()
+                recomputeSize()
+            } catch {
+                applyError = error.localizedDescription
             }
         }
     }
@@ -1529,15 +1567,19 @@ final class AppStore: ObservableObject {
         }
         if configChanged { saveConfig() }
 
-        // 2. Off the lock screen. That surface keeps its own staged copy of
-        //    the video inside the extension container and a record in Apple's
-        //    wallpaper store, so removing the selection is what puts the
-        //    user's real wallpaper back and releases the copy.
-        for target in lockScreen.targets(showing: ids) {
-            do {
-                try await lockScreen.remove(target: target)
-            } catch {
-                applyError = error.localizedDescription
+        // 2. Off the lock screen and the screen saver. Those keep their own
+        //    staged copy of the video inside the extension container and a
+        //    record in Apple's wallpaper store, so removing the selection is
+        //    what puts the user's real wallpaper back and releases the copy.
+        //    Both roles are swept: a wallpaper deleted while it was only the
+        //    screen saver used to leave its record and its staged file behind.
+        for role in [AppleWallpaperStore.Surface.desktop, .screenSaver] {
+            for target in lockScreen.targets(showing: ids, surface: role) {
+                do {
+                    try await lockScreen.remove(target: target, surface: role)
+                } catch {
+                    applyError = error.localizedDescription
+                }
             }
         }
 

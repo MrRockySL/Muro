@@ -111,14 +111,19 @@ func makeSettingsResponse() -> AnyObject? {
         contextMenu: nil,
         thumbnail: nil
     )
-    let model = SettingsViewModels(
-        desktop: SettingsViewModel(
-            groups: [group],
-            refreshPolicy: .default,
-            isModificationDisabled: false
-        ),
-        screenSaver: nil
+    // The same choices under both roles. `screenSaver` used to be nil, and
+    // that alone is what made a Muro screen saver impossible: before macOS
+    // will render one it asks the provider whether the chosen wallpaper
+    // supports the screen saver, finds nothing here, logs "Screen saver is not
+    // supported for choice …; falling back to system default", and shows
+    // Apple's own instead. It is also what puts Muro in System Settings under
+    // Screen Saver rather than only under Wallpaper.
+    let viewModel = SettingsViewModel(
+        groups: [group],
+        refreshPolicy: .default,
+        isModificationDisabled: false
     )
+    let model = SettingsViewModels(desktop: viewModel, screenSaver: viewModel)
 
     let shim = ShimViewModelsXPC(value: model)
     guard let data = try? NSKeyedArchiver.archivedData(

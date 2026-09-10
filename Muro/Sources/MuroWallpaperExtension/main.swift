@@ -166,7 +166,13 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         // The fallback is a frame of this wallpaper rather than its thumbnail,
         // because a thumbnail can be missing. See WallpaperFrame.
         let fallbackStill = info.isPreview ? nil : WallpaperFrame.image(for: info.choiceID)
-        let desktopStill = info.isPreview ? nil : (DesktopStill.current() ?? fallbackStill)
+        // The screen saver is not the desktop and must never be handed the
+        // desktop's picture: what belongs behind a screen saver that fails to
+        // decode is a frame of the screen saver. It is only ever a backstop,
+        // because this surface plays.
+        let desktopStill = info.isPreview
+            ? nil
+            : (info.isScreenSaver ? fallbackStill : (DesktopStill.current() ?? fallbackStill))
 
         // The mode is logged because it is what decides still against video,
         // and a lock screen showing the wrong one of the two is answered by
@@ -179,6 +185,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 + "preview=\(info.isPreview) choice=\(info.choiceID ?? "none") "
                 + "mode=\(info.presentationMode ?? "unset") "
                 + "activity=\(info.activityState ?? "unset") "
+                + "screensaver=\(info.isScreenSaver) "
                 + "covered=\(ScreenState.isCovered()) "
                 + "still=\(info.isPreview ? "n/a" : (desktopStill != nil ? "yes" : "no"))"
         )
@@ -249,7 +256,10 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 rootLayer: rootLayer,
                 renderer: renderer,
                 choiceID: info.choiceID,
-                drawsStill: !info.isPreview,
+                // A screen saver keeps the frame it was built with. Restaging
+                // the desktop's picture must not reach across onto it.
+                drawsStill: !info.isPreview && !info.isScreenSaver,
+                isScreenSaverSurface: info.isScreenSaver,
                 fallback: fallbackStill
             )
             RendererState.shared.install(wallpaper, for: key)
@@ -269,11 +279,13 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                     mode: info.presentationMode, activity: info.activityState
                 )
             }
-            let shouldPlay = RendererState.shared.shouldPlayNow(
-                mode: info.presentationMode,
-                activity: info.activityState,
-                isPreview: info.isPreview
-            )
+            let shouldPlay = info.isScreenSaver
+                ? RendererState.shared.shouldScreenSaverPlay()
+                : RendererState.shared.shouldPlayNow(
+                    mode: info.presentationMode,
+                    activity: info.activityState,
+                    isPreview: info.isPreview
+                )
             // Read before the reply closure, which is Sendable and cannot reach
             // into a layer.
             let showingStill = !shouldPlay && desktopStill != nil
