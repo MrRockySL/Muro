@@ -171,14 +171,21 @@ final class VideoRenderer: @unchecked Sendable {
         }
     }
 
+    /// Strongly, on purpose.
+    ///
+    /// This captured self weakly, and the caller is a surface being taken away:
+    /// it calls stop and then releases the renderer, so the block usually ran
+    /// after the object was already gone and did nothing at all. Nothing at all
+    /// leaves the media-data request armed. See `feedCurrentReader` for what
+    /// that costs. The block releases self as soon as it has run, so holding it
+    /// for the length of one teardown keeps nothing alive.
     func stop() {
-        queue.async { [weak self] in
-            guard let self else { return }
-            isRunning = false
-            renderer.stopRequestingMediaData()
-            currentReader?.cancelReading()
-            nextReader?.cancelReading()
-            displayLayer.removeFromSuperlayer()
+        queue.async {
+            self.isRunning = false
+            self.renderer.stopRequestingMediaData()
+            self.currentReader?.cancelReading()
+            self.nextReader?.cancelReading()
+            self.displayLayer.removeFromSuperlayer()
         }
     }
 
@@ -197,9 +204,19 @@ final class VideoRenderer: @unchecked Sendable {
     }
 
     private func feedCurrentReader() {
-        renderer.requestMediaDataWhenReady(on: queue) { [weak self] in
+        // The renderer is captured weakly beside self, because `self?.renderer`
+        // is nil in the one case that matters. AVFoundation owns this block and
+        // goes on calling it until something calls `stopRequestingMediaData`.
+        // When the surface has gone, self is nil, so `self?.renderer` reached
+        // nothing, the request stayed armed, and the block was called again the
+        // instant it returned. That loop is one CPU core, held for as long as
+        // the extension lives, per surface that was ever taken away. Measured
+        // at 100% of a core each, against 0% for a surface that is simply
+        // sitting there. The video renderer outlives this object, so a weak
+        // handle to it is still something to switch off.
+        renderer.requestMediaDataWhenReady(on: queue) { [weak self, weak armed = self.renderer] in
             guard let self, isRunning else {
-                self?.renderer.stopRequestingMediaData()
+                armed?.stopRequestingMediaData()
                 return
             }
             if renderer.status == .failed {
@@ -223,6 +240,10 @@ final class VideoRenderer: @unchecked Sendable {
     }
 
     private func beginNextLoop() {
+        // A loop step is queued from inside the callback, so it can be waiting
+        // behind a stop. Without this it would arm the request again on a
+        // renderer that has just been switched off.
+        guard isRunning else { return }
         presentationOffset = lastEnqueuedEnd
         if let preparedReader = nextReader, let preparedOutput = nextOutput {
             currentReader = preparedReader
