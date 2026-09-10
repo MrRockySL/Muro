@@ -193,6 +193,26 @@ final class LockScreenService {
             _ = await Task.detached(priority: .utility) {
                 (try? Self.purgeDeadMuroSurfaces(root: root)) == true
             }.value
+            // Muro being *somewhere* in the stores is what got us into this
+            // branch, and that is not the same as Muro holding everything it
+            // claims. The desktop and the lock screen can be perfectly healthy
+            // while the screen saver has been handed to Apple's aerials, which
+            // is what an update installed over a running Muro does. Nothing
+            // used to notice, so it stayed Apple's until the user applied a
+            // screen saver again by hand.
+            let currentState = self.state
+            let repaired = await Task.detached(priority: .utility) {
+                await Self.repairScreenSaverIfMissing(currentState, root: root)
+            }.value
+            if repaired {
+                // Only reached when the screen saver really was wrong, so this
+                // is the case the comment above calls worth the restart: the
+                // agent is holding a resolution that does not match the store.
+                // `reviveExtensionIfNeeded` below waits for the extension to
+                // answer, so the gap it opens is closed before anyone can see
+                // the desktop.
+                await Task.detached(priority: .utility) { Self.restartWallpaperAgent() }.value
+            }
             await Self.reviveExtensionIfNeeded()
             return
         }
@@ -458,16 +478,25 @@ final class LockScreenService {
                         wallpaperID: entry.id, since: applyStart, timeout: 3
                     ) {
                         acknowledged = true
+                    }
+                    // **A receipt is no longer enough on its own, and neither
+                    // is "Muro is in one of the files".** Both were true on the
+                    // owner's Mac on 2026-09-10 while `Index.plist`, the file
+                    // macOS reads, had the screen saver back on Apple's
+                    // default. The loop broke on the first pass with two passes
+                    // in hand and the screen saver played Apple's aerial
+                    // wallpaper. Ask the question that matters: does **every**
+                    // store hold **this role**, for **this target**.
+                    if Self.storesMissingRole(targetKey: targetKey, surface: surface).isEmpty {
                         storeHolds = true
                         break
                     }
-                    // No receipt. If the stores still hold the choice then
-                    // macOS simply has not come looking, and writing it a
-                    // fourth time will not make it. Only a choice the agent
-                    // overwrote is worth another pass.
-                    storeHolds = Self.wallpaperStoresHaveSelection()
-                    if storeHolds { break }
                 }
+                // Three passes and a store still refuses it. The verdict below
+                // stays exactly as loose as it has always been, so nothing that
+                // used to report success starts telling the user to go to
+                // System Settings; only the retrying got stricter.
+                if !storeHolds { storeHolds = Self.wallpaperStoresHaveSelection() }
 
                 try Self.saveState(nextState, root: root)
                 try Self.pruneStagedLibrary(keeping: Self.heldIDs(nextState))
@@ -694,6 +723,78 @@ final class LockScreenService {
                 extensionBundleID, in: loadWallpaperStore(at: $0)
             )
         }
+    }
+
+    /// The store files that are **not** holding this role right now.
+    ///
+    /// `wallpaperStoresHaveSelection` above is deliberately loose: it answers
+    /// "is Muro anywhere at all", and `healIfNeeded` needs exactly that,
+    /// because the branch it guards tears everything down. It must not be
+    /// tightened.
+    ///
+    /// An apply needs the opposite. Muro writes two store files, and on
+    /// 2026-09-10 the owner's Mac finished an apply with the screen saver held
+    /// by Muro in `Index2.plist` and by Apple's default in `Index.plist`. macOS
+    /// reads `Index.plist`, so the screen saver played Apple's aerial
+    /// wallpaper, which is the "Tahoe wallpaper" report. The loose check saw
+    /// Muro in the other file, called the apply settled and broke out of a
+    /// retry loop that existed for this exact case and had two passes left.
+    ///
+    /// Empty means every file holds it. Anything else is a pass worth making.
+    private static func storesMissingRole(
+        targetKey: String,
+        surface: AppleWallpaperStore.Surface
+    ) -> [URL] {
+        wallpaperStoreURLs.filter { url in
+            !AppleWallpaperStore.holdsRole(
+                extensionBundleID,
+                in: loadWallpaperStore(at: url),
+                targetKey: targetKey,
+                surface: surface
+            )
+        }
+    }
+
+    /// Puts back a role Muro's own record claims but Apple's stores no longer
+    /// hold, without staging anything or touching the record.
+    ///
+    /// **Scoped to the screen saver on purpose.** That is the role that was
+    /// observed being taken away, and it is the simple one: it is always
+    /// `all`, so there is no per-display node to reason about. The lock screen
+    /// is per connected display, is confirmed working on two displays, and
+    /// `healIfNeeded` has no display list to check against, so a repair there
+    /// would rewrite a display that is merely unplugged. It is left alone.
+    ///
+    /// **How the screen saver goes missing.** Replacing `/Applications/Muro.app`
+    /// while Muro is running makes macOS log "Wallpaper extension was removed",
+    /// and WallpaperAgent then hands the screen saver to Apple's aerials and
+    /// writes that into the store. Measured on the owner's Mac on 2026-09-10:
+    /// the bundle was replaced at 18:33:49 and by 18:34:10 the aerials
+    /// extension had been launched and the store saved. Muro's desktop and
+    /// lock screen come back on relaunch because they are re-applied; the
+    /// screen saver had nothing that noticed. That is every user who updates
+    /// Muro while it is open, not only a build machine.
+    private static func repairScreenSaverIfMissing(
+        _ state: SelectionState, root: URL
+    ) async -> Bool {
+        guard let id = state.screenSaver[LockScreenSelections.allKey],
+              id != removedSelection
+        else { return false }
+        let video = stagedVideoURL(id: id)
+        // No staged file means the wallpaper is genuinely gone, and rewriting
+        // the store would only point macOS at nothing.
+        guard FileManager.default.fileExists(atPath: video.path) else { return false }
+        guard !storesMissingRole(targetKey: "all", surface: .screenSaver).isEmpty else {
+            return false
+        }
+        try? await updateWallpaperStores(
+            wallpaperID: id,
+            videoURL: video,
+            targetKey: "all",
+            surface: .screenSaver,
+            root: root
+        )
+        return true
     }
 
 

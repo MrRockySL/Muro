@@ -160,6 +160,45 @@ public enum AppleWallpaperStore {
         return found
     }
 
+    /// Whether this store holds `provider` **in one particular role**, for one
+    /// particular target.
+    ///
+    /// `containsProvider` answers a different and much broader question, "is
+    /// Muro anywhere in this file at all", and it has to stay that way:
+    /// `healIfNeeded` uses it to decide whether macOS has thrown Muro out
+    /// altogether, and a stricter test there would make Muro tear down a
+    /// perfectly good lock screen because the screen saver alone was missing.
+    ///
+    /// **This is the question an apply needs and never asked.** Muro keeps two
+    /// store files and writes both. On 2026-09-10 the owner's Mac ended up
+    /// with the screen saver role held by Muro in `Index2.plist` and by
+    /// Apple's default in `Index.plist`, which is the file macOS was reading,
+    /// so the screen saver showed Apple's aerial wallpaper. The apply that
+    /// should have repaired it asked `containsProvider`, got `true` from the
+    /// wrong file, called itself settled and stopped retrying. Asking per role,
+    /// per target and per file is what makes the retry loop retry.
+    public static func holdsRole(
+        _ provider: String,
+        in store: Any?,
+        targetKey: String,
+        surface: Surface
+    ) -> Bool {
+        guard let store else { return false }
+        var found = false
+        forEachNode(in: store) { path, node in
+            guard !found else { return }
+            // The key this node keeps the role under, which is not the same on
+            // every node: a linked node carries both roles on `Linked`, and an
+            // `idle` node has no desktop at all.
+            guard let name = surfaceName(of: node, for: surface),
+                  let occupant = node[name] as? [String: Any],
+                  surfaceBelongsToTarget(path + [name], targetKey: targetKey)
+            else { return }
+            if providers(of: occupant).contains(provider) { found = true }
+        }
+        return found
+    }
+
     /// Writes `choice` into the surface each matching node actually uses.
     ///
     /// `targetKey` is either `"all"` or a display UUID, matched against the
