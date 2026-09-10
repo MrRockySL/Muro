@@ -142,27 +142,44 @@ enum MacHardware {
     }
 }
 
-/// One place a wallpaper can be showing: a display, and which of that
-/// display's two surfaces.
+/// One place a wallpaper can be showing.
 ///
-/// A Mac with two monitors has four of these, and Muro can hold a different
+/// A Mac with two monitors has five of these: a desktop and a lock screen on
+/// each, and one screen saver for the whole machine. Muro can hold a different
 /// wallpaper in every one, so a label that only ever named the display could
-/// not tell two of them apart.
+/// not tell them apart.
 struct AppliedPlace: Identifiable, Equatable {
-    let display: DisplayInfo
-    let isLockScreen: Bool
+    enum Kind: String, Equatable {
+        case desktop
+        case lockScreen
+        /// One setting for the whole Mac, so it has no display of its own.
+        /// See LockScreenService.storeTargetKey.
+        case screenSaver
+    }
 
-    var id: String { display.id + (isLockScreen ? "#lock" : "#desktop") }
+    /// Nil for the screen saver, which is not a per-display place.
+    let display: DisplayInfo?
+    let kind: Kind
+
+    var id: String { (display?.id ?? "all") + "#" + kind.rawValue }
 
     /// For the small chip on a card. Upper case, and short, because it has a
     /// card corner to fit into.
     var chipLabel: String {
-        isLockScreen ? display.chipLabel + " LOCK" : display.chipLabel
+        switch kind {
+        case .desktop: return display?.chipLabel ?? "ALL DISPLAYS"
+        case .lockScreen: return (display?.chipLabel ?? "ALL DISPLAYS") + " LOCK"
+        case .screenSaver: return "SCREEN SAVER"
+        }
     }
 
     /// For anywhere there is room to read a sentence.
     var fullLabel: String {
-        isLockScreen ? "\(display.displayName) lock screen" : display.displayName
+        switch kind {
+        case .desktop: return display?.displayName ?? "all displays"
+        case .lockScreen: return "\(display?.displayName ?? "all displays") lock screen"
+        case .screenSaver: return "the screen saver"
+        }
     }
 }
 
@@ -1223,12 +1240,21 @@ final class AppStore: ObservableObject {
         var out: [AppliedPlace] = []
         for display in displays {
             if config.assignment(forDisplayUUID: display.id)?.wallpaperID == id {
-                out.append(AppliedPlace(display: display, isLockScreen: false))
+                out.append(AppliedPlace(display: display, kind: .desktop))
             }
             if lockScreenAvailable,
                lockScreen.isApplied(wallpaperID: id, target: .display(display.id)) {
-                out.append(AppliedPlace(display: display, isLockScreen: true))
+                out.append(AppliedPlace(display: display, kind: .lockScreen))
             }
+        }
+        // One place however many displays there are, because the screen saver
+        // is one setting for the whole Mac. It was missing here entirely, so a
+        // wallpaper that was only the screen saver wore no chip at all and
+        // there was nowhere in the library to see what the screen saver was
+        // (owner, 2026-09-10).
+        if lockScreenAvailable,
+           lockScreen.isApplied(wallpaperID: id, target: .all, surface: .screenSaver) {
+            out.append(AppliedPlace(display: nil, kind: .screenSaver))
         }
         return out
     }
@@ -1247,9 +1273,12 @@ final class AppStore: ObservableObject {
 
     private func appliedSpread(_ places: [AppliedPlace]) -> AppliedSpread {
         let screens = displays.count
-        let desktops = places.filter { !$0.isLockScreen }.count
-        let locks = places.count - desktops
+        let desktops = places.filter { $0.kind == .desktop }.count
+        let locks = places.filter { $0.kind == .lockScreen }.count
+        let saver = places.contains { $0.kind == .screenSaver }
+        // A desktop and a lock screen per display, plus the one screen saver.
         let everyPlace = screens * (lockScreenAvailable ? 2 : 1)
+            + (lockScreenAvailable ? 1 : 0)
 
         // "Everywhere" only reads as true when there is a lock screen it could
         // also have gone to. On a Mac that cannot do lock screens, covering
@@ -1258,8 +1287,10 @@ final class AppStore: ObservableObject {
         if places.count >= everyPlace {
             return lockScreenAvailable ? .everywhere : .allDisplays
         }
-        if locks == 0, desktops == screens { return .allDisplays }
-        if desktops == 0, locks == screens { return .allLockScreens }
+        // These two still have to mean what they say, so the screen saver
+        // being in the list rules them both out.
+        if locks == 0, !saver, desktops == screens { return .allDisplays }
+        if desktops == 0, !saver, locks == screens { return .allLockScreens }
         return .some(places.count)
     }
 
