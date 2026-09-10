@@ -9,7 +9,7 @@ set -e
 # extension and the DMG name are all derived from these two lines, and the
 # build fails below if the app and the extension ever disagree.
 VERSION="4.0.2"
-BUILD="10"
+BUILD="11"
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 APP="$DIR/dist/Muro.app"
@@ -20,13 +20,29 @@ APP="$DIR/dist/Muro.app"
 # later change reaches both without a second thought. The wallpaper
 # extension carries the same two architectures, set in its Xcode project.
 echo "==> swift build -c release (universal: arm64 + x86_64)"
-swift build -c release --package-path "$DIR" --arch arm64 --arch x86_64
+SWIFT_BUILD_FLAGS=(-c release --package-path "$DIR" --arch arm64 --arch x86_64)
+swift build "${SWIFT_BUILD_FLAGS[@]}"
+
+# Ask SwiftPM where it put the binary rather than assuming `.build/release`.
+#
+# That name is a symlink SwiftPM maintains, and a universal build does not
+# write through it: it builds into `.build/apple/Products/Release` while the
+# symlink can still point at a scratch path some earlier build used. On
+# 2026-09-10 this shipped a two day old app on top of a freshly built
+# extension, silently, with the build reporting success throughout. A stale
+# binary is the one build failure that looks exactly like a working build, so
+# the path is asked for and the copy is checked.
+BIN_PATH="$(swift build "${SWIFT_BUILD_FLAGS[@]}" --show-bin-path)"
+if [[ ! -f "$BIN_PATH/muro-app" ]]; then
+    echo "ERROR: no muro-app in $BIN_PATH" >&2
+    exit 1
+fi
 
 echo "==> assembling $APP"
 rm -rf "$DIR/dist"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp "$DIR/.build/release/muro-app" "$APP/Contents/MacOS/Muro"
+cp "$BIN_PATH/muro-app" "$APP/Contents/MacOS/Muro"
 
 # macOS 26+ lock-screen renderer. Build it as a real ExtensionKit target so
 # ExtensionFoundation installs the correct entry point and actor isolation.
