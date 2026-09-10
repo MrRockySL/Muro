@@ -406,7 +406,7 @@ struct ChooseDisplayPopover: View {
     @State private var showLockRequirement = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 4) {
                 Spacer()
                 ForEach(ApplySurface.allCases, id: \.self) { surface in
@@ -427,7 +427,7 @@ struct ChooseDisplayPopover: View {
                 }
             }
         }
-        .padding(18)
+        .padding(15)
         // No background of its own: `anchoredCard` draws it on the same glass
         // as every dropdown, with the same corner radius.
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -482,45 +482,148 @@ struct ChooseDisplayPopover: View {
     }
 
     private var chooser: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let isScreenSaver = store.applySurface == .screensaver
+        return VStack(alignment: .leading, spacing: 11) {
             HStack {
                 // The screen saver is one setting for the whole Mac, so there
                 // is no display to choose. Saying so is better than a picker
                 // whose choice does not matter, and better than hiding the
                 // card people are used to clicking.
-                Text(
-                    store.applySurface == .screensaver
-                        ? "Every display"
-                        : "Choose display"
-                )
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(Color.muroSecondary)
+                Text(isScreenSaver ? "Every display" : "Choose display")
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(Color.muroSecondary)
                 Spacer()
-                if store.displays.count > 1, store.applySurface != .screensaver { allPill }
+                if store.displays.count > 1, !isScreenSaver { allPill }
             }
-            // One display has no second column to sit beside, so the grid
-            // left it hard against the edge with the popover's whole width
-            // empty next to it. On its own it is centred instead, and kept to
-            // about the width it would have had in the grid so it does not
-            // stretch into a banner.
-            if store.displays.count == 1, let only = store.displays.first {
-                HStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    displayCard(only).frame(maxWidth: 200)
-                    Spacer(minLength: 0)
-                }
-            } else {
-                LazyVGrid(
-                    columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
-                    spacing: 10
-                ) {
-                    ForEach(store.displays) { display in
-                        displayCard(display)
-                    }
-                }
+            // The per-display chooser stays laid out underneath on the screen
+            // saver tab as well, so it goes on defining the height. The popover
+            // is anchored at its bottom edge, so a tab shorter than the others
+            // would move the top edge and the whole card would jump on every
+            // switch (owner, 2026-07-20).
+            ZStack {
+                displayChooser
+                    .opacity(isScreenSaver ? 0 : 1)
+                    .allowsHitTesting(!isScreenSaver)
+                if isScreenSaver { screenSaverCard.transition(.opacity) }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// One card per connected display, for the surfaces that can really be set
+    /// per display.
+    @ViewBuilder private var displayChooser: some View {
+        // One display has no second column to sit beside, so the grid left it
+        // hard against the edge with the popover's whole width empty next to
+        // it. On its own it is centred instead, and kept to about the width it
+        // would have had in the grid so it does not stretch into a banner.
+        if store.displays.count == 1, let only = store.displays.first {
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                displayCard(only).frame(maxWidth: 200)
+                Spacer(minLength: 0)
+            }
+        } else {
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                spacing: 10
+            ) {
+                ForEach(store.displays) { display in
+                    displayCard(display)
+                }
+            }
+        }
+    }
+
+    /// One card, never one per screen.
+    ///
+    /// A screen saver is a single setting for the whole Mac. macOS keeps it in
+    /// `AllSpacesAndDisplays`, a node that carries no display name at all, and
+    /// Apple's own settings have no per-display screen saver picker either.
+    /// `LockScreenService.storeTargetKey` already forces every screen saver
+    /// apply to "all", so a card per display was offering a choice that does
+    /// not exist: one click lit every card green and gave each its own Remove
+    /// button, for a single setting (owner, 2026-09-10).
+    private var screenSaverCard: some View {
+        let applied = store.isApplied(item, surface: .screensaver, target: .all)
+        return HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            Button {
+                if applied {
+                    store.removeWallpaper(item, target: .all, surface: .screensaver)
+                } else {
+                    apply(.all)
+                }
+            } label: {
+                cardLabel(
+                    symbol: "display.2",
+                    name: "All Screens",
+                    sublabel: "Every display",
+                    applied: applied
+                )
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: 200)
+            .accessibilityLabel(
+                applied
+                    ? "Remove \(item.title) from the screen saver"
+                    : "Apply \(item.title) to the screen saver"
+            )
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// The card chrome both choosers draw.
+    ///
+    /// The shape belongs to the button's label, not to the button. Hung
+    /// outside it, the frame, padding and background drew a card while the
+    /// button itself stayed the size of the icon and the name, so most of the
+    /// card looked clickable and was not. A `contentShape` outside a button
+    /// cannot fix that either: it shapes the view it is attached to, not the
+    /// button's own hit region.
+    private func cardLabel(
+        symbol: String,
+        name: String,
+        sublabel: String,
+        applied: Bool
+    ) -> some View {
+        VStack(spacing: 5) {
+            Image(systemName: symbol)
+                .font(.system(size: 19))
+                .foregroundStyle(.white.opacity(0.9))
+            HStack(spacing: 5) {
+                if applied {
+                    Circle().fill(Color.muroGreen).frame(width: 5, height: 5)
+                }
+                Text(name)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+            }
+            if applied {
+                Text("Remove")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: 0xFF6B6B))
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color(hex: 0xFF6B6B).opacity(0.13)))
+                    .overlay(Capsule().strokeBorder(Color(hex: 0xFF6B6B).opacity(0.4), lineWidth: 1))
+            } else {
+                Text(sublabel)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.muroSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 11)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(.glassSheen(0.12, 0.05)))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .strokeBorder(
+                applied ? Color.muroGreen.opacity(0.55) : Color.white.opacity(0.14),
+                lineWidth: applied ? 1.5 : 1
+            ))
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     /// Applies without dismissing — people with several displays apply to
@@ -629,50 +732,12 @@ struct ChooseDisplayPopover: View {
                 apply(.display(display.id))
             }
         } label: {
-            VStack(spacing: 6) {
-                Image(systemName: display.symbolName)
-                    .font(.system(size: 20))
-                    .foregroundStyle(.white.opacity(0.9))
-                HStack(spacing: 5) {
-                    if appliedHere {
-                        Circle().fill(Color.muroGreen).frame(width: 5, height: 5)
-                    }
-                    Text(display.displayName)
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                }
-                if appliedHere {
-                    Text("Remove")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0xFF6B6B))
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 3.5)
-                        .background(Capsule().fill(Color(hex: 0xFF6B6B).opacity(0.13)))
-                        .overlay(Capsule().strokeBorder(Color(hex: 0xFF6B6B).opacity(0.4), lineWidth: 1))
-                } else {
-                    Text(display.kindLabel)
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.muroSecondary)
-                }
-            }
-            // The card's shape belongs to the button's label, not to the
-            // button. Hung outside it, the frame, padding and background drew
-            // a card while the button itself stayed the size of the icon and
-            // the name, so most of the card looked clickable and was not.
-            // A `contentShape` outside a button cannot fix that either: it
-            // shapes the view it is attached to, not the button's own hit
-            // region.
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 13)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.glassSheen(0.12, 0.05)))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(
-                    appliedHere ? Color.muroGreen.opacity(0.55) : Color.white.opacity(0.14),
-                    lineWidth: appliedHere ? 1.5 : 1
-                ))
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            cardLabel(
+                symbol: display.symbolName,
+                name: display.displayName,
+                sublabel: display.kindLabel,
+                applied: appliedHere
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
