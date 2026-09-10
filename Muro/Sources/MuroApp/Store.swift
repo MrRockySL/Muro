@@ -993,7 +993,8 @@ final class AppStore: ObservableObject {
                         videoURL: videoURL,
                         thumbnailURL: thumbnailURL,
                         target: target,
-                        surface: appleSurface
+                        surface: appleSurface,
+                        connectedDisplays: Set(displays.map(\.id))
                     )
                     if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
                 }

@@ -404,18 +404,28 @@ final class LockScreenService {
         videoURL: URL,
         thumbnailURL: URL,
         target: ApplyTarget,
-        surface: AppleWallpaperStore.Surface = .desktop
+        surface: AppleWallpaperStore.Surface = .desktop,
+        connectedDisplays: Set<String> = []
     ) async throws -> LockScreenApplyOutcome {
         try validateAvailability()
         let targetKey = Self.storeTargetKey(Self.targetKey(target), for: surface)
         let previousState = state
         var nextState = state
-        // One wallpaper per role at a time, whatever it was applied to.
-        // Every staged wallpaper appears as its own row in System Settings, so
-        // keeping a selection per display grew that list a row at a time and
-        // the extra rows read as leftovers nobody could clear. Picking a new
-        // one now replaces the old one rather than joining it.
-        Self.setSelections([targetKey: entry.id], for: surface, in: &nextState)
+        // One per connected display, not one for the whole Mac. This used to
+        // be `[targetKey: entry.id]`, which threw away every other display's
+        // lock screen on each apply. See LockScreenSelections for what that
+        // cost and why it was written that way. A screen saver apply always
+        // carries "all", so this is the same record it always was for it.
+        Self.setSelections(
+            LockScreenSelections.afterApply(
+                current: Self.selections(nextState, for: surface),
+                targetKey: targetKey,
+                wallpaperID: entry.id,
+                connectedDisplays: connectedDisplays
+            ),
+            for: surface,
+            in: &nextState
+        )
 
         let extensionURL = extensionBundleURL
         let root = root
