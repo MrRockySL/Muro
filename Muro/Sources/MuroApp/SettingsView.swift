@@ -50,14 +50,11 @@ struct SettingsView: View {
                             .labelsHidden()
                             .onChange(of: launchAtLogin) { _, enabled in
                                 setLaunchAtLogin(enabled)
-                                // Logging in with no menu bar icon would leave
-                                // no way to reach the app — keep them together.
-                                if enabled { showMenuBarIcon = true }
                             }
                     }
                     divider
                     row(icon: "menubar.rectangle", tint: .purple, title: "Show Menu Bar Icon",
-                        subtitle: "Quick controls from the menu bar") {
+                        subtitle: menuBarSubtitle) {
                         Toggle("", isOn: $showMenuBarIcon)
                             .toggleStyle(.switch)
                             .tint(Color.muroAccent)
@@ -475,6 +472,23 @@ struct SettingsView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 5.5)
             .glassCapsule(fill: 0.09, stroke: 0.15)
+    }
+
+    /// What the menu bar row says underneath itself.
+    ///
+    /// Turning Launch at Login on used to switch the menu bar icon back on,
+    /// because at the time the icon really was the only way back into a
+    /// running Muro. `applicationShouldHandleReopen` fixed that: Launchpad,
+    /// Spotlight and Finder all reopen the gallery now. The force outlived its
+    /// reason and took the choice away from exactly the people who want Muro
+    /// out of the way, which is issue #31.
+    ///
+    /// So it is gone, and the row says where Muro is instead, on the one
+    /// combination where nothing on screen leads back to it.
+    private var menuBarSubtitle: String {
+        showMenuBarIcon || showDockIcon
+            ? "Quick controls from the menu bar"
+            : "Open Muro from Launchpad or Spotlight"
     }
 
     private func row(
