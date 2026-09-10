@@ -153,7 +153,7 @@ struct PreviewView: View {
                 // A popover paints its own square grey sheet behind whatever
                 // it is given, which is what made this the one panel in the
                 // app that was a flat dark box (owner, 2026-08-24).
-                .anchoredCard(isPresented: $showDisplayPopover, width: 400, align: .trailing) {
+                .anchoredCard(isPresented: $showDisplayPopover, width: 340, align: .trailing) {
                     ChooseDisplayPopover(item: item)
                         .environmentObject(store)
                 }
@@ -407,7 +407,12 @@ struct ChooseDisplayPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 4) {
+            // 3 and 11 below, not 4 and 14, because this row is what decides
+            // how wide the popover has to be and nothing else comes close.
+            // Measured with the real font: 324pt at 14, 297pt at 11, so the
+            // card could come in from 400 to 340 (owner, 2026-09-10: "reduce
+            // the length of the card and increase the height a little bit").
+            HStack(spacing: 3) {
                 Spacer()
                 ForEach(ApplySurface.allCases, id: \.self) { surface in
                     surfacePill(surface)
@@ -520,7 +525,7 @@ struct ChooseDisplayPopover: View {
         if store.displays.count == 1, let only = store.displays.first {
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
-                displayCard(only).frame(maxWidth: 200)
+                displayCard(only).frame(maxWidth: 165)
                 Spacer(minLength: 0)
             }
         } else {
@@ -563,7 +568,7 @@ struct ChooseDisplayPopover: View {
                 )
             }
             .buttonStyle(.plain)
-            .frame(maxWidth: 200)
+            .frame(maxWidth: 165)
             .accessibilityLabel(
                 applied
                     ? "Remove \(item.title) from the screen saver"
@@ -587,9 +592,9 @@ struct ChooseDisplayPopover: View {
         sublabel: String,
         applied: Bool
     ) -> some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 7) {
             Image(systemName: symbol)
-                .font(.system(size: 19))
+                .font(.system(size: 22))
                 .foregroundStyle(.white.opacity(0.9))
             HStack(spacing: 5) {
                 if applied {
@@ -615,7 +620,7 @@ struct ChooseDisplayPopover: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 11)
+        .padding(.vertical, 15)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
             .fill(.glassSheen(0.12, 0.05)))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -657,7 +662,7 @@ struct ChooseDisplayPopover: View {
             Text(surface.rawValue)
                 .font(.system(size: 11.5, weight: .semibold))
                 .foregroundStyle(selected ? Color.black : Color.white.opacity(enabled ? 0.8 : 0.3))
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 11)
                 .padding(.vertical, 6)
                 .background {
                     if selected {
