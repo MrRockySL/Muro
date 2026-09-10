@@ -133,6 +133,13 @@ for arg in "$@"; do
         echo "==> installing to /Applications"
         rm -rf /Applications/Muro.app
         cp -R "$APP" /Applications/Muro.app
+        # Replacing the .appex on disk does not respawn a wallpaper
+        # extension that is already running: macOS keeps the live process
+        # on its old code until it recycles it on its own. That is a stale
+        # binary that looks exactly like a working install — the lock
+        # screen keeps the previous build's behaviour with no error. Kill
+        # it so the next acquire launches the one just built.
+        killall Muro MuroWallpaperExtension 2>/dev/null || true
         echo "==> installed: /Applications/Muro.app"
         ;;
     --dmg)

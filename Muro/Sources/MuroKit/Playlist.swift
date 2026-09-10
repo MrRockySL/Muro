@@ -9,18 +9,36 @@ public struct Playlist: Codable, Identifiable, Equatable {
     public var intervalMinutes: Int
     public var shuffle: Bool
 
+    /// Which surface this playlist rotates. Absent in JSON written before
+    /// this existed, which reads as `.desktop` — a schedule never touches the
+    /// lock screen unless the user opts in.
+    private var storedSurface: ApplySurface?
+
+    /// The surface to rotate, defaulting to the desktop.
+    public var surface: ApplySurface {
+        get { storedSurface ?? .desktop }
+        set { storedSurface = newValue }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, wallpaperIDs, intervalMinutes, shuffle
+        case storedSurface = "surface"
+    }
+
     public init(
         id: String = UUID().uuidString.lowercased(),
         name: String,
         wallpaperIDs: [String] = [],
         intervalMinutes: Int = 30,
-        shuffle: Bool = false
+        shuffle: Bool = false,
+        surface: ApplySurface = .desktop
     ) {
         self.id = id
         self.name = name
         self.wallpaperIDs = wallpaperIDs
         self.intervalMinutes = intervalMinutes
         self.shuffle = shuffle
+        self.storedSurface = surface
     }
 }
 

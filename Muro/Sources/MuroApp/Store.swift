@@ -50,33 +50,9 @@ enum ApplyTarget: Equatable {
     case display(String)
 }
 
-/// Where a wallpaper is being put.
-///
-/// `all` was called "Both" while there were two of them. The screen saver is
-/// the third, and it is a separate key in Apple's own store from the one the
-/// lock screen renders, so it is set separately here too.
-enum ApplySurface: String, CaseIterable {
-    case all = "All", desktop = "Desktop", lockscreen = "Lockscreen"
-    case screensaver = "Screensaver"
-
-    /// Whether this choice covers Muro's own desktop engine.
-    var coversDesktop: Bool { self == .desktop || self == .all }
-    /// Whether it covers the Apple-managed surface the lock screen renders.
-    var coversLockScreen: Bool { self == .lockscreen || self == .all }
-    /// Whether it covers the screen saver.
-    var coversScreenSaver: Bool { self == .screensaver || self == .all }
-
-    /// The Apple store roles this choice writes, in the order they are applied.
-    var appleSurfaces: [AppleWallpaperStore.Surface] {
-        var out: [AppleWallpaperStore.Surface] = []
-        if coversLockScreen { out.append(.desktop) }
-        if coversScreenSaver { out.append(.screenSaver) }
-        return out
-    }
-
-    /// Whether macOS 26 is needed for this choice.
-    var needsAppleExtension: Bool { self != .desktop }
-}
+/// `ApplySurface` (desktop / lock screen / screen saver / all) now lives in
+/// `MuroKit` so `Playlist` and `Automation` can carry it — see
+/// `MuroKit/ApplySurface.swift`.
 
 /// What to call the screen built into this Mac.
 ///
@@ -314,11 +290,12 @@ final class AppStore: ObservableObject {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         reloadFromDisk()
         recentIDs = defaults.stringArray(forKey: "recents") ?? []
-        scheduler.apply = { [weak self] id in
+        scheduler.apply = { [weak self] id, surface, target in
             guard let self, let item = self.item(id: id) else { return }
-            self.setWallpaper(item, mode: self.defaultMode(for: item))
+            self.applyScheduledStep(item, surface: surface, target: target)
         }
         scheduler.currentIDForOrdering = { [weak self] in self?.currentAppliedID }
+        lockScreen.rotationCurrentWallpaperID = { [weak self] in self?.currentRotationStepID }
         syncScheduler()
         watchRoot()
         recomputeSize()
@@ -359,7 +336,17 @@ final class AppStore: ObservableObject {
         Task { await checkForUpdatesIfDue() }
         // Reads Apple's wallpaper plists and may run pluginkit and restart
         // WallpaperAgent, so it must never sit on the launch path.
-        Task { await lockScreen.healIfNeeded() }
+        Task { await lockScreen.healIfNeeded(runningRotationIDs: runningLockScreenScheduleIDs) }
+        // The frame shown the instant the screen locks must be the step that
+        // is current now, even if a tick was missed while the Mac napped.
+        // Wake needs no hook here: the scheduler re-evaluates on wake and the
+        // normal tick path stages the lock-screen half.
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.apple.screenIsLocked"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.restageLockScreenRotationOnLock() }
+        }
         // A monitor plugged in after Muro started has no desktop picture of
         // its own yet, and one unplugged leaves a record to give back.
         NotificationCenter.default.addObserver(
@@ -660,6 +647,11 @@ final class AppStore: ObservableObject {
         scheduler.update(automations: automations, playlists: playlists)
         activePlaylistID = scheduler.activePlaylistID
         activeAutomationID = scheduler.activeAutomationID
+        scheduler.setPaused(isPaused)
+        let running = runningLockScreenScheduleIDs
+        if running.isEmpty { currentRotationStepID = nil }
+        lockScreen.setLockScreenPlaybackPaused(isPaused && !running.isEmpty)
+        Task { await lockScreen.reconcileRotation(runningRotationIDs: running) }
     }
 
     private func watchRoot() {
@@ -942,6 +934,16 @@ final class AppStore: ObservableObject {
     var lockScreenWallpaperID: String? { lockScreen.activeWallpaperID }
     var screenSaverWallpaperID: String? { lockScreen.screenSaverWallpaperID }
 
+    /// The surface chip to show for a schedule on cards and the menu bar, or
+    /// `nil` for a desktop-only schedule (no chip needed). Honest when the lock
+    /// screen is unavailable: a stored `.lockscreen` / `.all` schedule really
+    /// runs desktop-only on macOS 15, and the label must say so rather than
+    /// claim a lock-screen rotation that is not happening.
+    func scheduleSurfaceLabel(_ surface: ApplySurface) -> String? {
+        guard surface.coversLockScreen else { return nil }
+        return lockScreenAvailable ? surface.scheduleLabel : "Desktop only · needs macOS 26"
+    }
+
     /// Applying to one surface leaves the other alone.
     ///
     /// Desktop used to mean "desktop and not the lock screen", so setting a new
@@ -1042,6 +1044,96 @@ final class AppStore: ObservableObject {
         pushRecent(id)
     }
 
+    /// The wallpaper id the running lock-screen rotation is showing right now.
+    /// `currentAppliedID` only knows this for an `.all` schedule — a
+    /// `.lockscreen` schedule never writes the desktop config — so the rotation
+    /// tracks its own step here. Feeds the lock catch-up and
+    /// `LockScreenService.rotationCurrentWallpaperID` (D6).
+    private var currentRotationStepID: String?
+
+    /// The ids of the running schedules whose surface covers the lock screen.
+    /// At most one, since only one schedule runs at a time; a `Set` so it drops
+    /// straight into `reconcileRotation` / `healIfNeeded`.
+    private var runningLockScreenScheduleIDs: Set<String> {
+        var ids = Set<String>()
+        if let playlist = activePlaylist, playlist.surface.coversLockScreen {
+            ids.insert(playlist.id)
+        }
+        if let automation = activeAutomation, automation.surface.coversLockScreen {
+            ids.insert(automation.id)
+        }
+        return ids
+    }
+
+    /// One scheduler tick. The desktop half is exactly today's assignment; the
+    /// lock-screen half swaps the video behind the schedule's fixed rotation id
+    /// (or begins the rotation on the first covered tick). Both halves consume
+    /// the same `item`, so the two surfaces can never show different wallpapers
+    /// on one tick.
+    private func applyScheduledStep(
+        _ item: WallpaperItem, surface: ApplySurface, target: ApplyTarget
+    ) {
+        let mode = defaultMode(for: item)
+        if surface.coversDesktop {
+            // No explicit surface → the pure-desktop branch of applyWallpaper,
+            // byte-identical to a scheduler tick before this change.
+            setWallpaper(item, mode: mode, target: target)
+        }
+        if surface.coversLockScreen {
+            driveLockScreenRotation(item: item, mode: mode)
+        }
+    }
+
+    /// Begin the rotation on the first covered tick, swap the staged file on
+    /// every later one. The fixed id is the running schedule's own id (D6). The
+    /// rotation path never consults `surface.coversScreenSaver` — a schedule's
+    /// `.all` is Desktop + Lock Screen only.
+    private func driveLockScreenRotation(item: WallpaperItem, mode: String) {
+        guard lockScreenAvailable,
+              let scheduleID = activePlaylistID ?? activeAutomationID,
+              let entry = item.local
+        else { return }
+        let resolvedMode = entry.fps > 40 ? mode : "smooth"
+        let videoURL = resolveVideoURL(entry: entry, mode: resolvedMode, root: root)
+        let thumbnailURL = root.appendingPathComponent(entry.thumbnail)
+        guard FileManager.default.fileExists(atPath: videoURL.path),
+              FileManager.default.fileExists(atPath: thumbnailURL.path)
+        else { return }
+        let title = scheduler.runningName ?? item.title
+        currentRotationStepID = item.id
+        let displayIDs = Set(displays.map(\.id))
+        Task {
+            do {
+                if lockScreen.isRotating(scheduleID: scheduleID) {
+                    try lockScreen.stageRotationStep(
+                        scheduleID: scheduleID, title: title,
+                        videoURL: videoURL, thumbnailURL: thumbnailURL
+                    )
+                } else {
+                    applyingLockScreen = true
+                    defer { applyingLockScreen = false }
+                    _ = try await lockScreen.beginRotation(
+                        scheduleID: scheduleID, entry: entry,
+                        videoURL: videoURL, thumbnailURL: thumbnailURL,
+                        connectedDisplays: displayIDs
+                    )
+                }
+            } catch {
+                applyError = error.localizedDescription
+            }
+        }
+    }
+
+    /// Re-stage the current rotation step (no clock advance) when the screen
+    /// locks, so the first locked frame is never a step behind.
+    private func restageLockScreenRotationOnLock() {
+        guard !runningLockScreenScheduleIDs.isEmpty,
+              let stepID = currentRotationStepID ?? scheduler.currentStepWallpaperID,
+              let item = item(id: stepID)
+        else { return }
+        driveLockScreenRotation(item: item, mode: defaultMode(for: item))
+    }
+
     /// Applied on every connected display (drives the "✓ Applied" state).
     func isFullyApplied(_ item: WallpaperItem) -> Bool {
         let connected = displays
@@ -1114,6 +1206,8 @@ final class AppStore: ObservableObject {
     func setPaused(_ paused: Bool) {
         config.paused = paused
         saveConfig()
+        scheduler.setPaused(paused)
+        lockScreen.setLockScreenPlaybackPaused(paused && !runningLockScreenScheduleIDs.isEmpty)
     }
 
     var playbackSpeed: Double { config.playbackSpeed ?? 1.0 }

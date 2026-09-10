@@ -45,6 +45,22 @@ final class AutomationTests: XCTestCase {
         XCTAssertTrue(AutomationStore.load(root: root).isEmpty)
     }
 
+    func testAnAutomationWithoutASurfaceInJSONReadsAsDesktop() throws {
+        let legacy = Data(
+            #"[{"id":"a1","name":"Old","mode":"timer","steps":[],"enabled":true}]"#.utf8
+        )
+        try legacy.write(to: AutomationStore.url(root: root))
+        XCTAssertEqual(AutomationStore.load(root: root).first?.surface, .desktop)
+    }
+
+    func testAutomationSurfaceRoundTripsThroughTheStore() throws {
+        let automations = [
+            Automation(name: "Lock", mode: .timer, steps: [], enabled: true, surface: .all)
+        ]
+        try AutomationStore.save(automations, root: root)
+        XCTAssertEqual(AutomationStore.load(root: root).first?.surface, .all)
+    }
+
     // MARK: - Timer mode
 
     func testCycleLengthIsTheSumOfTheSteps() {

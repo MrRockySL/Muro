@@ -362,6 +362,11 @@ struct PillSegments: View {
     var height: CGFloat = 38
     var labelSize: CGFloat = 13
     var horizontalPadding: CGFloat = 18
+    /// Stretch the bar to its container's full width and give every segment an
+    /// equal share of it, instead of the bar hugging its labels. The schedule
+    /// editors switch this on so the "APPLY TO" bar and the interval bar line
+    /// up to the same frame rather than each ending wherever its text does.
+    var fillWidth: Bool = false
     /// Where each segment sits inside this bar, for anyone who needs to hang
     /// something off one of them. The playlist editor anchors its custom
     /// interval card under the "Custom" segment with it, so the card opens
@@ -379,6 +384,7 @@ struct PillSegments: View {
                 segment(option)
             }
         }
+        .frame(maxWidth: fillWidth ? .infinity : nil)
         .padding(5)
         .background(alignment: .topLeading) { pill }
         .background(Capsule().fill(Color.white.opacity(0.06)))
@@ -434,6 +440,7 @@ struct PillSegments: View {
             }
         }
         .padding(.horizontal, horizontalPadding)
+        .frame(maxWidth: fillWidth ? .infinity : nil)
         .frame(height: height)
         .background {
             GeometryReader { geo in

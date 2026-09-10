@@ -47,8 +47,8 @@ wallpaper and every feature is unlocked.
 - ⚡ **Smooth or Efficient.** Keep a wallpaper's original frame rate, or drop it to 30 fps to halve the power draw. Your choice, per wallpaper.
 - 🖼️ **Explore gallery.** Browse the catalog, preview full screen, download only what you want.
 - 🔄 **New wallpapers arrive on their own.** The library updates without updating the app. More on that below.
-- 📃 **Playlists.** Rotate through a set on a timer, shuffled or in order.
-- ⏱️ **Automations.** Give every wallpaper its own time. Ten seconds each, or a full day schedule where each wallpaper has its own hours.
+- 📃 **Playlists.** Rotate through a set on a timer, shuffled or in order. Set it to the desktop, the lock screen, or both — pick in the playlist editor. The lock screen needs macOS 26; on older macOS a playlist runs on the desktop only.
+- ⏱️ **Automations.** Give every wallpaper its own time. Ten seconds each, or a full day schedule where each wallpaper has its own hours. Like playlists, an automation can drive the desktop, the lock screen, or both, chosen in its editor. The lock screen needs macOS 26; otherwise it runs on the desktop only.
 - ⏸️ **Pause after a set time.** Let a wallpaper play for a while after it changes or after you unlock, then hold still. Set it in seconds, minutes or hours.
 - 🗑️ **Delete what you do not want.** Remove wallpapers one at a time or several at once, imported videos included.
 - 📥 **Import your own.** Drop in any video and it gets transcoded once to HEVC and added to your library.

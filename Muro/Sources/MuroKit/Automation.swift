@@ -79,18 +79,35 @@ public struct Automation: Codable, Identifiable, Equatable {
     public var steps: [Step]
     public var enabled: Bool
 
+    /// Which surface this automation rotates. Absent in older JSON reads as
+    /// `.desktop`.
+    private var storedSurface: ApplySurface?
+
+    /// The surface to rotate, defaulting to the desktop.
+    public var surface: ApplySurface {
+        get { storedSurface ?? .desktop }
+        set { storedSurface = newValue }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, mode, steps, enabled
+        case storedSurface = "surface"
+    }
+
     public init(
         id: String = UUID().uuidString.lowercased(),
         name: String,
         mode: Mode = .timer,
         steps: [Step] = [],
-        enabled: Bool = true
+        enabled: Bool = true,
+        surface: ApplySurface = .desktop
     ) {
         self.id = id
         self.name = name
         self.mode = mode
         self.steps = steps
         self.enabled = enabled
+        self.storedSurface = surface
     }
 
     /// How long one full pass through a timer automation takes.
