@@ -24,6 +24,15 @@ struct WallpaperRequestInfo {
     /// put on a lock screen.
     var presentationMode: String?
     var activityState: String?
+
+    /// Whether macOS is asking for the screen saver.
+    ///
+    /// `WallpaperPresentationMode` has exactly three cases, `default`,
+    /// `locked` and `idle`, and `idle` is the screen saver: the same word
+    /// Apple's own wallpaper store keeps it under. The creation request
+    /// carries no content type of any kind, so this is the only thing that
+    /// says it.
+    var isScreenSaver: Bool { presentationMode == "idle" }
 }
 
 func inspectWallpaperRequest(_ request: Any?) -> WallpaperRequestInfo {
@@ -79,8 +88,17 @@ final class ActiveWallpaper: @unchecked Sendable {
 
     /// Whether this surface draws the desktop's own picture at all. False for
     /// a System Settings preview, which is showing the lock wallpaper on
-    /// purpose and should not be handed the desktop's.
+    /// purpose and should not be handed the desktop's, and false for the
+    /// screen saver, which is not the desktop either.
     let drawsStill: Bool
+
+    /// Whether macOS built this surface to *be* the screen saver.
+    ///
+    /// Fixed at creation, and the only thing that separates the screen saver
+    /// from every other surface. macOS creates one when the screen saver
+    /// starts and takes it away when it stops, so a surface that has it is the
+    /// screen saver for as long as it exists.
+    let isScreenSaverSurface: Bool
 
     /// A frame of this wallpaper itself, kept so a desktop still going away
     /// falls back to something rather than to nothing.
@@ -100,6 +118,7 @@ final class ActiveWallpaper: @unchecked Sendable {
         renderer: VideoRenderer,
         choiceID: String?,
         drawsStill: Bool,
+        isScreenSaverSurface: Bool = false,
         fallback: CGImage?
     ) {
         self.context = context
@@ -107,6 +126,7 @@ final class ActiveWallpaper: @unchecked Sendable {
         self.renderer = renderer
         self.choiceID = choiceID
         self.drawsStill = drawsStill
+        self.isScreenSaverSurface = isScreenSaverSurface
         self.fallback = fallback
     }
 
@@ -314,11 +334,34 @@ final class RendererState: @unchecked Sendable {
         return !ExtensionPreferences.shared.alwaysPauseDesktop
     }
 
+    /// Whether the screen saver surface should be playing.
+    ///
+    /// Deliberately a rule of its own rather than another branch inside
+    /// `shouldPlayNow`. The desktop rule is settled behaviour that the lock
+    /// screen depends on, and the screen saver has nothing in common with it:
+    /// it exists only while it is the thing on screen, so being asked for it
+    /// at all is the answer. `alwaysPauseDesktop` in particular must not
+    /// reach it, since Muro's own window is not up there to keep still for.
+    ///
+    /// The one exception is macOS saying this surface is suspended, which
+    /// means it is not being shown after all.
+    func shouldScreenSaverPlay() -> Bool {
+        lock.lock()
+        let activity = activityState
+        lock.unlock()
+        return !activity.contains("suspended")
+    }
+
     func applyCurrentPlaybackPolicy() {
         let shouldPlay = shouldPlayNow()
+        let saverPlays = shouldScreenSaverPlay()
         forEachWallpaper { wallpaper in
-            shouldPlay ? wallpaper.renderer.resume() : wallpaper.renderer.pause()
-            wallpaper.setShowingStill(!shouldPlay)
+            // The desktop's answer is not the screen saver's. While the screen
+            // saver is up the desktop is behind it and holding still, and
+            // giving that answer to both is what froze the screen saver.
+            let play = wallpaper.isScreenSaverSurface ? saverPlays : shouldPlay
+            play ? wallpaper.renderer.resume() : wallpaper.renderer.pause()
+            wallpaper.setShowingStill(!play)
         }
     }
 

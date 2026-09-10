@@ -21,6 +21,11 @@ import Foundation
 /// renders whatever fills the desktop role: `Desktop` on an individual node,
 /// `Linked` on a linked one.
 ///
+/// **The screen saver is the other role**, and it is `Idle` on an individual
+/// node. A `linked` node is the one place the two roles are the same key:
+/// linking a Mac's desktop and screen saver is what that type means, so one
+/// wallpaper serves both and neither can be set without the other.
+///
 /// Muro used to write `Desktop` on every node regardless of its `Type`. On a
 /// Mac whose desktop and lock screen are linked, that put the wallpaper under
 /// a key macOS never reads, so the lock screen went on showing whatever
@@ -45,19 +50,34 @@ public enum AppleWallpaperStore {
         surfaceNames.contains { node[$0] is [String: Any] }
     }
 
-    /// The key this node keeps the wallpaper the lock screen renders under, or
-    /// `nil` when Muro has no business writing to this node at all.
+    /// The two roles a wallpaper can fill. Which key each one lands on depends
+    /// on the node, which is what the rest of this file is about.
+    public enum Surface: Sendable {
+        /// The desktop, and with it the lock screen, which has no key of its own.
+        case desktop
+        /// The screen saver.
+        case screenSaver
+    }
+
+    /// The key this node keeps the wallpaper for `surface` under, or `nil`
+    /// when Muro has no business writing to this node at all.
     ///
-    /// `idle` is the screen saver on its own. Writing there would make Muro
-    /// the screen saver rather than the wallpaper, which is not what anybody
-    /// asked for, so those nodes are left alone. A node carrying no `Type` at
-    /// all keeps the old behaviour and gets `Desktop`.
-    public static func desktopSurfaceName(of node: [String: Any]) -> String? {
+    /// A node typed `idle` carries the screen saver and nothing else, so the
+    /// desktop role has nowhere to go on it and leaves it alone. Everything
+    /// else has a key for both roles, or can be given one. A node carrying no
+    /// `Type` at all keeps the old behaviour and gets `Desktop`.
+    public static func surfaceName(of node: [String: Any], for surface: Surface) -> String? {
         switch node["Type"] as? String {
         case "linked": return "Linked"
-        case "idle": return nil
-        default: return "Desktop"
+        case "idle" where surface == .desktop: return nil
+        default: return surface == .screenSaver ? "Idle" : "Desktop"
         }
+    }
+
+    /// The key the lock screen renders from. Unchanged shorthand for the
+    /// desktop role, kept because it is what most of the app asks for.
+    public static func desktopSurfaceName(of node: [String: Any]) -> String? {
+        surfaceName(of: node, for: .desktop)
     }
 
     /// Puts one choice into a surface, leaving everything else about it alone.
@@ -153,17 +173,31 @@ public enum AppleWallpaperStore {
         _ choice: [String: Any],
         to store: inout Any,
         targetKey: String,
+        surface: Surface = .desktop,
+        missingSurface: [String: Any] = [:],
         now: Date = Date()
     ) -> Int {
         var written = 0
         mutateNodes(in: &store) { path, node in
             guard targetKey == "all" || path.contains(targetKey) else { return node }
-            guard let name = desktopSurfaceName(of: node),
-                  let surface = node[name] as? [String: Any]
-            else { return node }
+            guard let name = surfaceName(of: node, for: surface) else { return node }
+            if let existing = node[name] as? [String: Any] {
+                written += 1
+                var updated = node
+                updated[name] = surfaceApplying(choice: choice, to: existing, now: now)
+                return updated
+            }
+            // Only the screen saver reaches here, and only on a node that has
+            // never had one: `desktop` says so outright, and an untyped node
+            // can carry a `Desktop` alone. The desktop role always names a key
+            // its own node already has, so nothing about it changes.
+            guard surface == .screenSaver else { return node }
             written += 1
             var updated = node
-            updated[name] = surfaceApplying(choice: choice, to: surface, now: now)
+            updated[name] = surfaceApplying(choice: choice, to: missingSurface, now: now)
+            // A node that now carries both is an individual one, and saying so
+            // is the same honesty `nodeApplying` keeps in the other direction.
+            if updated["Type"] as? String == "desktop" { updated["Type"] = "individual" }
             return updated
         }
         return written
@@ -235,6 +269,7 @@ public enum AppleWallpaperStore {
     public static func ensureNode(
         at path: [String],
         choice: [String: Any],
+        surface: Surface = .desktop,
         desktopFallback: [String: Any],
         idleFallback: [String: Any],
         root: inout Any,
@@ -247,12 +282,14 @@ public enum AppleWallpaperStore {
                 nodeApplying(
                     choice: choice,
                     to: $0,
+                    surface: surface,
                     desktopFallback: desktopFallback,
                     idleFallback: idleFallback,
                     now: now
                 )
             } ?? makeNode(
                 choice: choice,
+                surface: surface,
                 desktopFallback: desktopFallback,
                 idleFallback: idleFallback,
                 now: now
@@ -265,6 +302,7 @@ public enum AppleWallpaperStore {
         ensureNode(
             at: Array(path.dropFirst()),
             choice: choice,
+            surface: surface,
             desktopFallback: desktopFallback,
             idleFallback: idleFallback,
             root: &nested,
@@ -286,16 +324,25 @@ public enum AppleWallpaperStore {
         _ choice: [String: Any],
         to store: inout Any,
         targetKey: String,
+        surface: Surface = .desktop,
         desktopFallback: [String: Any],
         idleFallback: [String: Any],
         now: Date = Date()
     ) -> Int {
-        let written = applyChoice(choice, to: &store, targetKey: targetKey, now: now)
+        let written = applyChoice(
+            choice,
+            to: &store,
+            targetKey: targetKey,
+            surface: surface,
+            missingSurface: surface == .screenSaver ? idleFallback : desktopFallback,
+            now: now
+        )
         guard written == 0 else { return written }
         for path in fallbackNodePaths(in: store, targetKey: targetKey) {
             ensureNode(
                 at: path,
                 choice: choice,
+                surface: surface,
                 desktopFallback: desktopFallback,
                 idleFallback: idleFallback,
                 root: &store,
@@ -316,16 +363,25 @@ public enum AppleWallpaperStore {
     public static func nodeApplying(
         choice: [String: Any],
         to node: [String: Any],
+        surface: Surface = .desktop,
         desktopFallback: [String: Any],
         idleFallback: [String: Any],
         now: Date = Date()
     ) -> [String: Any] {
         var updated = node
-        if let name = desktopSurfaceName(of: node) {
-            let base = node[name] as? [String: Any] ?? desktopFallback
+        if let name = surfaceName(of: node, for: surface) {
+            let base = node[name] as? [String: Any]
+                ?? (name == "Idle" ? idleFallback : desktopFallback)
             updated[name] = surfaceApplying(choice: choice, to: base, now: now)
+            if name == "Idle", updated["Desktop"] == nil, updated["Linked"] == nil {
+                updated["Desktop"] = desktopFallback
+            }
+            if name == "Idle", updated["Type"] as? String == "desktop" {
+                updated["Type"] = "individual"
+            }
             return updated
         }
+        // Only the desktop role reaches here, on a screen-saver-only node.
         updated["Desktop"] = surfaceApplying(choice: choice, to: desktopFallback, now: now)
         if updated["Idle"] == nil { updated["Idle"] = idleFallback }
         updated["Type"] = "individual"
@@ -342,15 +398,25 @@ public enum AppleWallpaperStore {
     /// frame.
     public static func makeNode(
         choice: [String: Any],
+        surface: Surface = .desktop,
         desktopFallback: [String: Any],
         idleFallback: [String: Any],
         now: Date = Date()
     ) -> [String: Any] {
-        [
-            "Type": "individual",
-            "Desktop": surfaceApplying(choice: choice, to: desktopFallback, now: now),
-            "Idle": idleFallback,
-        ]
+        switch surface {
+        case .desktop:
+            return [
+                "Type": "individual",
+                "Desktop": surfaceApplying(choice: choice, to: desktopFallback, now: now),
+                "Idle": idleFallback,
+            ]
+        case .screenSaver:
+            return [
+                "Type": "individual",
+                "Desktop": desktopFallback,
+                "Idle": surfaceApplying(choice: choice, to: idleFallback, now: now),
+            ]
+        }
     }
 
     /// Whether a node describes itself honestly: every surface it carries is

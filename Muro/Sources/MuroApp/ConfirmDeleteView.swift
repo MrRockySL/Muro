@@ -207,6 +207,7 @@ struct ConfirmDeleteView: View {
         var out: [String] = []
         if let playing = playingNotice { out.append(playing) }
         if lockScreenAffected { out.append("LOCK SCREEN") }
+        if screenSaverAffected { out.append("SCREEN SAVER") }
         return out
     }
 
@@ -228,6 +229,11 @@ struct ConfirmDeleteView: View {
     private var lockScreenAffected: Bool {
         guard let lockID = store.lockScreenWallpaperID else { return false }
         return items.contains { $0.id == lockID }
+    }
+
+    private var screenSaverAffected: Bool {
+        guard let saverID = store.screenSaverWallpaperID else { return false }
+        return items.contains { $0.id == saverID }
     }
 
     private func friendly(_ display: DisplayInfo) -> String {

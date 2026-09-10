@@ -71,7 +71,27 @@ final class LockScreenService {
     private static let removedSelection = "__none__"
 
     private struct SelectionState: Codable {
-        var selections: [String: String] = [:] // "all" or display UUID -> wallpaper ID
+        /// "all" or display UUID -> wallpaper ID, for the desktop role, which
+        /// is what the lock screen renders.
+        var selections: [String: String] = [:]
+        /// The same, for the screen saver.
+        var screenSaver: [String: String] = [:]
+
+        init() {}
+
+        /// Written by hand so a state file from a build that had no screen
+        /// saver still decodes. The synthesised initialiser throws on the
+        /// missing key, and this file is loaded with `try?`, so that would
+        /// have quietly thrown away somebody's lock screen selection.
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            selections = try container.decodeIfPresent(
+                [String: String].self, forKey: .selections
+            ) ?? [:]
+            screenSaver = try container.decodeIfPresent(
+                [String: String].self, forKey: .screenSaver
+            ) ?? [:]
+        }
     }
 
     private struct ExtensionEntry: Codable {
@@ -216,21 +236,72 @@ final class LockScreenService {
             && FileManager.default.fileExists(atPath: extensionBundleURL.path)
     }
 
+    /// macOS keeps **one screen saver for the whole Mac**, so a per-display
+    /// screen saver does not exist to write.
+    ///
+    /// This is what made the first attempt look like it had done nothing. The
+    /// wallpaper store keeps the screen saver in a node called
+    /// `AllSpacesAndDisplays`, typed `idle`, which is the screen saver and
+    /// nothing else. A per-display apply matches on the display's UUID, that
+    /// node carries no UUID, so every per-display node got Muro and the one
+    /// node macOS actually reads kept saying `default`. System Settings went
+    /// on showing Apple's own screen saver and there was nothing in the store
+    /// to suggest anything was wrong.
+    ///
+    /// Apple's own interface has no per-display screen saver picker either,
+    /// and macOS asks this extension for the same wallpaper once per screen
+    /// when it starts, which is the same fact seen from the other side.
+    static func storeTargetKey(_ targetKey: String, for surface: AppleWallpaperStore.Surface) -> String {
+        surface == .screenSaver ? "all" : targetKey
+    }
+
+    /// The selections for one role. Both live in the same file and share one
+    /// staged library, so a wallpaper on the lock screen and the screen saver
+    /// at once is staged once and stored once.
+    private static func selections(
+        _ state: SelectionState, for surface: AppleWallpaperStore.Surface
+    ) -> [String: String] {
+        surface == .screenSaver ? state.screenSaver : state.selections
+    }
+
+    private static func setSelections(
+        _ value: [String: String],
+        for surface: AppleWallpaperStore.Surface,
+        in state: inout SelectionState
+    ) {
+        if surface == .screenSaver { state.screenSaver = value } else { state.selections = value }
+    }
+
+    /// Every wallpaper either role is holding. What has to stay staged.
+    private static func heldIDs(_ state: SelectionState) -> Set<String> {
+        Set(state.selections.values)
+            .union(state.screenSaver.values)
+            .subtracting([removedSelection])
+    }
+
     var activeWallpaperIDs: Set<String> {
-        Set(state.selections.values.filter { $0 != Self.removedSelection })
+        Self.heldIDs(state)
     }
     var activeWallpaperID: String? {
         state.selections["all"]
             ?? state.selections.values.first(where: { $0 != Self.removedSelection })
     }
 
+    var screenSaverWallpaperID: String? {
+        state.screenSaver["all"]
+            ?? state.screenSaver.values.first(where: { $0 != Self.removedSelection })
+    }
+
     /// The targets whose lock screen currently shows one of `ids`. A delete
     /// clears exactly those, rather than wiping the lock screen on every
     /// display because one of them happened to hold a wallpaper going away.
-    func targets(showing ids: Set<String>) -> [ApplyTarget] {
-        state.selections
+    func targets(
+        showing ids: Set<String>,
+        surface: AppleWallpaperStore.Surface = .desktop
+    ) -> [ApplyTarget] {
+        Self.selections(state, for: surface)
             .filter { $0.value != Self.removedSelection && ids.contains($0.value) }
-            .map { $0.key == "all" ? .all : .display($0.key) }
+            .map { $0.key == "all" || surface == .screenSaver ? .all : .display($0.key) }
     }
 
     /// True when Muro's lock screen is sitting on this display's macOS
@@ -242,21 +313,37 @@ final class LockScreenService {
     /// `NSWorkspace.desktopImageURL`, which does not reliably name an
     /// extension as the owner.
     func ownsWallpaperSurface(displayUUID: String) -> Bool {
+        // The lock screen role only. The screen saver lives on `Idle`, which
+        // is not the key the desktop still is written to, so it is not this
+        // question. The one Mac where it would be is a linked one, where macOS
+        // keeps both on `Linked`; that is a known limit rather than a guess
+        // made here, because changing this rule changes the desktop, and the
+        // desktop is not what the screen saver was asked to touch.
         let effective = state.selections[displayUUID] ?? state.selections["all"]
         guard let effective, effective != Self.removedSelection else { return false }
         return true
     }
 
-    func isApplied(wallpaperID: String, target: ApplyTarget) -> Bool {
+    func isApplied(
+        wallpaperID: String,
+        target: ApplyTarget,
+        surface: AppleWallpaperStore.Surface = .desktop
+    ) -> Bool {
+        let selections = Self.selections(state, for: surface)
+        // One screen saver for the Mac: asking about a single display is the
+        // same question as asking about all of them.
+        if surface == .screenSaver {
+            return selections["all"] == wallpaperID
+        }
         switch target {
         case .all:
-            guard state.selections["all"] == wallpaperID else { return false }
-            return state.selections
+            guard selections["all"] == wallpaperID else { return false }
+            return selections
                 .filter { $0.key != "all" }
                 .values
                 .allSatisfy { $0 == wallpaperID }
         case .display(let uuid):
-            let effective = state.selections[uuid] ?? state.selections["all"]
+            let effective = selections[uuid] ?? selections["all"]
             return effective == wallpaperID
         }
     }
@@ -316,18 +403,19 @@ final class LockScreenService {
         entry: WallpaperEntry,
         videoURL: URL,
         thumbnailURL: URL,
-        target: ApplyTarget
+        target: ApplyTarget,
+        surface: AppleWallpaperStore.Surface = .desktop
     ) async throws -> LockScreenApplyOutcome {
         try validateAvailability()
-        let targetKey = Self.targetKey(target)
+        let targetKey = Self.storeTargetKey(Self.targetKey(target), for: surface)
         let previousState = state
         var nextState = state
-        // One lock-screen wallpaper at a time, whatever it was applied to.
+        // One wallpaper per role at a time, whatever it was applied to.
         // Every staged wallpaper appears as its own row in System Settings, so
         // keeping a selection per display grew that list a row at a time and
         // the extra rows read as leftovers nobody could clear. Picking a new
         // one now replaces the old one rather than joining it.
-        nextState.selections = [targetKey: entry.id]
+        Self.setSelections([targetKey: entry.id], for: surface, in: &nextState)
 
         let extensionURL = extensionBundleURL
         let root = root
@@ -356,6 +444,7 @@ final class LockScreenService {
                         wallpaperID: entry.id,
                         videoURL: Self.stagedVideoURL(id: entry.id),
                         targetKey: targetKey,
+                        surface: surface,
                         root: root
                     )
                     Self.notifyLibraryChanged()
@@ -376,9 +465,7 @@ final class LockScreenService {
                 }
 
                 try Self.saveState(nextState, root: root)
-                try Self.pruneStagedLibrary(
-                    keeping: Set(nextState.selections.values).subtracting([Self.removedSelection])
-                )
+                try Self.pruneStagedLibrary(keeping: Self.heldIDs(nextState))
                 let settled = acknowledged || storeHolds
                 // The wallpaper this one replaced has just lost its staged
                 // file, so every record still naming it is now dead. Sweeping
@@ -415,8 +502,8 @@ final class LockScreenService {
                 }
                 Self.restartWallpaperAgent()
                 try? Self.saveState(previousState, root: root)
-                try? Self.pruneStagedLibrary(keeping: Set(previousState.selections.values))
-                if previousState.selections.isEmpty {
+                try? Self.pruneStagedLibrary(keeping: Self.heldIDs(previousState))
+                if Self.heldIDs(previousState).isEmpty {
                     Self.unregisterExtension(at: extensionURL)
                     try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
                     try? FileManager.default.removeItem(at: Self.legacyBackupURL(root: root))
@@ -436,27 +523,33 @@ final class LockScreenService {
         return outcome
     }
 
-    func remove(target: ApplyTarget) async throws {
-        let targetKey = Self.targetKey(target)
+    func remove(
+        target: ApplyTarget,
+        surface: AppleWallpaperStore.Surface = .desktop
+    ) async throws {
+        let targetKey = Self.storeTargetKey(Self.targetKey(target), for: surface)
         var nextState = state
+        var selections = Self.selections(nextState, for: surface)
         if targetKey == "all" {
-            nextState.selections.removeAll()
-        } else if nextState.selections["all"] != nil {
+            selections.removeAll()
+        } else if selections["all"] != nil {
             // An explicit empty override lets one display opt out while the
             // all-displays fallback remains active everywhere else.
-            nextState.selections[targetKey] = Self.removedSelection
+            selections[targetKey] = Self.removedSelection
         } else {
-            nextState.selections[targetKey] = nil
+            selections[targetKey] = nil
         }
+        Self.setSelections(selections, for: surface, in: &nextState)
         let root = root
         let extensionURL = extensionBundleURL
+        let stateAfter = nextState
         try await Task.detached(priority: .userInitiated) {
-            try await Self.restoreWallpaperStores(targetKey: targetKey, root: root)
-            try Self.saveState(nextState, root: root)
-            Self.restartWallpaperAgent()
-            try Self.pruneStagedLibrary(
-                keeping: Set(nextState.selections.values).subtracting([Self.removedSelection])
+            try await Self.restoreWallpaperStores(
+                targetKey: targetKey, surface: surface, root: root
             )
+            try Self.saveState(stateAfter, root: root)
+            Self.restartWallpaperAgent()
+            try Self.pruneStagedLibrary(keeping: Self.heldIDs(stateAfter))
             // `restoreWallpaperStores` only rewrites surfaces matching this
             // target. Records for the same wallpaper under a display that is
             // no longer connected, or under another Space, are not matched and
@@ -464,7 +557,10 @@ final class LockScreenService {
             if (try? Self.purgeDeadMuroSurfaces(root: root)) == true {
                 Self.restartWallpaperAgent()
             }
-            if nextState.selections.values.allSatisfy({ $0 == Self.removedSelection }) {
+            // Only once neither role is holding anything. Unregistering while
+            // the screen saver is still Muro would take the screen saver away
+            // with the lock screen.
+            if Self.heldIDs(stateAfter).isEmpty {
                 Self.unregisterExtension(at: extensionURL)
                 try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
                 try? FileManager.default.removeItem(at: Self.legacyBackupURL(root: root))
@@ -807,6 +903,7 @@ final class LockScreenService {
         wallpaperID: String,
         videoURL: URL,
         targetKey: String,
+        surface: AppleWallpaperStore.Surface,
         root: URL
     ) async throws {
         let manager = FileManager.default
@@ -853,6 +950,7 @@ final class LockScreenService {
                 choice,
                 to: &store,
                 targetKey: targetKey,
+                surface: surface,
                 desktopFallback: firstNonMuroSurface(named: "Desktop", in: store) ?? defaultSurface(),
                 idleFallback: firstNonMuroSurface(named: "Idle", in: store) ?? defaultSurface()
             )
@@ -866,8 +964,27 @@ final class LockScreenService {
         }
     }
 
+    /// The store keys one role occupies, and the only ones a removal of that
+    /// role may hand back.
+    ///
+    /// `Linked` is in both lists on purpose. It is the one key that carries
+    /// the desktop and the screen saver together, which is what linking them
+    /// means, so neither can be taken off it without the other. Nothing else
+    /// overlaps: removing a lock screen wallpaper leaves a Muro screen saver
+    /// exactly where it was.
+    private static func surfaceNames(
+        for role: AppleWallpaperStore.Surface?
+    ) -> [String] {
+        switch role {
+        case .desktop: return ["Desktop", "Linked"]
+        case .screenSaver: return ["Idle", "Linked"]
+        case nil: return AppleWallpaperStore.surfaceNames
+        }
+    }
+
     private static func restoreWallpaperStores(
         targetKey: String,
+        surface role: AppleWallpaperStore.Surface? = nil,
         root: URL
     ) async throws {
         let manager = FileManager.default
@@ -879,10 +996,11 @@ final class LockScreenService {
                 try? PropertyListSerialization.propertyList(from: $0, format: nil)
             }
 
-            // Desktop is what we now own; Idle/Linked are cleaned too so any
-            // records left by older builds (or a manual System Settings click)
-            // are also stripped and the user's own wallpaper comes back.
-            for surfaceName in ["Desktop", "Idle", "Linked"] {
+            // Only the keys this role occupies. Passing no role sweeps all
+            // three, which is what a full clear and the launch heal want: they
+            // are also what strips records left by older builds, or by a
+            // manual System Settings click.
+            for surfaceName in surfaceNames(for: role) {
                 let fallback = backup.flatMap { firstNonMuroSurface(named: surfaceName, in: $0) }
                     ?? firstNonMuroSurface(named: surfaceName, in: current)
                     ?? crossStoreNonMuroSurface(named: surfaceName)
