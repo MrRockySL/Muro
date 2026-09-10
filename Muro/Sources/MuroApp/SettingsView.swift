@@ -12,6 +12,10 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var confirmClear = false
     @State private var customPauseAfter = false
+    /// macOS's own screen saver delay, not a Muro setting, so it is read from
+    /// Apple's preference rather than stored here and re-read whenever this
+    /// window comes forward: System Settings can change it behind our back.
+    @State private var screenSaverDelay = ScreenSaverDelay.current()
     /// The window keeps this view alive across close/reopen, which used to
     /// preserve the scroll position — reopening must always show the header.
     @State private var scrollToTopOnNextOpen = false
@@ -132,6 +136,36 @@ struct SettingsView: View {
                             )) { customPauseAfter = false }
                         }
                     }
+                    divider
+                    // Apple's setting, offered here so a Mac running Muro as
+                    // its screen saver never needs System Settings opened for
+                    // the one number that decides when it runs. Muro writes
+                    // the same key Apple's own panel writes, and loginwindow
+                    // picks it up at its next idle check with nothing to
+                    // restart. See MuroKit/ScreenSaverDelay.swift.
+                    row(icon: "sparkles.tv", tint: .cyan, title: "Start Screen Saver",
+                        subtitle: screenSaverSubtitle) {
+                        GlassDropdown(width: 150, align: .trailing, options: {
+                            ScreenSaverDelay.choices.map { seconds in
+                                MenuOption(
+                                    title: ScreenSaverDelay.label(seconds),
+                                    checked: screenSaverDelay == seconds
+                                ) { screenSaverDelay = ScreenSaverDelay.set(seconds) }
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                Text(ScreenSaverDelay.label(screenSaverDelay))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5.5)
+                            .glassCapsule(fill: 0.09, stroke: 0.15)
+                        }
+                    }
                 }
 
                 section("ENERGY") {
@@ -238,6 +272,17 @@ struct SettingsView: View {
                 scrollToTopOnNextOpen = false
                 proxy.scrollTo("settings-top", anchor: .top)
             }
+            // Separate from the scroll handler above on purpose: that one only
+            // runs on a reopen, and this has to run every time the window is
+            // brought forward, including straight after a trip to System
+            // Settings, or the row would keep showing a value macOS no longer
+            // holds.
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSWindow.didBecomeKeyNotification
+            )) { note in
+                guard (note.object as? NSWindow)?.title == MuroWindow.settings else { return }
+                screenSaverDelay = ScreenSaverDelay.current()
+            }
             }
         }
         .frame(width: 560, height: 600)
@@ -263,6 +308,19 @@ struct SettingsView: View {
         store.pauseAfterSeconds == 0
             ? "Wallpapers keep playing"
             : "Plays for \(durationLabel(store.pauseAfterSeconds)), then holds on a frame"
+    }
+
+    /// Says what macOS will do, not what the menu is called. "System default"
+    /// is the honest answer on a Mac where the preference has never been set:
+    /// there is no system-wide plist to read it from and loginwindow does not
+    /// publish the number it falls back to.
+    private var screenSaverSubtitle: String {
+        guard let seconds = screenSaverDelay else {
+            return "macOS is deciding. Pick a time to set it."
+        }
+        return seconds <= 0
+            ? "The screen saver never starts"
+            : "Starts after \(durationLabel(seconds)) with no activity"
     }
 
     /// Says what is about to happen in counts, and names the part that cannot
