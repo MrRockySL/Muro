@@ -5,8 +5,13 @@ import MuroKit
 struct LibraryView: View {
     @EnvironmentObject var store: AppStore
 
+    /// `all` is named for the tab it has always been rather than what it holds,
+    /// and what it holds is the downloads. It reads "Downloaded" since likes
+    /// stopped needing one: Liked now lists the catalog too, so the tab beside
+    /// it was the narrower of the two while calling itself All.
     enum LibTab: String, CaseIterable {
-        case all = "All", liked = "Liked", playlists = "Playlists", automations = "Automations"
+        case all = "Downloaded", liked = "Liked"
+        case playlists = "Playlists", automations = "Automations"
     }
 
     @State private var tab: LibTab = .all
@@ -35,12 +40,26 @@ struct LibraryView: View {
         GridItem(.flexible(), spacing: 24)
     ]
 
+    private func matchesSearch(_ item: WallpaperItem) -> Bool {
+        store.searchText.isEmpty
+            || item.title.localizedCaseInsensitiveContains(store.searchText)
+            || item.category.localizedCaseInsensitiveContains(store.searchText)
+    }
+
     private var searched: [WallpaperItem] {
-        store.localItems.filter { item in
-            store.searchText.isEmpty
-                || item.title.localizedCaseInsensitiveContains(store.searchText)
-                || item.category.localizedCaseInsensitiveContains(store.searchText)
-        }
+        store.localItems.filter(matchesSearch)
+    }
+
+    /// Liked is the one tab that is not about what is on this Mac. A heart can
+    /// be put on any wallpaper in the catalog, so it lists downloads and
+    /// catalog entries together, or a wallpaper liked in Explore would
+    /// disappear the moment it was liked.
+    ///
+    /// Select mode is the exception. The only thing it does is delete, and
+    /// there is nothing to delete on a wallpaper that was never downloaded, so
+    /// while it is on the tab shows what it can act on.
+    private var likedGridItems: [WallpaperItem] {
+        selecting ? visibleItems : store.likedItems.filter(matchesSearch)
     }
 
     var body: some View {
@@ -58,7 +77,7 @@ struct LibraryView: View {
                                 if !selecting { dropZone }
                                 grid(items: searched)
                             case .liked:
-                                grid(items: searched.filter(\.liked))
+                                grid(items: likedGridItems)
                             case .playlists:
                                 playlistsGrid
                             case .automations:
@@ -119,7 +138,7 @@ struct LibraryView: View {
         ZStack {
             PillSegments(
                 options: [
-                    PillOption(LibTab.all.rawValue, "All", count: store.localItems.count),
+                    PillOption(LibTab.all.rawValue, "Downloaded", count: store.localItems.count),
                     PillOption(LibTab.liked.rawValue, "Liked", count: store.likedItems.count),
                     PillOption(LibTab.playlists.rawValue, "Playlists", count: store.playlists.count),
                     PillOption(LibTab.automations.rawValue, "Automations", count: store.automations.count)

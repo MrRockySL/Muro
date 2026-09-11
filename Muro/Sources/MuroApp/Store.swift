@@ -18,7 +18,11 @@ struct WallpaperItem: Identifiable, Equatable {
     var fps: Double { local?.fps ?? remote?.fps ?? 30 }
     var duration: Double { local?.duration ?? remote?.duration ?? 0 }
     var sizeBytes: Int64 { local?.sizeBytes ?? remote?.sizeBytes ?? 0 }
-    var liked: Bool { local?.liked ?? false }
+    /// Set from `AppStore.likedIDs` when the item is built, not read out of
+    /// the library entry. A like has to work on a wallpaper that has never
+    /// been downloaded, and an undownloaded one has no library entry to
+    /// carry the flag. See `AppStore.likedIDs`.
+    var liked: Bool = false
     var isDownloaded: Bool { local != nil }
     var resolutionLabel: String {
         width >= 3200 ? "4K" : (width >= 2200 ? "1440p" : "1080p")
@@ -438,11 +442,16 @@ final class AppStore: ObservableObject {
         var seen = Set<String>()
         var out: [WallpaperItem] = []
         out.reserveCapacity(manifest.wallpapers.count + catalog.count)
+        let liked = likedIDs
         for entry in manifest.wallpapers where seen.insert(entry.id).inserted {
-            out.append(WallpaperItem(local: entry, remote: remoteByID[entry.id]))
+            out.append(WallpaperItem(
+                local: entry, remote: remoteByID[entry.id], liked: liked.contains(entry.id)
+            ))
         }
         for remote in catalog where !seen.contains(remote.id) {
-            out.append(WallpaperItem(local: nil, remote: remote))
+            out.append(WallpaperItem(
+                local: nil, remote: remote, liked: liked.contains(remote.id)
+            ))
         }
         cachedItems = out
         return out
@@ -592,7 +601,9 @@ final class AppStore: ObservableObject {
         }
         if let firstLocal = localItems.first { return firstLocal }
         if let bundled = item(id: BundledWallpaper.id) { return bundled }
-        return BundledWallpaper.fallbackEntry.map { WallpaperItem(local: nil, remote: $0) }
+        return BundledWallpaper.fallbackEntry.map {
+            WallpaperItem(local: nil, remote: $0, liked: likedIDs.contains($0.id))
+        }
     }
 
     func heroPlayable(_ item: WallpaperItem) -> Bool {
@@ -608,7 +619,10 @@ final class AppStore: ObservableObject {
             if let bundled = item(id: BundledWallpaper.id) {
                 out.insert(bundled, at: 0)
             } else if let entry = BundledWallpaper.fallbackEntry {
-                out.insert(WallpaperItem(local: nil, remote: entry), at: 0)
+                out.insert(
+                    WallpaperItem(local: nil, remote: entry, liked: likedIDs.contains(entry.id)),
+                    at: 0
+                )
             }
         }
         return out
@@ -641,6 +655,7 @@ final class AppStore: ObservableObject {
             // right before it made it true.
             libraryUnreadable = true
         }
+        loadLikes()
         config = EngineConfig.load(root: root)
         playlists = PlaylistStore.load(root: root)
         automations = AutomationStore.load(root: root)
@@ -1331,16 +1346,42 @@ final class AppStore: ObservableObject {
 
     // MARK: - Likes
 
-    /// Saving the in-memory manifest would write back whatever this copy was
-    /// last loaded with, so a download that finished in the meantime would be
-    /// erased by a heart tap. Every manifest edit goes through LibraryWriter,
-    /// which works from what is actually on disk.
-    func toggleLike(_ item: WallpaperItem) {
-        write { manifest in
-            guard let index = manifest.wallpapers.firstIndex(where: { $0.id == item.id })
-            else { return }
-            manifest.wallpapers[index].liked.toggle()
+    /// Every wallpaper this install has liked, downloaded or not.
+    ///
+    /// Likes used to be a flag inside `library.json`, and that file only holds
+    /// wallpapers that have actually been downloaded. So the heart was switched
+    /// off on everything else, and the only wallpapers anyone could like were
+    /// the ones they already had, which is issue #30. A like says "I want this
+    /// one", which is a thing to say before a download rather than after it, so
+    /// the ids live in UserDefaults instead, the same way `seenCatalogIDs`
+    /// does, and cover the whole catalog.
+    private(set) var likedIDs: Set<String> = []
+
+    /// Likes made by an older build sit in the manifest. They are folded in
+    /// once so nobody opens this version and finds an empty Liked tab. The
+    /// manifest flag is left alone: an older build reading the same library
+    /// still works, and folding the same ids in again changes nothing.
+    private func loadLikes() {
+        var ids = Set(defaults.stringArray(forKey: "likedIDs") ?? [])
+        let fromManifest = Set(manifest.wallpapers.filter(\.liked).map(\.id))
+        if !fromManifest.isSubset(of: ids) {
+            ids.formUnion(fromManifest)
+            defaults.set(Array(ids), forKey: "likedIDs")
         }
+        guard ids != likedIDs else { return }
+        likedIDs = ids
+        invalidateItemCache()
+    }
+
+    func toggleLike(_ item: WallpaperItem) {
+        objectWillChange.send()
+        if likedIDs.contains(item.id) {
+            likedIDs.remove(item.id)
+        } else {
+            likedIDs.insert(item.id)
+        }
+        defaults.set(Array(likedIDs), forKey: "likedIDs")
+        invalidateItemCache()
     }
 
     /// Every small manifest edit the interface makes, in one place.
