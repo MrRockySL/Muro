@@ -126,8 +126,7 @@ struct AutomationEditorView: View {
                     ),
                     height: 34,
                     labelSize: 12,
-                    horizontalPadding: 15,
-                    fillWidth: true
+                    horizontalPadding: 15
                 )
                 .padding(.horizontal, 26)
                 .padding(.top, 10)

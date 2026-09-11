@@ -44,6 +44,12 @@ final class AutomationScheduler {
     private var stepIndex: Int {
         didSet { defaults.set(stepIndex, forKey: Keys.stepIndex) }
     }
+    /// The wallpaper id a running playlist is currently on — the scheduler's
+    /// own record, mirroring `stepIndex` for automations, so ordering never
+    /// depends on which surface a step actually got written to (D8).
+    private var playlistCurrentID: String? {
+        didSet { defaults.set(playlistCurrentID, forKey: Keys.playlistCurrentID) }
+    }
     private var stepStartedAt: Date {
         didSet { defaults.set(stepStartedAt.timeIntervalSince1970, forKey: Keys.stepStarted) }
     }
@@ -52,6 +58,7 @@ final class AutomationScheduler {
         static let automation = "activeAutomation"
         static let playlist = "activePlaylist"
         static let stepIndex = "automationStepIndex"
+        static let playlistCurrentID = "playlistCurrentWallpaperID"
         static let stepStarted = "automationStepStartedAt"
     }
 
@@ -59,6 +66,7 @@ final class AutomationScheduler {
         activeAutomationID = defaults.string(forKey: Keys.automation)
         activePlaylistID = defaults.string(forKey: Keys.playlist)
         stepIndex = defaults.integer(forKey: Keys.stepIndex)
+        playlistCurrentID = defaults.string(forKey: Keys.playlistCurrentID)
         let stored = defaults.double(forKey: Keys.stepStarted)
         stepStartedAt = stored > 0 ? Date(timeIntervalSince1970: stored) : Date()
 
@@ -96,13 +104,15 @@ final class AutomationScheduler {
             }
         }
         if activePlaylist != nil {
-            return currentIDForOrdering?()
+            return playlistCurrentID
         }
         return nil
     }
 
     /// Called whenever the library's schedules change on disk or in the app.
     func update(automations: [Automation], playlists: [Playlist]) {
+        let previousActiveAutomation = activeAutomation
+        let previousActivePlaylist = activePlaylist
         self.automations = automations
         self.playlists = playlists
         // A schedule that was edited, emptied or deleted while running must
@@ -112,8 +122,34 @@ final class AutomationScheduler {
         } else if activePlaylistID != nil, activePlaylist?.wallpaperIDs.isEmpty ?? true {
             stopPlaylist()
         } else {
+            // Saving an edit to the *running* schedule itself (content
+            // reordered, or a surface added/removed, most notably turning on
+            // Lock Screen coverage) only reached the timer before this fix —
+            // `schedule()` re-arms the deadline but never re-invokes `apply?`,
+            // so the edit sat unapplied until the next tick or a manual skip.
+            // Re-applying here only when the active schedule's own
+            // definition actually changed (not on every unrelated save)
+            // keeps this from re-writing an unchanged wallpaper on every
+            // edit elsewhere in the library.
+            if let automation = activeAutomation, automation != previousActiveAutomation {
+                applyCurrent(of: automation)
+            } else if let playlist = activePlaylist, playlist != previousActivePlaylist {
+                reapplyCurrentPlaylistStep(of: playlist)
+            }
             schedule()
         }
+    }
+
+    /// Re-runs `apply?` for whatever the running playlist's current step now
+    /// resolves to, without advancing the clock — used by `update` when the
+    /// playlist itself changed while active. Falls back to the first entry
+    /// if the previously-current id was edited out of the list.
+    private func reapplyCurrentPlaylistStep(of playlist: Playlist) {
+        guard let current = playlistCurrentID.flatMap({ id in
+            playlist.wallpaperIDs.contains(id) ? id : nil
+        }) ?? playlist.wallpaperIDs.first else { return }
+        apply?(current, playlist.surface, .all)
+        playlistCurrentID = current
     }
 
     // MARK: - Start and stop
@@ -139,7 +175,9 @@ final class AutomationScheduler {
         activePlaylistID = playlist.id
         stepIndex = 0
         stepStartedAt = Date()
-        apply?(playlist.wallpaperIDs[0], playlist.surface, .all)
+        let first = playlist.wallpaperIDs[0]
+        apply?(first, playlist.surface, .all)
+        playlistCurrentID = first
         schedule()
     }
 
@@ -178,18 +216,14 @@ final class AutomationScheduler {
     /// Manual step, used by the menu bar's next/previous.
     func advancePlaylist(forward: Bool) {
         guard let playlist = activePlaylist else { return }
-        let ids = playlist.wallpaperIDs
-        guard !ids.isEmpty else { return }
-        if playlist.shuffle {
-            apply?(
-                ids.filter { $0 != currentIDForOrdering?() }.randomElement() ?? ids[0],
-                playlist.surface, .all
-            )
-        } else {
-            let current = currentIDForOrdering?().flatMap { ids.firstIndex(of: $0) } ?? 0
-            let step = forward ? 1 : ids.count - 1
-            apply?(ids[(current + step) % ids.count], playlist.surface, .all)
-        }
+        guard let next = PlaylistAdvance.next(
+            ids: playlist.wallpaperIDs,
+            current: playlistCurrentID,
+            shuffle: playlist.shuffle,
+            forward: forward
+        ) else { return }
+        apply?(next, playlist.surface, .all)
+        playlistCurrentID = next
         stepStartedAt = Date()
         schedule()
     }

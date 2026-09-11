@@ -850,56 +850,55 @@ struct PlaylistEditorView: View {
             .padding(.horizontal, 26)
             .padding(.top, 20)
 
-            HStack(spacing: 12) {
-                SectionLabel("CHANGE WALLPAPER EVERY")
+            SectionLabel("CHANGE WALLPAPER EVERY")
+                .padding(.horizontal, 26)
+                .padding(.top, 22)
+            HStack(spacing: 14) {
+                PillSegments(
+                    options: Self.presets.map { PillOption("\($0)", Self.shortLabel($0)) }
+                        + [PillOption("custom", "Custom")],
+                    selection: Binding(
+                        get: { intervalIsCustom ? "custom" : "\(intervalMinutes)" },
+                        set: { raw in
+                            if let minutes = Int(raw) {
+                                intervalMinutes = minutes
+                                customSelected = false
+                            } else {
+                                // The pill moves the moment Custom is pressed,
+                                // not when a value comes back from the card.
+                                // Otherwise the bar reads "3 hr" while the
+                                // custom picker is open in front of it.
+                                customSelected = true
+                                showCustomInterval = true
+                            }
+                        }
+                    ),
+                    height: 34,
+                    labelSize: 12,
+                    horizontalPadding: 15,
+                    onSegmentFrames: { segmentFrames = $0 }
+                )
+                // The card hangs off the Custom segment, not off the whole
+                // bar. Anchored to the bar it opened under "15 min", a long
+                // way from the thing that was pressed.
+                .overlay(alignment: .topLeading) {
+                    let slot = segmentFrames["custom"] ?? .zero
+                    Color.clear
+                        .frame(width: max(slot.width, 1), height: max(slot.height, 1))
+                        .anchoredCard(isPresented: $showCustomInterval, width: 272, align: .center) {
+                            CustomIntervalPicker(minutes: $intervalMinutes) {
+                                showCustomInterval = false
+                            }
+                        }
+                        .padding(.leading, slot.minX)
+                        .padding(.top, slot.minY)
+                        // Measuring only. Without this the clear box sits on
+                        // top of the segment it is measuring and swallows the
+                        // press that is supposed to open the card.
+                        .allowsHitTesting(false)
+                }
                 Spacer(minLength: 0)
                 shuffleToggle
-            }
-            .padding(.horizontal, 26)
-            .padding(.top, 22)
-            PillSegments(
-                options: Self.presets.map { PillOption("\($0)", Self.shortLabel($0)) }
-                    + [PillOption("custom", "Custom")],
-                selection: Binding(
-                    get: { intervalIsCustom ? "custom" : "\(intervalMinutes)" },
-                    set: { raw in
-                        if let minutes = Int(raw) {
-                            intervalMinutes = minutes
-                            customSelected = false
-                        } else {
-                            // The pill moves the moment Custom is pressed,
-                            // not when a value comes back from the card.
-                            // Otherwise the bar reads "3 hr" while the
-                            // custom picker is open in front of it.
-                            customSelected = true
-                            showCustomInterval = true
-                        }
-                    }
-                ),
-                height: 34,
-                labelSize: 12,
-                horizontalPadding: 15,
-                fillWidth: true,
-                onSegmentFrames: { segmentFrames = $0 }
-            )
-            // The card hangs off the Custom segment, not off the whole
-            // bar. Anchored to the bar it opened under "15 min", a long
-            // way from the thing that was pressed.
-            .overlay(alignment: .topLeading) {
-                let slot = segmentFrames["custom"] ?? .zero
-                Color.clear
-                    .frame(width: max(slot.width, 1), height: max(slot.height, 1))
-                    .anchoredCard(isPresented: $showCustomInterval, width: 272, align: .center) {
-                        CustomIntervalPicker(minutes: $intervalMinutes) {
-                            showCustomInterval = false
-                        }
-                    }
-                    .padding(.leading, slot.minX)
-                    .padding(.top, slot.minY)
-                    // Measuring only. Without this the clear box sits on
-                    // top of the segment it is measuring and swallows the
-                    // press that is supposed to open the card.
-                    .allowsHitTesting(false)
             }
             .padding(.horizontal, 26)
             .padding(.top, 10)
@@ -918,8 +917,7 @@ struct PlaylistEditorView: View {
                     ),
                     height: 34,
                     labelSize: 12,
-                    horizontalPadding: 15,
-                    fillWidth: true
+                    horizontalPadding: 15
                 )
                 .padding(.horizontal, 26)
                 .padding(.top, 10)

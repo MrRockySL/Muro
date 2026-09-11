@@ -112,4 +112,33 @@ final class LockScreenRotationTests: XCTestCase {
             LockScreenRotation.isOrphaned(rotationID: nil, runningScheduleIDs: [])
         )
     }
+
+    // MARK: - D7: restore-or-fallback on endRotation
+
+    func testASinglePriorSelectionRoundTrips() {
+        let beforeRotationBegan = ["all": "wallpaper-A"]
+        XCTAssertEqual(
+            LockScreenRotation.selectionsToRestore(snapshot: beforeRotationBegan),
+            beforeRotationBegan
+        )
+    }
+
+    func testTwoDifferentPerDisplaySelectionsBothRoundTrip() {
+        let beforeRotationBegan = [
+            "DISPLAY-1": "wallpaper-A",
+            "DISPLAY-2": "wallpaper-B",
+        ]
+        XCTAssertEqual(
+            LockScreenRotation.selectionsToRestore(snapshot: beforeRotationBegan),
+            beforeRotationBegan
+        )
+    }
+
+    func testNoPriorSelectionFallsThroughToRemove() {
+        XCTAssertNil(LockScreenRotation.selectionsToRestore(snapshot: [:]))
+    }
+
+    func testAStateFileFromBeforeThisFieldExistedFallsThroughToRemove() {
+        XCTAssertNil(LockScreenRotation.selectionsToRestore(snapshot: nil))
+    }
 }
