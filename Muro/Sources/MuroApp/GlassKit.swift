@@ -199,12 +199,23 @@ struct GlassBubbleButton: View {
         .overlay(alignment: .topTrailing) {
             // Drawn over the bubble rather than inside the label, so the dot
             // is not dimmed and scaled by the press state with the glyph.
-            NotificationDot(size: size * 0.235)
-                .offset(x: size * 0.04, y: -size * 0.04)
-                .opacity(badged ? 1 : 0)
-                .scaleEffect(badged ? 1 : 0.4)
-                .animation(.spring(response: 0.4, dampingFraction: 0.62), value: badged)
-                .allowsHitTesting(false)
+            //
+            // Built only while it is wanted. It used to be built always and
+            // hidden with `opacity(0)`, and a hidden view still animates: the
+            // dot's breath ran forever on all four top-bar bubbles, on every
+            // display refresh, for as long as Muro was running. An invisible
+            // animation is still a full SwiftUI render pass, and with the
+            // gallery closed it was the only thing keeping the main thread
+            // awake at all. The `if` is what stops it.
+            ZStack {
+                if badged {
+                    NotificationDot(size: size * 0.235)
+                        .transition(.scale(scale: 0.4).combined(with: .opacity))
+                }
+            }
+            .offset(x: size * 0.04, y: -size * 0.04)
+            .animation(.spring(response: 0.4, dampingFraction: 0.62), value: badged)
+            .allowsHitTesting(false)
         }
         .onHover { hovering = $0 }
         // `.help("")` still arms a tooltip, and an empty one flashing under
@@ -226,10 +237,27 @@ struct NotificationDot: View {
             .fill(Color.muroAccent)
             .frame(width: size, height: size)
             .overlay(Circle().strokeBorder(Color.black.opacity(0.55), lineWidth: size * 0.16))
-            .shadow(color: Color.muroAccent.opacity(0.85), radius: breathing ? size * 0.7 : size * 0.3)
+            .background { glow }
             .scaleEffect(breathing ? 1.06 : 1)
             .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: breathing)
             .onAppear { breathing = true }
+    }
+
+    /// The same glow the dot always had, as its own layer instead of a
+    /// `shadow(radius:)` whose radius moved.
+    ///
+    /// A shadow is drawn by blurring the shape into an image, so a radius that
+    /// animates throws that image away and blurs it again on every frame. Here
+    /// the blur is fixed and only opacity and scale move, which are handed to
+    /// the compositor and cost nothing to redraw. Same picture, and it no
+    /// longer re-rasterises sixty times a second.
+    private var glow: some View {
+        Circle()
+            .fill(Color.muroAccent.opacity(0.85))
+            .frame(width: size, height: size)
+            .blur(radius: size * 0.45)
+            .scaleEffect(breathing ? 1.75 : 1.25)
+            .opacity(breathing ? 1 : 0.6)
     }
 }
 
