@@ -231,6 +231,10 @@ struct PreviewView: View {
     private func pauseAfterPill(_ item: WallpaperItem) -> some View {
         let value = store.effectivePauseAfter(for: item)
         let overridden = store.hasPauseAfterOverride(item)
+        // Shorter than the list in Settings on purpose: this menu opens over
+        // the wallpaper itself, and any other time is one step away under
+        // Custom. 0 is Never pause.
+        let choices = [0, 10, 30, 60, 300, 3600]
         // Centred on the pill: it sits in the middle of the bottom bar, so a
         // menu hanging off either edge of it looks like a mistake.
         return GlassDropdown(width: 190, arrowEdge: .top, align: .center, options: {
@@ -238,15 +242,20 @@ struct PreviewView: View {
                         checked: !overridden) {
                 store.setPauseAfter(nil, for: item)
             }, .divider]
-            + SettingsView.pauseAfterChoices.map { seconds in
+            + choices.map { seconds in
                 MenuOption(
                     title: seconds == 0 ? "Never pause" : durationLabel(seconds),
                     checked: overridden && value == seconds
                 ) { store.setPauseAfter(seconds == 0 ? -1 : seconds, for: item) }
             }
             // The list stops at an hour. Anything else this wallpaper wants
-            // is set here, the same way Settings does it.
-            + [.divider, MenuOption(title: "Custom") { customPauseAfter = true }]
+            // is set here, the same way Settings does it. Custom carries the
+            // tick whenever the time is not one of the list's, which includes
+            // a 2 or 15 minute time picked before the list was shortened.
+            + [.divider, MenuOption(
+                title: "Custom",
+                checked: overridden && value > 0 && !choices.contains(value)
+            ) { customPauseAfter = true }]
         }) {
             HStack(spacing: 6) {
                 Image(systemName: "pause.circle")

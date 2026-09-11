@@ -14,12 +14,14 @@ public final class EngineController {
     private var configWatcher: DispatchSourceFileSystemObject?
     private var observers: [NSObjectProtocol] = []
     private let power = PowerMonitor()
+    private let desktopWindows = DesktopWindowMonitor()
 
     public init() {}
 
     public func start() {
         power.onChange = { [weak self] in self?.applyPowerState() }
         power.start()
+        desktopWindows.onUpdate = { [weak self] covered in self?.applyDesktopCoverage(covered) }
         reconcile()
         watchConfigDirectory()
         observers.append(NotificationCenter.default.addObserver(
@@ -145,6 +147,34 @@ public final class EngineController {
             controller.setPauseAfter(desired[uuid]?.pauseAfter)
         }
         applyPowerState(config: config)
+        applyDesktopRules(config: config)
+    }
+
+    /// Issue #22. Hands both desktop switches to every display, and keeps the
+    /// window check running only while one of them is on, so nobody pays for
+    /// it otherwise.
+    private func applyDesktopRules(config: EngineConfig) {
+        let playOnlyOnDesktop = config.playOnlyOnDesktop ?? false
+        let replayOnClearDesktop = config.replayOnClearDesktop ?? false
+        for controller in controllers.values {
+            controller.setDesktopRules(
+                playOnlyOnDesktop: playOnlyOnDesktop, replayOnClearDesktop: replayOnClearDesktop
+            )
+        }
+        if DesktopPlayback.needsWindowCheck(
+            playOnlyOnDesktop: playOnlyOnDesktop, replayOnClearDesktop: replayOnClearDesktop
+        ) {
+            desktopWindows.start()
+        } else {
+            desktopWindows.stop()
+            for controller in controllers.values { controller.setDesktopCovered(nil) }
+        }
+    }
+
+    private func applyDesktopCoverage(_ covered: Set<String>) {
+        for (uuid, controller) in controllers {
+            controller.setDesktopCovered(covered.contains(uuid))
+        }
     }
 
     /// Combines the Settings toggles (from config.json) with the live power
