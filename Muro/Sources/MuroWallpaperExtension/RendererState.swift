@@ -434,8 +434,7 @@ final class RendererState: @unchecked Sendable {
         let activity = requestedActivity ?? activityState
         lock.unlock()
         if activity.contains("suspended") { return false }
-        if mode == "locked" { return !ExtensionPreferences.shared.pauseLockScreen }
-        if ScreenState.isCovered() { return true }
+        if mode == "locked" || ScreenState.isCovered() { return !ExtensionPreferences.shared.pauseLockScreen }
         if mode == "idle" { return false }
         return !ExtensionPreferences.shared.alwaysPauseDesktop
     }

@@ -101,11 +101,6 @@ struct MenuBarView: View {
         // While something is scheduling the wallpaper, its name matters more
         // than the frame rate does.
         if let schedule = store.runningScheduleName {
-            let runningSurface = store.activePlaylist?.surface
-                ?? store.activeAutomation?.surface ?? .desktop
-            if let surfaceLabel = store.scheduleSurfaceLabel(runningSurface) {
-                return "\(state) · \(schedule.uppercased()) · \(surfaceLabel.uppercased())"
-            }
             return "\(state) · \(schedule.uppercased())"
         }
         return base

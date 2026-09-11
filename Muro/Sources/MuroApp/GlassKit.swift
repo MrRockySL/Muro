@@ -199,12 +199,23 @@ struct GlassBubbleButton: View {
         .overlay(alignment: .topTrailing) {
             // Drawn over the bubble rather than inside the label, so the dot
             // is not dimmed and scaled by the press state with the glyph.
-            NotificationDot(size: size * 0.235)
-                .offset(x: size * 0.04, y: -size * 0.04)
-                .opacity(badged ? 1 : 0)
-                .scaleEffect(badged ? 1 : 0.4)
-                .animation(.spring(response: 0.4, dampingFraction: 0.62), value: badged)
-                .allowsHitTesting(false)
+            //
+            // Built only while it is wanted. It used to be built always and
+            // hidden with `opacity(0)`, and a hidden view still animates: the
+            // dot's breath ran forever on all four top-bar bubbles, on every
+            // display refresh, for as long as Muro was running. An invisible
+            // animation is still a full SwiftUI render pass, and with the
+            // gallery closed it was the only thing keeping the main thread
+            // awake at all. The `if` is what stops it.
+            ZStack {
+                if badged {
+                    NotificationDot(size: size * 0.235)
+                        .transition(.scale(scale: 0.4).combined(with: .opacity))
+                }
+            }
+            .offset(x: size * 0.04, y: -size * 0.04)
+            .animation(.spring(response: 0.4, dampingFraction: 0.62), value: badged)
+            .allowsHitTesting(false)
         }
         .onHover { hovering = $0 }
         // `.help("")` still arms a tooltip, and an empty one flashing under
@@ -226,10 +237,27 @@ struct NotificationDot: View {
             .fill(Color.muroAccent)
             .frame(width: size, height: size)
             .overlay(Circle().strokeBorder(Color.black.opacity(0.55), lineWidth: size * 0.16))
-            .shadow(color: Color.muroAccent.opacity(0.85), radius: breathing ? size * 0.7 : size * 0.3)
+            .background { glow }
             .scaleEffect(breathing ? 1.06 : 1)
             .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: breathing)
             .onAppear { breathing = true }
+    }
+
+    /// The same glow the dot always had, as its own layer instead of a
+    /// `shadow(radius:)` whose radius moved.
+    ///
+    /// A shadow is drawn by blurring the shape into an image, so a radius that
+    /// animates throws that image away and blurs it again on every frame. Here
+    /// the blur is fixed and only opacity and scale move, which are handed to
+    /// the compositor and cost nothing to redraw. Same picture, and it no
+    /// longer re-rasterises sixty times a second.
+    private var glow: some View {
+        Circle()
+            .fill(Color.muroAccent.opacity(0.85))
+            .frame(width: size, height: size)
+            .blur(radius: size * 0.45)
+            .scaleEffect(breathing ? 1.75 : 1.25)
+            .opacity(breathing ? 1 : 0.6)
     }
 }
 
@@ -362,11 +390,6 @@ struct PillSegments: View {
     var height: CGFloat = 38
     var labelSize: CGFloat = 13
     var horizontalPadding: CGFloat = 18
-    /// Stretch the bar to its container's full width and give every segment an
-    /// equal share of it, instead of the bar hugging its labels. The schedule
-    /// editors switch this on so the "APPLY TO" bar and the interval bar line
-    /// up to the same frame rather than each ending wherever its text does.
-    var fillWidth: Bool = false
     /// Where each segment sits inside this bar, for anyone who needs to hang
     /// something off one of them. The playlist editor anchors its custom
     /// interval card under the "Custom" segment with it, so the card opens
@@ -384,7 +407,6 @@ struct PillSegments: View {
                 segment(option)
             }
         }
-        .frame(maxWidth: fillWidth ? .infinity : nil)
         .padding(5)
         .background(alignment: .topLeading) { pill }
         .background(Capsule().fill(Color.white.opacity(0.06)))
@@ -440,7 +462,6 @@ struct PillSegments: View {
             }
         }
         .padding(.horizontal, horizontalPadding)
-        .frame(maxWidth: fillWidth ? .infinity : nil)
         .frame(height: height)
         .background {
             GeometryReader { geo in
@@ -1081,6 +1102,14 @@ struct GlassCard: ViewModifier {
     /// How dark the glass is tinted. Menus open over 4K video, so this and
     /// the base fill below decide whether their text can be read.
     var tint: Double = 0.32
+    /// Whether the card casts a shadow.
+    ///
+    /// It earns its place over the gallery, where a menu opens on top of bright
+    /// thumbnails and needs lifting off them. The menu bar panel is the one
+    /// place with nothing bright to lift off: the card opens on the panel's own
+    /// dark glass, where black on near-black reads as a smear of tint sitting
+    /// behind the card rather than as depth (owner, 2026-09-11).
+    var shadow: Bool = true
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -1114,7 +1143,10 @@ struct GlassCard: ViewModifier {
                 .frame(height: 1)
                 .padding(.horizontal, cornerRadius * 1.8)
             }
-            .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 10)
+            .shadow(
+                color: .black.opacity(shadow ? 0.5 : 0),
+                radius: shadow ? 20 : 0, x: 0, y: shadow ? 10 : 0
+            )
             .preferredColorScheme(.dark)
     }
 }
@@ -1138,8 +1170,8 @@ private struct GlassMaterial: ViewModifier {
 
 extension View {
     /// The visual surface only, for a menu drawn inside the window.
-    func glassCard(cornerRadius: CGFloat = 16) -> some View {
-        modifier(GlassCard(cornerRadius: cornerRadius))
+    func glassCard(cornerRadius: CGFloat = 16, shadow: Bool = true) -> some View {
+        modifier(GlassCard(cornerRadius: cornerRadius, shadow: shadow))
     }
 }
 
@@ -1462,7 +1494,10 @@ struct MenuButton<Label: View>: View {
                     options: items,
                     width: width,
                     anchor: screenAnchor.frame ?? .zero,
-                    parent: screenAnchor.window
+                    parent: screenAnchor.window,
+                    // So pressing this control again closes the menu it opened
+                    // rather than reopening it. See `MenuBarMenuPanel.openedBy`.
+                    owner: ObjectIdentifier(screenAnchor)
                 )
                 return
             }

@@ -45,4 +45,16 @@ public enum LockScreenRotation {
         guard let rotationID else { return false }
         return !runningScheduleIDs.contains(rotationID)
     }
+
+    /// What `endRotation` should write back to the desktop-role selections, or
+    /// `nil` to mean "fall through to `remove()`'s existing non-Muro-default
+    /// path" (D7). Reached only when the rotation began with nothing already
+    /// selected — an old state file predating this field decodes to `nil` and
+    /// takes the same path, so it keeps behaving exactly as it did before.
+    public static func selectionsToRestore(
+        snapshot: [String: String]?
+    ) -> [String: String]? {
+        guard let snapshot, !snapshot.isEmpty else { return nil }
+        return snapshot
+    }
 }

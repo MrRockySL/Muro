@@ -215,15 +215,40 @@ struct MenuBarPanelRoot: View {
 final class MenuBarMenuPanel {
     static let shared = MenuBarMenuPanel()
 
-    /// Transparent margin around the card, so the card's own shadow has room
-    /// instead of being clipped flush against the window edge.
-    private static let pad: CGFloat = 22
+    /// Transparent margin around the card. It used to be 22, so the card's own
+    /// shadow had room instead of being clipped flush against the window edge.
+    /// The menus of this panel no longer cast one, and the margin cost more
+    /// than it gave: this is a child window ordered above the panel, so the
+    /// margin reached back up over the very control that opened the menu.
+    ///
+    /// Every line of placement below is written in terms of the card, not the
+    /// window, so this can be changed without moving anything on screen.
+    private static let pad: CGFloat = 0
 
     private var panel: NSPanel?
 
-    func show(options: [MenuOption], width: CGFloat, anchor: NSRect, parent: NSWindow?) {
-        show(width: width, anchor: anchor, parent: parent) {
-            GlassMenuList(width: width, options: options) {
+    /// Which control the open menu belongs to, and which one the last closed
+    /// menu belonged to.
+    ///
+    /// `StatusBarController`'s local event monitor sees a click anywhere in the
+    /// panel before the clicked control's own action runs, and closes any open
+    /// menu. So pressing the control that opened a menu closed it and then
+    /// reopened it within the one click, and a menu could never be shut the way
+    /// it was opened (owner, 2026-09-11). A reopen by the same control this soon
+    /// after its own close is that single click coming back around. A different
+    /// control is somebody moving from one menu to the next, and still opens
+    /// straight away.
+    private var openedBy: AnyHashable?
+    private var lastClosedBy: AnyHashable?
+    private var lastCloseAt: Date = .distantPast
+    private static let reopenSuppression: TimeInterval = 0.25
+
+    func show(
+        options: [MenuOption], width: CGFloat, anchor: NSRect,
+        parent: NSWindow?, owner: AnyHashable? = nil
+    ) {
+        show(width: width, anchor: anchor, parent: parent, owner: owner) {
+            GlassMenuList(width: width, options: options, shadow: false) {
                 MenuBarMenuPanel.shared.close()
             }
         }
@@ -233,8 +258,16 @@ final class MenuBarMenuPanel {
         width: CGFloat,
         anchor: NSRect,
         parent: NSWindow?,
+        owner: AnyHashable? = nil,
         @ViewBuilder content: () -> Content
     ) {
+        if let owner, let lastClosedBy, owner == lastClosedBy,
+           Date().timeIntervalSince(lastCloseAt) < Self.reopenSuppression {
+            // That close was this click. Let it stay closed, and let the next
+            // press open it again.
+            self.lastClosedBy = nil
+            return
+        }
         close()
         let body = content()
             .frame(width: width)
@@ -278,10 +311,14 @@ final class MenuBarMenuPanel {
         parent?.addChildWindow(panel, ordered: .above)
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
+        openedBy = owner
     }
 
     func close() {
         guard let panel else { return }
+        lastClosedBy = openedBy
+        lastCloseAt = Date()
+        openedBy = nil
         let parent = panel.parent
         parent?.removeChildWindow(panel)
         panel.orderOut(nil)

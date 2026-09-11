@@ -5,8 +5,13 @@ import MuroKit
 struct LibraryView: View {
     @EnvironmentObject var store: AppStore
 
+    /// `all` is named for the tab it has always been rather than what it holds,
+    /// and what it holds is the downloads. It reads "Downloaded" since likes
+    /// stopped needing one: Liked now lists the catalog too, so the tab beside
+    /// it was the narrower of the two while calling itself All.
     enum LibTab: String, CaseIterable {
-        case all = "All", liked = "Liked", playlists = "Playlists", automations = "Automations"
+        case all = "Downloaded", liked = "Liked"
+        case playlists = "Playlists", automations = "Automations"
     }
 
     @State private var tab: LibTab = .all
@@ -35,12 +40,26 @@ struct LibraryView: View {
         GridItem(.flexible(), spacing: 24)
     ]
 
+    private func matchesSearch(_ item: WallpaperItem) -> Bool {
+        store.searchText.isEmpty
+            || item.title.localizedCaseInsensitiveContains(store.searchText)
+            || item.category.localizedCaseInsensitiveContains(store.searchText)
+    }
+
     private var searched: [WallpaperItem] {
-        store.localItems.filter { item in
-            store.searchText.isEmpty
-                || item.title.localizedCaseInsensitiveContains(store.searchText)
-                || item.category.localizedCaseInsensitiveContains(store.searchText)
-        }
+        store.localItems.filter(matchesSearch)
+    }
+
+    /// Liked is the one tab that is not about what is on this Mac. A heart can
+    /// be put on any wallpaper in the catalog, so it lists downloads and
+    /// catalog entries together, or a wallpaper liked in Explore would
+    /// disappear the moment it was liked.
+    ///
+    /// Select mode is the exception. The only thing it does is delete, and
+    /// there is nothing to delete on a wallpaper that was never downloaded, so
+    /// while it is on the tab shows what it can act on.
+    private var likedGridItems: [WallpaperItem] {
+        selecting ? visibleItems : store.likedItems.filter(matchesSearch)
     }
 
     var body: some View {
@@ -58,7 +77,7 @@ struct LibraryView: View {
                                 if !selecting { dropZone }
                                 grid(items: searched)
                             case .liked:
-                                grid(items: searched.filter(\.liked))
+                                grid(items: likedGridItems)
                             case .playlists:
                                 playlistsGrid
                             case .automations:
@@ -119,7 +138,7 @@ struct LibraryView: View {
         ZStack {
             PillSegments(
                 options: [
-                    PillOption(LibTab.all.rawValue, "All", count: store.localItems.count),
+                    PillOption(LibTab.all.rawValue, "Downloaded", count: store.localItems.count),
                     PillOption(LibTab.liked.rawValue, "Liked", count: store.likedItems.count),
                     PillOption(LibTab.playlists.rawValue, "Playlists", count: store.playlists.count),
                     PillOption(LibTab.automations.rawValue, "Automations", count: store.automations.count)
@@ -831,56 +850,55 @@ struct PlaylistEditorView: View {
             .padding(.horizontal, 26)
             .padding(.top, 20)
 
-            HStack(spacing: 12) {
-                SectionLabel("CHANGE WALLPAPER EVERY")
+            SectionLabel("CHANGE WALLPAPER EVERY")
+                .padding(.horizontal, 26)
+                .padding(.top, 22)
+            HStack(spacing: 14) {
+                PillSegments(
+                    options: Self.presets.map { PillOption("\($0)", Self.shortLabel($0)) }
+                        + [PillOption("custom", "Custom")],
+                    selection: Binding(
+                        get: { intervalIsCustom ? "custom" : "\(intervalMinutes)" },
+                        set: { raw in
+                            if let minutes = Int(raw) {
+                                intervalMinutes = minutes
+                                customSelected = false
+                            } else {
+                                // The pill moves the moment Custom is pressed,
+                                // not when a value comes back from the card.
+                                // Otherwise the bar reads "3 hr" while the
+                                // custom picker is open in front of it.
+                                customSelected = true
+                                showCustomInterval = true
+                            }
+                        }
+                    ),
+                    height: 34,
+                    labelSize: 12,
+                    horizontalPadding: 15,
+                    onSegmentFrames: { segmentFrames = $0 }
+                )
+                // The card hangs off the Custom segment, not off the whole
+                // bar. Anchored to the bar it opened under "15 min", a long
+                // way from the thing that was pressed.
+                .overlay(alignment: .topLeading) {
+                    let slot = segmentFrames["custom"] ?? .zero
+                    Color.clear
+                        .frame(width: max(slot.width, 1), height: max(slot.height, 1))
+                        .anchoredCard(isPresented: $showCustomInterval, width: 272, align: .center) {
+                            CustomIntervalPicker(minutes: $intervalMinutes) {
+                                showCustomInterval = false
+                            }
+                        }
+                        .padding(.leading, slot.minX)
+                        .padding(.top, slot.minY)
+                        // Measuring only. Without this the clear box sits on
+                        // top of the segment it is measuring and swallows the
+                        // press that is supposed to open the card.
+                        .allowsHitTesting(false)
+                }
                 Spacer(minLength: 0)
                 shuffleToggle
-            }
-            .padding(.horizontal, 26)
-            .padding(.top, 22)
-            PillSegments(
-                options: Self.presets.map { PillOption("\($0)", Self.shortLabel($0)) }
-                    + [PillOption("custom", "Custom")],
-                selection: Binding(
-                    get: { intervalIsCustom ? "custom" : "\(intervalMinutes)" },
-                    set: { raw in
-                        if let minutes = Int(raw) {
-                            intervalMinutes = minutes
-                            customSelected = false
-                        } else {
-                            // The pill moves the moment Custom is pressed,
-                            // not when a value comes back from the card.
-                            // Otherwise the bar reads "3 hr" while the
-                            // custom picker is open in front of it.
-                            customSelected = true
-                            showCustomInterval = true
-                        }
-                    }
-                ),
-                height: 34,
-                labelSize: 12,
-                horizontalPadding: 15,
-                fillWidth: true,
-                onSegmentFrames: { segmentFrames = $0 }
-            )
-            // The card hangs off the Custom segment, not off the whole
-            // bar. Anchored to the bar it opened under "15 min", a long
-            // way from the thing that was pressed.
-            .overlay(alignment: .topLeading) {
-                let slot = segmentFrames["custom"] ?? .zero
-                Color.clear
-                    .frame(width: max(slot.width, 1), height: max(slot.height, 1))
-                    .anchoredCard(isPresented: $showCustomInterval, width: 272, align: .center) {
-                        CustomIntervalPicker(minutes: $intervalMinutes) {
-                            showCustomInterval = false
-                        }
-                    }
-                    .padding(.leading, slot.minX)
-                    .padding(.top, slot.minY)
-                    // Measuring only. Without this the clear box sits on
-                    // top of the segment it is measuring and swallows the
-                    // press that is supposed to open the card.
-                    .allowsHitTesting(false)
             }
             .padding(.horizontal, 26)
             .padding(.top, 10)
@@ -899,8 +917,7 @@ struct PlaylistEditorView: View {
                     ),
                     height: 34,
                     labelSize: 12,
-                    horizontalPadding: 15,
-                    fillWidth: true
+                    horizontalPadding: 15
                 )
                 .padding(.horizontal, 26)
                 .padding(.top, 10)

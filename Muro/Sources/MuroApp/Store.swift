@@ -18,7 +18,11 @@ struct WallpaperItem: Identifiable, Equatable {
     var fps: Double { local?.fps ?? remote?.fps ?? 30 }
     var duration: Double { local?.duration ?? remote?.duration ?? 0 }
     var sizeBytes: Int64 { local?.sizeBytes ?? remote?.sizeBytes ?? 0 }
-    var liked: Bool { local?.liked ?? false }
+    /// Set from `AppStore.likedIDs` when the item is built, not read out of
+    /// the library entry. A like has to work on a wallpaper that has never
+    /// been downloaded, and an undownloaded one has no library entry to
+    /// carry the flag. See `AppStore.likedIDs`.
+    var liked: Bool = false
     var isDownloaded: Bool { local != nil }
     var resolutionLabel: String {
         width >= 3200 ? "4K" : (width >= 2200 ? "1440p" : "1080p")
@@ -296,6 +300,20 @@ final class AppStore: ObservableObject {
         }
         scheduler.currentIDForOrdering = { [weak self] in self?.currentAppliedID }
         lockScreen.rotationCurrentWallpaperID = { [weak self] in self?.currentRotationStepID }
+        lockScreen.restageSource = { [weak self] wallpaperID in
+            guard let self,
+                  let item = self.item(id: wallpaperID),
+                  let entry = item.local
+            else { return nil }
+            let mode = self.defaultMode(for: item)
+            let resolvedMode = entry.fps > 40 ? mode : "smooth"
+            let videoURL = resolveVideoURL(entry: entry, mode: resolvedMode, root: self.root)
+            let thumbnailURL = self.root.appendingPathComponent(entry.thumbnail)
+            guard FileManager.default.fileExists(atPath: videoURL.path),
+                  FileManager.default.fileExists(atPath: thumbnailURL.path)
+            else { return nil }
+            return (videoURL: videoURL, thumbnailURL: thumbnailURL, title: item.title)
+        }
         syncScheduler()
         watchRoot()
         recomputeSize()
@@ -425,11 +443,16 @@ final class AppStore: ObservableObject {
         var seen = Set<String>()
         var out: [WallpaperItem] = []
         out.reserveCapacity(manifest.wallpapers.count + catalog.count)
+        let liked = likedIDs
         for entry in manifest.wallpapers where seen.insert(entry.id).inserted {
-            out.append(WallpaperItem(local: entry, remote: remoteByID[entry.id]))
+            out.append(WallpaperItem(
+                local: entry, remote: remoteByID[entry.id], liked: liked.contains(entry.id)
+            ))
         }
         for remote in catalog where !seen.contains(remote.id) {
-            out.append(WallpaperItem(local: nil, remote: remote))
+            out.append(WallpaperItem(
+                local: nil, remote: remote, liked: liked.contains(remote.id)
+            ))
         }
         cachedItems = out
         return out
@@ -579,7 +602,9 @@ final class AppStore: ObservableObject {
         }
         if let firstLocal = localItems.first { return firstLocal }
         if let bundled = item(id: BundledWallpaper.id) { return bundled }
-        return BundledWallpaper.fallbackEntry.map { WallpaperItem(local: nil, remote: $0) }
+        return BundledWallpaper.fallbackEntry.map {
+            WallpaperItem(local: nil, remote: $0, liked: likedIDs.contains($0.id))
+        }
     }
 
     func heroPlayable(_ item: WallpaperItem) -> Bool {
@@ -595,7 +620,10 @@ final class AppStore: ObservableObject {
             if let bundled = item(id: BundledWallpaper.id) {
                 out.insert(bundled, at: 0)
             } else if let entry = BundledWallpaper.fallbackEntry {
-                out.insert(WallpaperItem(local: nil, remote: entry), at: 0)
+                out.insert(
+                    WallpaperItem(local: nil, remote: entry, liked: likedIDs.contains(entry.id)),
+                    at: 0
+                )
             }
         }
         return out
@@ -628,6 +656,7 @@ final class AppStore: ObservableObject {
             // right before it made it true.
             libraryUnreadable = true
         }
+        loadLikes()
         config = EngineConfig.load(root: root)
         playlists = PlaylistStore.load(root: root)
         automations = AutomationStore.load(root: root)
@@ -651,7 +680,15 @@ final class AppStore: ObservableObject {
         let running = runningLockScreenScheduleIDs
         if running.isEmpty { currentRotationStepID = nil }
         lockScreen.setLockScreenPlaybackPaused(isPaused && !running.isEmpty)
-        Task { await lockScreen.reconcileRotation(runningRotationIDs: running) }
+        // A reactivation during the wait can change which schedules are
+        // running, and a chained second begin can replace the first before it
+        // finishes — drain whichever begin is current, then read fresh.
+        Task {
+            while let pending = lockScreenRotationBeginTask {
+                await pending.value
+            }
+            await lockScreen.reconcileRotation(runningRotationIDs: runningLockScreenScheduleIDs)
+        }
     }
 
     private func watchRoot() {
@@ -965,8 +1002,45 @@ final class AppStore: ObservableObject {
         _ item: WallpaperItem,
         mode: String,
         target: ApplyTarget,
-        surface explicitSurface: ApplySurface?
+        surface explicitSurface: ApplySurface?,
+        fromSchedule: Bool = false
     ) async {
+        // A manual apply is a user's choice for this one wallpaper, not a
+        // scheduler tick. Stop whatever is running so the next tick cannot
+        // overwrite it — `driveLockScreenRotation` decides begin-vs-swap only
+        // from `isRotating`, which the stop clears. The scheduler's own tick
+        // passes `fromSchedule: true`: it is already running the schedule, so
+        // stopping it here would stop the schedule from within itself.
+        //
+        // This mirrors `syncScheduler()` but awaits `reconcileRotation` inline
+        // instead of the fire-and-forget `Task` it posts. Stopping a schedule
+        // orphans its rotation, and `reconcileRotation` runs `endRotation()` to
+        // restore the pre-rotation selection; left un-awaited that teardown can
+        // race the manual `lockScreen.apply` below and revert the very choice
+        // this apply is making. The public `stopPlaylist`/`stopAutomation`
+        // wrappers are not used here for the same reason — each would post its
+        // own competing `reconcileRotation`.
+        applyGeneration += 1
+        let myApplyGeneration = applyGeneration
+
+        if !fromSchedule {
+            let hadActiveSchedule = activePlaylist != nil || activeAutomation != nil
+            if activePlaylist != nil { scheduler.stopPlaylist() }
+            if activeAutomation != nil { scheduler.stopAutomation() }
+            if hadActiveSchedule {
+                activePlaylistID = scheduler.activePlaylistID
+                activeAutomationID = scheduler.activeAutomationID
+                scheduler.setPaused(isPaused)
+                let running = runningLockScreenScheduleIDs
+                if running.isEmpty { currentRotationStepID = nil }
+                lockScreen.setLockScreenPlaybackPaused(isPaused && !running.isEmpty)
+                while let pending = lockScreenRotationBeginTask {
+                    await pending.value
+                }
+                await lockScreen.reconcileRotation(runningRotationIDs: runningLockScreenScheduleIDs)
+            }
+        }
+
         guard var entry = item.local else { return }
         let surface = explicitSurface ?? .desktop
         let resolvedMode = entry.fps > 40 ? mode : "smooth"
@@ -1016,8 +1090,16 @@ final class AppStore: ObservableObject {
                         connectedDisplays: Set(displays.map(\.id))
                     )
                     if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
+                    // A newer apply started while this one was awaiting the
+                    // store: stop before writing the next role or committing
+                    // the desktop assignment, so we cannot clobber it. The
+                    // `defer` above still clears `applyingLockScreen`.
+                    guard myApplyGeneration == applyGeneration else { return }
                 }
                 if surface == .all {
+                    // Last checkpoint before committing the desktop
+                    // assignment: bail if a newer apply superseded this one.
+                    guard myApplyGeneration == applyGeneration else { return }
                     applyAssignment(id: entry.id, mode: resolvedMode, target: target)
                 } else {
                     pushRecent(entry.id)
@@ -1051,6 +1133,16 @@ final class AppStore: ObservableObject {
     /// `LockScreenService.rotationCurrentWallpaperID` (D6).
     private var currentRotationStepID: String?
 
+    private var lockScreenRotationBeginTask: Task<Void, Never>?
+
+    private var lockScreenRotationBeginGeneration = 0
+
+    /// Monotonic ticket handed out at the start of every `applyWallpaper`. A
+    /// call that is still in flight when a newer one begins finds its ticket
+    /// stale at the next store write and bails, so a superseded apply can never
+    /// overwrite the result of the apply that replaced it.
+    private var applyGeneration: UInt64 = 0
+
     /// The ids of the running schedules whose surface covers the lock screen.
     /// At most one, since only one schedule runs at a time; a `Set` so it drops
     /// straight into `reconcileRotation` / `healIfNeeded`.
@@ -1076,8 +1168,11 @@ final class AppStore: ObservableObject {
         let mode = defaultMode(for: item)
         if surface.coversDesktop {
             // No explicit surface → the pure-desktop branch of applyWallpaper,
-            // byte-identical to a scheduler tick before this change.
-            setWallpaper(item, mode: mode, target: target)
+            // byte-identical to a scheduler tick before this change. Called
+            // directly rather than through the public `setWallpaper`, which
+            // would run the manual-apply stop guard against the schedule that
+            // is running this very tick.
+            Task { await self.applyWallpaper(item, mode: mode, target: target, surface: nil, fromSchedule: true) }
         }
         if surface.coversLockScreen {
             driveLockScreenRotation(item: item, mode: mode)
@@ -1088,9 +1183,19 @@ final class AppStore: ObservableObject {
     /// every later one. The fixed id is the running schedule's own id (D6). The
     /// rotation path never consults `surface.coversScreenSaver` — a schedule's
     /// `.all` is Desktop + Lock Screen only.
+    ///
+    /// Reads `scheduler.activePlaylistID`/`activeAutomationID` directly rather
+    /// than this store's own `@Published` mirrors of them: `startPlaylist` and
+    /// `startAutomation` call `scheduler.start…` first, which sets the
+    /// scheduler's id and *synchronously* applies the first step through this
+    /// same closure, all before `syncScheduler()` runs to copy that id onto
+    /// the store. Reading the store's copy here found `nil` on that first
+    /// tick, so the lock screen silently never began rotating until the
+    /// second tick — a full interval later, invisible unless something else
+    /// was already showing on the lock screen to not be replaced by.
     private func driveLockScreenRotation(item: WallpaperItem, mode: String) {
         guard lockScreenAvailable,
-              let scheduleID = activePlaylistID ?? activeAutomationID,
+              let scheduleID = scheduler.activePlaylistID ?? scheduler.activeAutomationID,
               let entry = item.local
         else { return }
         let resolvedMode = entry.fps > 40 ? mode : "smooth"
@@ -1102,24 +1207,37 @@ final class AppStore: ObservableObject {
         let title = scheduler.runningName ?? item.title
         currentRotationStepID = item.id
         let displayIDs = Set(displays.map(\.id))
-        Task {
-            do {
-                if lockScreen.isRotating(scheduleID: scheduleID) {
+        if lockScreen.isRotating(scheduleID: scheduleID) {
+            Task {
+                do {
                     try lockScreen.stageRotationStep(
                         scheduleID: scheduleID, title: title,
                         videoURL: videoURL, thumbnailURL: thumbnailURL
                     )
-                } else {
-                    applyingLockScreen = true
-                    defer { applyingLockScreen = false }
+                } catch {
+                    applyError = error.localizedDescription
+                }
+            }
+        } else {
+            applyingLockScreen = true
+            lockScreenRotationBeginGeneration += 1
+            let generation = lockScreenRotationBeginGeneration
+            lockScreenRotationBeginTask = Task {
+                defer {
+                    applyingLockScreen = false
+                    if lockScreenRotationBeginGeneration == generation {
+                        lockScreenRotationBeginTask = nil
+                    }
+                }
+                do {
                     _ = try await lockScreen.beginRotation(
                         scheduleID: scheduleID, entry: entry,
                         videoURL: videoURL, thumbnailURL: thumbnailURL,
                         connectedDisplays: displayIDs
                     )
+                } catch {
+                    applyError = error.localizedDescription
                 }
-            } catch {
-                applyError = error.localizedDescription
             }
         }
     }
@@ -1127,6 +1245,11 @@ final class AppStore: ObservableObject {
     /// Re-stage the current rotation step (no clock advance) when the screen
     /// locks, so the first locked frame is never a step behind.
     private func restageLockScreenRotationOnLock() {
+        // Paused means the user stopped it on purpose. Re-driving the
+        // rotation here would restart playback on wake with no schedule tick
+        // behind it, and the extension would play the video instead of
+        // holding the frame `pauseLockScreen` tells it to hold.
+        guard !isPaused else { return }
         guard !runningLockScreenScheduleIDs.isEmpty,
               let stepID = currentRotationStepID ?? scheduler.currentStepWallpaperID,
               let item = item(id: stepID)
@@ -1258,6 +1381,21 @@ final class AppStore: ObservableObject {
 
     func setAutoPauseFullScreen(_ on: Bool) {
         config.autoPauseFullScreen = on
+        saveConfig()
+    }
+
+    /// Issue #22. Both off by default, so no install behaves differently until
+    /// someone turns one on.
+    var playOnlyOnDesktop: Bool { config.playOnlyOnDesktop ?? false }
+    var replayOnClearDesktop: Bool { config.replayOnClearDesktop ?? false }
+
+    func setPlayOnlyOnDesktop(_ on: Bool) {
+        config.playOnlyOnDesktop = on
+        saveConfig()
+    }
+
+    func setReplayOnClearDesktop(_ on: Bool) {
+        config.replayOnClearDesktop = on
         saveConfig()
     }
 
@@ -1425,16 +1563,42 @@ final class AppStore: ObservableObject {
 
     // MARK: - Likes
 
-    /// Saving the in-memory manifest would write back whatever this copy was
-    /// last loaded with, so a download that finished in the meantime would be
-    /// erased by a heart tap. Every manifest edit goes through LibraryWriter,
-    /// which works from what is actually on disk.
-    func toggleLike(_ item: WallpaperItem) {
-        write { manifest in
-            guard let index = manifest.wallpapers.firstIndex(where: { $0.id == item.id })
-            else { return }
-            manifest.wallpapers[index].liked.toggle()
+    /// Every wallpaper this install has liked, downloaded or not.
+    ///
+    /// Likes used to be a flag inside `library.json`, and that file only holds
+    /// wallpapers that have actually been downloaded. So the heart was switched
+    /// off on everything else, and the only wallpapers anyone could like were
+    /// the ones they already had, which is issue #30. A like says "I want this
+    /// one", which is a thing to say before a download rather than after it, so
+    /// the ids live in UserDefaults instead, the same way `seenCatalogIDs`
+    /// does, and cover the whole catalog.
+    private(set) var likedIDs: Set<String> = []
+
+    /// Likes made by an older build sit in the manifest. They are folded in
+    /// once so nobody opens this version and finds an empty Liked tab. The
+    /// manifest flag is left alone: an older build reading the same library
+    /// still works, and folding the same ids in again changes nothing.
+    private func loadLikes() {
+        var ids = Set(defaults.stringArray(forKey: "likedIDs") ?? [])
+        let fromManifest = Set(manifest.wallpapers.filter(\.liked).map(\.id))
+        if !fromManifest.isSubset(of: ids) {
+            ids.formUnion(fromManifest)
+            defaults.set(Array(ids), forKey: "likedIDs")
         }
+        guard ids != likedIDs else { return }
+        likedIDs = ids
+        invalidateItemCache()
+    }
+
+    func toggleLike(_ item: WallpaperItem) {
+        objectWillChange.send()
+        if likedIDs.contains(item.id) {
+            likedIDs.remove(item.id)
+        } else {
+            likedIDs.insert(item.id)
+        }
+        defaults.set(Array(likedIDs), forKey: "likedIDs")
+        invalidateItemCache()
     }
 
     /// Every small manifest edit the interface makes, in one place.
@@ -1584,6 +1748,9 @@ final class AppStore: ObservableObject {
     }
 
     func startPlaylist(_ playlist: Playlist) {
+        config.paused = false
+        saveConfig()
+        scheduler.setPaused(false)
         scheduler.startPlaylist(playlist)
         syncScheduler()
     }
@@ -1630,6 +1797,9 @@ final class AppStore: ObservableObject {
     }
 
     func startAutomation(_ automation: Automation) {
+        config.paused = false
+        saveConfig()
+        scheduler.setPaused(false)
         scheduler.startAutomation(automation)
         syncScheduler()
     }

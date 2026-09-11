@@ -34,6 +34,15 @@ public struct EngineConfig: Codable {
     /// frame (nil or 0 = never freeze). Issue #3: fast wallpapers are
     /// distracting, so let them move briefly and then settle.
     public var pauseAfterSeconds: Int?
+    /// Issue #22, "Play only on desktop". Freeze a display's wallpaper while
+    /// any app window is open on that display, and play it only while its
+    /// desktop is clear (nil = false, so every existing install is unchanged).
+    public var playOnlyOnDesktop: Bool?
+    /// Issue #22, the Pause After half. Every time a display's desktop becomes
+    /// clear, Pause After counts again, so the wallpaper plays for that long
+    /// and then freezes. Off (nil = false), Pause After counts only after a
+    /// start, an unlock or a wallpaper change, as it always has.
+    public var replayOnClearDesktop: Bool?
 
     public init(allDisplays: Assignment? = nil, perDisplay: [String: Assignment] = [:]) {
         self.allDisplays = allDisplays

@@ -50,14 +50,11 @@ struct SettingsView: View {
                             .labelsHidden()
                             .onChange(of: launchAtLogin) { _, enabled in
                                 setLaunchAtLogin(enabled)
-                                // Logging in with no menu bar icon would leave
-                                // no way to reach the app — keep them together.
-                                if enabled { showMenuBarIcon = true }
                             }
                     }
                     divider
                     row(icon: "menubar.rectangle", tint: .purple, title: "Show Menu Bar Icon",
-                        subtitle: "Quick controls from the menu bar") {
+                        subtitle: menuBarSubtitle) {
                         Toggle("", isOn: $showMenuBarIcon)
                             .toggleStyle(.switch)
                             .tint(Color.muroAccent)
@@ -140,6 +137,19 @@ struct SettingsView: View {
                             )) { customPauseAfter = false }
                         }
                     }
+                    // Issue #22. Replay on Clear Desktop belongs to Pause After,
+                    // so no divider sits between the two, it sits closer to
+                    // Pause After than rows sit to each other, and an arrow down
+                    // from Pause After stands where its icon would be. A box
+                    // around the pair was tried first: it pushed both rows in,
+                    // out of line with every other icon and control.
+                    subRow(title: "Replay on Clear Desktop", subtitle: replaySubtitle) {
+                        Toggle("", isOn: Binding(
+                            get: { store.replayOnClearDesktop },
+                            set: { store.setReplayOnClearDesktop($0) }
+                        ))
+                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                    }
                     divider
                     // Apple's setting, offered here so a Mac running Muro as
                     // its screen saver never needs System Settings opened for
@@ -199,6 +209,17 @@ struct SettingsView: View {
                         Toggle("", isOn: Binding(
                             get: { store.autoPauseFullScreen },
                             set: { store.setAutoPauseFullScreen($0) }
+                        ))
+                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                    }
+                    divider
+                    // Issue #22. Any app window open on a screen freezes that
+                    // screen's wallpaper, and a clear desktop plays it.
+                    row(icon: "menubar.dock.rectangle", tint: .blue, title: "Play only on desktop",
+                        subtitle: "Freeze while a window is open on that screen") {
+                        Toggle("", isOn: Binding(
+                            get: { store.playOnlyOnDesktop },
+                            set: { store.setPlayOnlyOnDesktop($0) }
                         ))
                         .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
                     }
@@ -416,6 +437,43 @@ struct SettingsView: View {
             .padding(.leading, 58)
     }
 
+    /// A setting that only changes the row above it. Placed straight after
+    /// that row with no divider, it keeps every measurement of `row`, so its
+    /// arrow, title and control line up with every other row. Only its top
+    /// padding is shorter, which pulls it towards the row it belongs to.
+    private func subRow(
+        title: String, subtitle: String, @ViewBuilder control: () -> some View
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.turn.down.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.muroSecondary)
+                .frame(width: 30, height: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.muroSecondary)
+            }
+            Spacer()
+            control()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .padding(.bottom, 12)
+    }
+
+    /// Replay has nothing to replay without a time, so it says so while
+    /// Settings has none. A wallpaper with its own Pause After time still
+    /// replays that one.
+    private var replaySubtitle: String {
+        store.pauseAfterSeconds == 0
+            ? "Works with a Pause After time"
+            : "Plays \(durationLabel(store.pauseAfterSeconds)) again each time the desktop clears"
+    }
+
     // MARK: - Software update
 
     private var updateSubtitle: String {
@@ -475,6 +533,23 @@ struct SettingsView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 5.5)
             .glassCapsule(fill: 0.09, stroke: 0.15)
+    }
+
+    /// What the menu bar row says underneath itself.
+    ///
+    /// Turning Launch at Login on used to switch the menu bar icon back on,
+    /// because at the time the icon really was the only way back into a
+    /// running Muro. `applicationShouldHandleReopen` fixed that: Launchpad,
+    /// Spotlight and Finder all reopen the gallery now. The force outlived its
+    /// reason and took the choice away from exactly the people who want Muro
+    /// out of the way, which is issue #31.
+    ///
+    /// So it is gone, and the row says where Muro is instead, on the one
+    /// combination where nothing on screen leads back to it.
+    private var menuBarSubtitle: String {
+        showMenuBarIcon || showDockIcon
+            ? "Quick controls from the menu bar"
+            : "Open Muro from Launchpad or Spotlight"
     }
 
     private func row(

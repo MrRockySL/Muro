@@ -576,6 +576,8 @@ struct MenuOption: Identifiable {
 struct GlassMenuList: View {
     var width: CGFloat = 180
     var options: [MenuOption]
+    /// See `GlassCard.shadow`. Off for the menus of the menu bar panel.
+    var shadow: Bool = true
     var dismiss: () -> Void
 
     var body: some View {
@@ -594,7 +596,7 @@ struct GlassMenuList: View {
         }
         .padding(7)
         .frame(width: width)
-        .glassCard()
+        .glassCard(shadow: shadow)
     }
 }
 
@@ -785,8 +787,6 @@ struct HeartButton: View {
                 .background(Circle().fill(Color.black.opacity(0.4)))
         }
         .buttonStyle(.plain)
-        .disabled(!item.isDownloaded)
-        .opacity(item.isDownloaded || item.liked ? 1 : 0.4)
     }
 }
 
@@ -996,7 +996,7 @@ struct WallpaperCard: View {
             SelectionTick(isSelected: isSelected).padding(12)
         } else if item.liked {
             HeartButton(item: item).padding(12)
-        } else if hovering && item.isDownloaded {
+        } else if hovering {
             HeartButton(item: item).padding(12).transition(Self.popIn)
         }
     }
