@@ -1102,6 +1102,14 @@ struct GlassCard: ViewModifier {
     /// How dark the glass is tinted. Menus open over 4K video, so this and
     /// the base fill below decide whether their text can be read.
     var tint: Double = 0.32
+    /// Whether the card casts a shadow.
+    ///
+    /// It earns its place over the gallery, where a menu opens on top of bright
+    /// thumbnails and needs lifting off them. The menu bar panel is the one
+    /// place with nothing bright to lift off: the card opens on the panel's own
+    /// dark glass, where black on near-black reads as a smear of tint sitting
+    /// behind the card rather than as depth (owner, 2026-09-11).
+    var shadow: Bool = true
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -1135,7 +1143,10 @@ struct GlassCard: ViewModifier {
                 .frame(height: 1)
                 .padding(.horizontal, cornerRadius * 1.8)
             }
-            .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 10)
+            .shadow(
+                color: .black.opacity(shadow ? 0.5 : 0),
+                radius: shadow ? 20 : 0, x: 0, y: shadow ? 10 : 0
+            )
             .preferredColorScheme(.dark)
     }
 }
@@ -1159,8 +1170,8 @@ private struct GlassMaterial: ViewModifier {
 
 extension View {
     /// The visual surface only, for a menu drawn inside the window.
-    func glassCard(cornerRadius: CGFloat = 16) -> some View {
-        modifier(GlassCard(cornerRadius: cornerRadius))
+    func glassCard(cornerRadius: CGFloat = 16, shadow: Bool = true) -> some View {
+        modifier(GlassCard(cornerRadius: cornerRadius, shadow: shadow))
     }
 }
 
@@ -1483,7 +1494,10 @@ struct MenuButton<Label: View>: View {
                     options: items,
                     width: width,
                     anchor: screenAnchor.frame ?? .zero,
-                    parent: screenAnchor.window
+                    parent: screenAnchor.window,
+                    // So pressing this control again closes the menu it opened
+                    // rather than reopening it. See `MenuBarMenuPanel.openedBy`.
+                    owner: ObjectIdentifier(screenAnchor)
                 )
                 return
             }

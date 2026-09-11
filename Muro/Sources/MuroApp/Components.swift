@@ -576,6 +576,8 @@ struct MenuOption: Identifiable {
 struct GlassMenuList: View {
     var width: CGFloat = 180
     var options: [MenuOption]
+    /// See `GlassCard.shadow`. Off for the menus of the menu bar panel.
+    var shadow: Bool = true
     var dismiss: () -> Void
 
     var body: some View {
@@ -594,7 +596,7 @@ struct GlassMenuList: View {
         }
         .padding(7)
         .frame(width: width)
-        .glassCard()
+        .glassCard(shadow: shadow)
     }
 }
 
