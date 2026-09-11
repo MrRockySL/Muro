@@ -51,6 +51,13 @@ public final class WallpaperWindowController {
     /// covered, which costs CPU for something nobody can see, so it stays on
     /// unless the user deliberately turns it off.
     private var autoPauseFullScreen = true
+    /// Issue #22. The two desktop switches from Settings, and whether an app
+    /// window was open on this screen at the engine's last look. Nil until the
+    /// first look, so the first reading is never taken for the desktop
+    /// clearing.
+    private var playOnlyOnDesktop = false
+    private var replayOnClearDesktop = false
+    private var desktopCovered: Bool?
 
     public init(screen: NSScreen, videoURL: URL) {
         window = NSWindow(
@@ -266,6 +273,40 @@ public final class WallpaperWindowController {
     private func settle() {
         settleTimer = nil
         hold("settled")
+    }
+
+    /// Issue #22. "Play only on desktop" is an ordinary hold named
+    /// `desktop-covered`, so it composes with lock, sleep, occlusion and the
+    /// user pause like the rest. "Replay on clear desktop" starts the Pause
+    /// After clock again the moment this screen's desktop clears, the same way
+    /// an unlock does. Neither changes how Pause After counts otherwise.
+    public func setDesktopRules(playOnlyOnDesktop: Bool, replayOnClearDesktop: Bool) {
+        self.replayOnClearDesktop = replayOnClearDesktop
+        guard playOnlyOnDesktop != self.playOnlyOnDesktop else { return }
+        self.playOnlyOnDesktop = playOnlyOnDesktop
+        applyDesktopHold()
+    }
+
+    /// The engine's latest look at this screen: true while an app window is
+    /// open on it, nil while neither switch is on and nothing is looking.
+    public func setDesktopCovered(_ covered: Bool?) {
+        guard covered != desktopCovered else { return }
+        let wasCovered = desktopCovered
+        desktopCovered = covered
+        applyDesktopHold()
+        if DesktopPlayback.restartsPauseAfter(
+            wasCovered: wasCovered, isCovered: covered, replayOnClearDesktop: replayOnClearDesktop
+        ) {
+            armSettleTimer()
+        }
+    }
+
+    private func applyDesktopHold() {
+        if DesktopPlayback.holds(isCovered: desktopCovered, playOnlyOnDesktop: playOnlyOnDesktop) {
+            hold("desktop-covered")
+        } else {
+            release("desktop-covered")
+        }
     }
 
     /// Playback speed from Settings (0.5×–1.5×). Applied live when playing.

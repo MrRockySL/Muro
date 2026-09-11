@@ -1182,6 +1182,21 @@ final class AppStore: ObservableObject {
         saveConfig()
     }
 
+    /// Issue #22. Both off by default, so no install behaves differently until
+    /// someone turns one on.
+    var playOnlyOnDesktop: Bool { config.playOnlyOnDesktop ?? false }
+    var replayOnClearDesktop: Bool { config.replayOnClearDesktop ?? false }
+
+    func setPlayOnlyOnDesktop(_ on: Bool) {
+        config.playOnlyOnDesktop = on
+        saveConfig()
+    }
+
+    func setReplayOnClearDesktop(_ on: Bool) {
+        config.replayOnClearDesktop = on
+        saveConfig()
+    }
+
     func setAutoPauseLowPower(_ on: Bool) {
         config.autoPauseLowPower = on
         saveConfig()
