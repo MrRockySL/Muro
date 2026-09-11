@@ -785,8 +785,6 @@ struct HeartButton: View {
                 .background(Circle().fill(Color.black.opacity(0.4)))
         }
         .buttonStyle(.plain)
-        .disabled(!item.isDownloaded)
-        .opacity(item.isDownloaded || item.liked ? 1 : 0.4)
     }
 }
 
@@ -996,7 +994,7 @@ struct WallpaperCard: View {
             SelectionTick(isSelected: isSelected).padding(12)
         } else if item.liked {
             HeartButton(item: item).padding(12)
-        } else if hovering && item.isDownloaded {
+        } else if hovering {
             HeartButton(item: item).padding(12).transition(Self.popIn)
         }
     }
