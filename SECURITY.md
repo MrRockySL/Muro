@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 4.0.x   | Yes |
-| < 4.0   | Please update |
+| 5.0.x   | Yes |
+| < 5.0   | Please update |
 
 Only the latest release receives security fixes. Updates are published on the
 [Releases](https://github.com/MrRockySL/Muro/releases) page.
@@ -46,12 +46,31 @@ The main app uses normal user-level access to:
   power state
 - Register Muro as a login item only when you enable **Launch at Login**
 - Set your Mac's screen saver, and how long it waits, when you ask it to
+- Read the position, size, layer and opacity of on-screen windows, never their
+  names or contents, and only while **Play only on desktop** or **Replay on
+  Clear Desktop** is on
 
 Imported videos stay on your Mac and are not uploaded.
 
 While Muro's menu-bar panel is open, it temporarily observes global left-click
 and right-click events so it can close the panel when you click elsewhere. It
 handles the Escape key locally. It does not record or upload those events.
+
+### Windows on your screen
+
+Since 5.0, **Play only on desktop** and **Replay on Clear Desktop** need to know
+whether a window is open on each screen. While either is on, Muro asks macOS for
+the window list about twice a second, and again straight after a click, an app
+switch, a hide, a launch, a quit or a Space change. It reads each window's
+position, size, layer and opacity, which macOS gives any app without a
+permission prompt, and it never reads window titles or contents. Muro has no
+Screen Recording permission, so macOS does not hand it titles at all.
+
+For the same reason, Muro observes global mouse-up events while either switch is
+on: a click is the earliest sign that a window is about to open, close or
+minimise. Only the fact that a click happened is used, never where it landed or
+on what, and key events are never observed. Nothing here is stored or uploaded,
+and with both switches off, which is the default, none of it runs.
 
 ### Desktop picture
 
@@ -133,7 +152,7 @@ fixes.
 
 ### Screen saver
 
-Since 4.0.3, Muro can be your screen saver as well as your desktop and lock
+Since 5.0, Muro can be your screen saver as well as your desktop and lock
 screen. macOS keeps all three in the same user-level wallpaper stores, and it
 files the screen saver under a role it calls `idle`, so applying one writes the
 same `Index.plist` and `Index2.plist` described above and takes the same backups
@@ -243,7 +262,7 @@ You can inspect and compile the tagged source:
 ```bash
 git clone https://github.com/MrRockySL/Muro.git
 cd Muro
-git checkout v4.0.3
+git checkout v5.0
 swift build -c release --package-path Muro
 ```
 
