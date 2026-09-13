@@ -41,15 +41,17 @@ wallpaper and every feature is unlocked.
 ## Features
 
 - 🌙 **Live video wallpapers.** Looping, seamless, on every display at once.
-- 🔒 **Lock screen live wallpapers.** Play a wallpaper on your lock screen too, not just the desktop. Set it to the desktop, the lock screen, or both, per display. Requires macOS 26 or newer.
+- 🔒 **Lock screen live wallpapers.** Play a wallpaper on your lock screen too, not just the desktop. Set it to the desktop, the lock screen, or both, on every display. Requires macOS 26 or newer.
+- 🖥️ **Screen saver.** Muro can be your screen saver as well, playing video rather than a still picture, and you set how long your Mac waits before it starts. Requires macOS 26 or newer.
 - 🪶 **Very low CPU usage.** HEVC decoded in hardware, never on the CPU.
 - 😴 **Pauses itself** on full screen apps, display sleep, screen lock, Low Power Mode and low battery. A paused wallpaper uses no CPU at all.
+- 🖱️ **Play only on desktop.** Hold the wallpaper still while you work and let it play when the desktop is clear, one screen at a time.
 - ⚡ **Smooth or Efficient.** Keep a wallpaper's original frame rate, or drop it to 30 fps to halve the power draw. Your choice, per wallpaper.
 - 🖼️ **Explore gallery.** Browse the catalog, preview full screen, download only what you want.
 - 🔄 **New wallpapers arrive on their own.** The library updates without updating the app. More on that below.
 - 📃 **Playlists.** Rotate through a set on a timer, shuffled or in order.
 - ⏱️ **Automations.** Give every wallpaper its own time. Ten seconds each, or a full day schedule where each wallpaper has its own hours.
-- ⏸️ **Pause after a set time.** Let a wallpaper play for a while after it changes or after you unlock, then hold still. Set it in seconds, minutes or hours.
+- ⏸️ **Pause after a set time.** Let a wallpaper play for a while after it changes or after you unlock, then hold still. Set it in seconds, minutes or hours, for everything or for one wallpaper, and turn on Replay on Clear Desktop to get that time again whenever your desktop is clear.
 - 🗑️ **Delete what you do not want.** Remove wallpapers one at a time or several at once, imported videos included.
 - 📥 **Import your own.** Drop in any video and it gets transcoded once to HEVC and added to your library.
 - 🎛️ **Menu bar controls.** Play, pause, skip and switch wallpapers without opening the app.
@@ -58,8 +60,9 @@ wallpaper and every feature is unlocked.
 - 🆓 **Free and open source** (MIT).
 
 > Requires macOS 14 (Sonoma) or newer. The build is universal, so it runs on
-> both Apple Silicon and Intel Macs. On macOS 26 and later the interface uses
-> SwiftUI's native liquid glass; on older versions it falls back to translucent
+> both Apple Silicon and Intel Macs. Lock screen and screen saver wallpapers
+> need macOS 26 or newer. On macOS 26 and later the interface uses SwiftUI's
+> native liquid glass; on older versions it falls back to translucent
 > materials, which looks slightly different but works the same.
 
 ---
@@ -136,6 +139,36 @@ override it or opt out entirely.
 
 A held frame costs no CPU at all, so this is the lightest Muro ever gets while
 still showing you something you chose.
+
+---
+
+## Moving when you are looking, still when you are not
+
+Most of the day your wallpaper sits behind windows, where you barely see it.
+
+**Play only on desktop** holds a screen's wallpaper on a frame while any app
+window is open on that screen, and plays it the moment the desktop is clear.
+Minimise everything, or click the desktop, and it moves. Each display decides
+for itself, so a window on your laptop screen leaves your monitor playing. Turn
+it on in Settings, under Energy.
+
+**Replay on Clear Desktop** sits right under Pause After. Every time your
+desktop is clear again, Pause After counts from the beginning, so the wallpaper
+plays for that long and then holds.
+
+Both are off by default.
+
+---
+
+## Your screen saver too
+
+On macOS 26 or newer, Muro can be your screen saver as well, playing the video
+rather than a still picture. Open a wallpaper, pick **Screensaver** in the apply
+card, and set it.
+
+Settings also has **Start Screen Saver**, so you can choose how long your Mac
+waits before it begins without opening System Settings. macOS keeps one screen
+saver for the whole Mac, so this is one setting rather than one per display.
 
 ---
 
