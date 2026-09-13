@@ -39,27 +39,33 @@ struct WhatsNewRelease: Identifiable {
 /// release is editing this one list.
 enum WhatsNew {
     static let current = WhatsNewRelease(
-        version: "4.0",
+        version: "5.0",
         date: "September 2026",
-        headline: "The lock screen works on every Mac now, and Explore loads on networks that used to show nothing.",
+        headline: "Muro can be your screen saver now, it can hold still while you work, and your wallpaper stays on screen even when Muro is not running.",
         sections: [
             WhatsNewSection(name: "New", tint: .muroAccent, entries: [
-                WhatsNewEntry(title: "Intel Macs",
-                              detail: "Runs natively on Intel as well as Apple Silicon."),
-                WhatsNewEntry(title: "Update alerts",
-                              detail: "The menu bar tells you when a new Muro is out."),
-                WhatsNewEntry(title: "Menu bar colour",
-                              detail: "Follows your wallpaper on macOS 15 and earlier."),
+                WhatsNewEntry(title: "Screen saver",
+                              detail: "Muro plays your wallpapers as the screen saver, and sets when it starts. macOS 26 or newer."),
+                WhatsNewEntry(title: "Play only on desktop",
+                              detail: "The wallpaper holds while a window is open, and plays when the desktop is clear."),
+                WhatsNewEntry(title: "Replay on Clear Desktop",
+                              detail: "Pause After counts again every time your desktop is clear."),
+                WhatsNewEntry(title: "Quit Muro, keep your wallpaper",
+                              detail: "The desktop keeps a still of it, and your lock screen keeps its wallpaper through a restart."),
+                WhatsNewEntry(title: "A lock screen on every display",
+                              detail: "Applying one used to leave only the last display with it."),
             ]),
             WhatsNewSection(name: "Fixed", tint: .muroGreen, entries: [
+                WhatsNewEntry(title: "The black desktop",
+                              detail: "Changing wallpaper or quitting Muro could leave the desktop black."),
                 WhatsNewEntry(title: "The lock screen on macOS 26",
-                              detail: "It kept showing Apple's picture instead of your wallpaper."),
-                WhatsNewEntry(title: "Explore was empty on some networks",
-                              detail: "Wallpapers now come from Muro's own domain."),
-                WhatsNewEntry(title: "Applying now waits for macOS",
-                              detail: "Muro used to say it worked even when macOS had ignored it."),
-                WhatsNewEntry(title: "Other small bug fixes",
-                              detail: "The Dock, the menus, and Muro's Pick."),
+                              detail: "On some Macs, Muro saved its choice where macOS never looks."),
+                WhatsNewEntry(title: "The screen saver stays yours",
+                              detail: "Updating Muro while it was running handed it back to Apple's aerials."),
+                WhatsNewEntry(title: "Lighter",
+                              detail: "Two things that kept the CPU busy for nothing are gone."),
+                WhatsNewEntry(title: "Some other major bug fixes and improvements",
+                              detail: "Across the gallery, the menu bar and Settings."),
             ]),
         ]
     )
