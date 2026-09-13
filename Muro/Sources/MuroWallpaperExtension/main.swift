@@ -266,6 +266,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 rootLayer: rootLayer,
                 renderer: renderer,
                 choiceID: info.choiceID,
+                videoURL: videoURL,
                 // A screen saver keeps the frame it was built with. Restaging
                 // the desktop's picture must not reach across onto it.
                 drawsStill: !info.isPreview && !info.isScreenSaver,
@@ -273,6 +274,7 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 displayID: info.displayID,
                 fallback: fallbackStill
             )
+            wallpaper.stagedIdentity = FileIdentity.of(videoURL)
             RendererState.shared.install(wallpaper, for: key)
             // A surface is not trusted to have come up right. See
             // RendererState.scheduleStillReassert for what was measured.

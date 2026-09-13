@@ -273,6 +273,31 @@ final class LibraryTests: XCTestCase {
         XCTAssertTrue(PlaylistStore.load(root: root).isEmpty)
     }
 
+    func testAPlaylistWithoutASurfaceInJSONReadsAsDesktop() throws {
+        let legacy = Data(
+            #"[{"id":"p1","name":"Old","wallpaperIDs":["a"],"intervalMinutes":30,"shuffle":false}]"#.utf8
+        )
+        try legacy.write(to: PlaylistStore.url(root: root))
+        XCTAssertEqual(PlaylistStore.load(root: root).first?.surface, .desktop)
+    }
+
+    func testPlaylistSurfaceRoundTripsThroughTheStore() throws {
+        let playlists = [
+            Playlist(name: "Lock", wallpaperIDs: ["a"], surface: .lockscreen),
+            Playlist(name: "Both", wallpaperIDs: ["b"], surface: .all),
+        ]
+        try PlaylistStore.save(playlists, root: root)
+        let loaded = PlaylistStore.load(root: root)
+        XCTAssertEqual(loaded[0].surface, .lockscreen)
+        XCTAssertEqual(loaded[1].surface, .all)
+    }
+
+    func testPrunedPlaylistsKeepTheirSurface() {
+        let playlists = [Playlist(id: "p1", name: "Mixed", wallpaperIDs: ["a", "b"], surface: .all)]
+        let result = PlaylistStore.pruned(playlists, removing: ["a"])
+        XCTAssertEqual(result.playlists.first?.surface, .all)
+    }
+
     // MARK: - Deleting a wallpaper
 
     /// The delete path removes exactly this list. A wallpaper with a lazily
