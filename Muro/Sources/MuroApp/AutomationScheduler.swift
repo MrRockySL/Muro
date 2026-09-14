@@ -93,6 +93,17 @@ final class AutomationScheduler {
         activeAutomation?.name ?? activePlaylist?.name
     }
 
+    /// Whether the running schedule, if any, covers the lock screen. Pausing
+    /// only needs to stop this scheduler's own clock for that case: a
+    /// paused lock-screen rotation would otherwise keep swapping the locked
+    /// video out from under a frozen desktop. A desktop-only schedule already
+    /// holds still because the engine pauses playback, so its clock stays
+    /// free to keep counting — matching Muro's pause semantics from before
+    /// this feature existed.
+    private var activeScheduleCoversLockScreen: Bool {
+        activeAutomation?.surface.coversLockScreen ?? activePlaylist?.surface.coversLockScreen ?? false
+    }
+
     /// The wallpaper id the running schedule is on right now, or `nil` when
     /// nothing runs. The lock-screen catch-up re-stages this without advancing
     /// the clock.
@@ -192,13 +203,18 @@ final class AutomationScheduler {
         cancelTimer()
     }
 
-    /// Freeze or thaw the running schedule. Pausing cancels the timer and
-    /// remembers when; resuming pushes the current step's start forward by the
-    /// paused span (`SchedulePause`) so nothing is lost or skipped, then
-    /// re-arms. Safe to call repeatedly with the same value.
+    /// Freeze or thaw the running schedule's clock, but only when it drives
+    /// the lock screen (see `activeScheduleCoversLockScreen`) — a desktop-only
+    /// playlist or automation keeps ticking under Pause exactly as it did
+    /// before this feature, since the engine already holds its frame still.
+    /// Pausing cancels the timer and remembers when; resuming pushes the
+    /// current step's start forward by the paused span (`SchedulePause`) so
+    /// nothing is lost or skipped, then re-arms. Safe to call repeatedly with
+    /// the same value.
     func setPaused(_ paused: Bool) {
         guard paused != isPaused else { return }
         isPaused = paused
+        guard activeScheduleCoversLockScreen else { return }
         if paused {
             pauseStartedAt = Date()
             cancelTimer()
@@ -234,7 +250,7 @@ final class AutomationScheduler {
     /// on every start, edit, fire and wake, so there is one path and it is
     /// always driven by absolute time.
     private func reevaluate() {
-        guard !isPaused else { return }
+        guard !(isPaused && activeScheduleCoversLockScreen) else { return }
         if let automation = activeAutomation {
             switch automation.mode {
             case .clock:
@@ -283,7 +299,9 @@ final class AutomationScheduler {
     /// next boundary, not one per window.
     private func schedule() {
         cancelTimer()
-        guard !isPaused, let interval = nextInterval(), interval > 0 else { return }
+        guard !(isPaused && activeScheduleCoversLockScreen),
+              let interval = nextInterval(), interval > 0
+        else { return }
         let timer = Timer(timeInterval: interval, repeats: false) { [weak self] _ in
             Task { @MainActor in self?.fire() }
         }
@@ -293,7 +311,7 @@ final class AutomationScheduler {
     }
 
     private func fire() {
-        guard !isPaused else { return }
+        guard !(isPaused && activeScheduleCoversLockScreen) else { return }
         if let automation = activeAutomation, automation.mode == .timer {
             stepIndex = (stepIndex + 1) % max(1, automation.steps.count)
             stepStartedAt = Date()

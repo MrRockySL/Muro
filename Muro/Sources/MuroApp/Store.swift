@@ -1002,45 +1002,8 @@ final class AppStore: ObservableObject {
         _ item: WallpaperItem,
         mode: String,
         target: ApplyTarget,
-        surface explicitSurface: ApplySurface?,
-        fromSchedule: Bool = false
+        surface explicitSurface: ApplySurface?
     ) async {
-        // A manual apply is a user's choice for this one wallpaper, not a
-        // scheduler tick. Stop whatever is running so the next tick cannot
-        // overwrite it — `driveLockScreenRotation` decides begin-vs-swap only
-        // from `isRotating`, which the stop clears. The scheduler's own tick
-        // passes `fromSchedule: true`: it is already running the schedule, so
-        // stopping it here would stop the schedule from within itself.
-        //
-        // This mirrors `syncScheduler()` but awaits `reconcileRotation` inline
-        // instead of the fire-and-forget `Task` it posts. Stopping a schedule
-        // orphans its rotation, and `reconcileRotation` runs `endRotation()` to
-        // restore the pre-rotation selection; left un-awaited that teardown can
-        // race the manual `lockScreen.apply` below and revert the very choice
-        // this apply is making. The public `stopPlaylist`/`stopAutomation`
-        // wrappers are not used here for the same reason — each would post its
-        // own competing `reconcileRotation`.
-        applyGeneration += 1
-        let myApplyGeneration = applyGeneration
-
-        if !fromSchedule {
-            let hadActiveSchedule = activePlaylist != nil || activeAutomation != nil
-            if activePlaylist != nil { scheduler.stopPlaylist() }
-            if activeAutomation != nil { scheduler.stopAutomation() }
-            if hadActiveSchedule {
-                activePlaylistID = scheduler.activePlaylistID
-                activeAutomationID = scheduler.activeAutomationID
-                scheduler.setPaused(isPaused)
-                let running = runningLockScreenScheduleIDs
-                if running.isEmpty { currentRotationStepID = nil }
-                lockScreen.setLockScreenPlaybackPaused(isPaused && !running.isEmpty)
-                while let pending = lockScreenRotationBeginTask {
-                    await pending.value
-                }
-                await lockScreen.reconcileRotation(runningRotationIDs: runningLockScreenScheduleIDs)
-            }
-        }
-
         guard var entry = item.local else { return }
         let surface = explicitSurface ?? .desktop
         let resolvedMode = entry.fps > 40 ? mode : "smooth"
@@ -1090,16 +1053,8 @@ final class AppStore: ObservableObject {
                         connectedDisplays: Set(displays.map(\.id))
                     )
                     if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
-                    // A newer apply started while this one was awaiting the
-                    // store: stop before writing the next role or committing
-                    // the desktop assignment, so we cannot clobber it. The
-                    // `defer` above still clears `applyingLockScreen`.
-                    guard myApplyGeneration == applyGeneration else { return }
                 }
                 if surface == .all {
-                    // Last checkpoint before committing the desktop
-                    // assignment: bail if a newer apply superseded this one.
-                    guard myApplyGeneration == applyGeneration else { return }
                     applyAssignment(id: entry.id, mode: resolvedMode, target: target)
                 } else {
                     pushRecent(entry.id)
@@ -1137,12 +1092,6 @@ final class AppStore: ObservableObject {
 
     private var lockScreenRotationBeginGeneration = 0
 
-    /// Monotonic ticket handed out at the start of every `applyWallpaper`. A
-    /// call that is still in flight when a newer one begins finds its ticket
-    /// stale at the next store write and bails, so a superseded apply can never
-    /// overwrite the result of the apply that replaced it.
-    private var applyGeneration: UInt64 = 0
-
     /// The ids of the running schedules whose surface covers the lock screen.
     /// At most one, since only one schedule runs at a time; a `Set` so it drops
     /// straight into `reconcileRotation` / `healIfNeeded`.
@@ -1168,11 +1117,8 @@ final class AppStore: ObservableObject {
         let mode = defaultMode(for: item)
         if surface.coversDesktop {
             // No explicit surface → the pure-desktop branch of applyWallpaper,
-            // byte-identical to a scheduler tick before this change. Called
-            // directly rather than through the public `setWallpaper`, which
-            // would run the manual-apply stop guard against the schedule that
-            // is running this very tick.
-            Task { await self.applyWallpaper(item, mode: mode, target: target, surface: nil, fromSchedule: true) }
+            // byte-identical to a scheduler tick before this change.
+            Task { await self.applyWallpaper(item, mode: mode, target: target, surface: nil) }
         }
         if surface.coversLockScreen {
             driveLockScreenRotation(item: item, mode: mode)

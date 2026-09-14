@@ -711,24 +711,33 @@ final class LockScreenService {
             return
         }
         var nextState = state
-        Self.setSelections(snapshot, for: .desktop, in: &nextState)
         nextState.rotation = nil
         nextState.preRotationSelections = nil
 
         let root = root
         let extensionURL = extensionBundleURL
         let restageSource = restageSource
-        try await Task.detached(priority: .userInitiated) {
+        state = try await Task.detached(priority: .userInitiated) {
+            var nextState = nextState
             // A staged file backing one of these ids can have been reaped by
             // `pruneStagedLibrary` while the rotation ran — `heldIDs` only
             // ever sees the rotation's own fixed id, never the ids this
             // snapshot is about to put back. Re-stage anything that is gone
-            // before writing the plist, or the restored id points at nothing.
+            // before writing the plist. An id whose source has also been
+            // removed from the library (`restageSource` returns `nil`) is
+            // dropped from the restored selection instead of being written
+            // pointing at a file that was never re-staged.
+            var effectiveSnapshot = snapshot
             for wallpaperID in Set(snapshot.values).subtracting([Self.removedSelection]) {
                 guard !FileManager.default.fileExists(
                     atPath: Self.stagedVideoURL(id: wallpaperID).path
                 ) else { continue }
-                guard let source = restageSource?(wallpaperID) else { continue }
+                guard let source = restageSource?(wallpaperID) else {
+                    for (key, value) in snapshot where value == wallpaperID {
+                        effectiveSnapshot[key] = Self.removedSelection
+                    }
+                    continue
+                }
                 try Self.stageFiles(
                     id: wallpaperID,
                     title: source.title,
@@ -737,13 +746,15 @@ final class LockScreenService {
                     link: false
                 )
             }
+            Self.setSelections(effectiveSnapshot, for: .desktop, in: &nextState)
+
             // "all" writes to every node unconditionally (AppleWallpaperStore
             // .applyChoice), so it must land first or it overwrites any
             // per-display exception restored after it.
-            let orderedKeys = (snapshot.keys.contains("all") ? ["all"] : [])
-                + snapshot.keys.filter { $0 != "all" }
+            let orderedKeys = (effectiveSnapshot.keys.contains("all") ? ["all"] : [])
+                + effectiveSnapshot.keys.filter { $0 != "all" }
             for targetKey in orderedKeys {
-                guard let wallpaperID = snapshot[targetKey] else { continue }
+                guard let wallpaperID = effectiveSnapshot[targetKey] else { continue }
                 if wallpaperID == Self.removedSelection {
                     try await Self.restoreWallpaperStores(
                         targetKey: targetKey, surface: .desktop, root: root
@@ -769,8 +780,8 @@ final class LockScreenService {
                 try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
                 try? FileManager.default.removeItem(at: Self.legacyBackupURL(root: root))
             }
+            return nextState
         }.value
-        state = nextState
     }
 
     /// Freeze or resume the locked wallpaper's video without touching any
