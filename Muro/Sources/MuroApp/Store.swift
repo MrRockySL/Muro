@@ -1763,6 +1763,7 @@ final class AppStore: ObservableObject {
             kept: manifest.wallpapers.count - removed.count,
             personal: removed.filter { !remote.contains($0.id) }.count,
             bytes: removed.reduce(0) { $0 + $1.sizeBytes } + PreviewCache.sizeOnDisk()
+                + ThumbnailCache.sizeOnDisk()
         )
     }
 
@@ -1784,6 +1785,8 @@ final class AppStore: ObservableObject {
             // never mentioned anywhere: 20 MB of streamed previews that only
             // Clear can reach.
             PreviewCache.clear()
+            // The saved Explore thumbnails, re-downloadable the same way.
+            ThumbnailCache.clear()
             if let updated = try? await Task.detached(priority: .utility, operation: {
                 [root] in try LibraryWriter.delete(ids: Set(doomed), root: root)
             }).value {

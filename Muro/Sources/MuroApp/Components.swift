@@ -60,8 +60,8 @@ enum ImageCache {
     }
 }
 
-/// Local thumbnail from disk, or streamed catalog thumbnail for
-/// not-yet-downloaded wallpapers.
+/// Local thumbnail from disk, or the catalog thumbnail for a wallpaper that is
+/// not downloaded, saved to disk the first time it arrives.
 ///
 /// The decode happens off the main thread. Doing it inside `body`, as this
 /// used to, meant every card opened and decoded a JPEG while the grid was
@@ -75,7 +75,12 @@ struct ThumbImage: View {
 
     var body: some View {
         let path = store.thumbnailPath(for: item)
-        let ready = image ?? path.flatMap { ImageCache.cached(path: $0, maxPixels: maxPixels) }
+        // Not downloaded: the catalog thumbnail, read from the copy
+        // ThumbnailCache saved, so a card scrolled back into view paints from
+        // memory or disk instead of waiting on the network again.
+        let remote = path == nil ? item.remote?.thumbnail : nil
+        let source = path ?? remote.map { _ in ThumbnailCache.path(id: item.id) }
+        let ready = image ?? source.flatMap { ImageCache.cached(path: $0, maxPixels: maxPixels) }
         // The size comes from `Color.clear`, not from the picture.
         //
         // `scaledToFill` reports whatever size is needed to COVER what it was
@@ -91,14 +96,6 @@ struct ThumbImage: View {
             .overlay {
                 if let ready {
                     Image(nsImage: ready).resizable().scaledToFill()
-                } else if path == nil, let url = item.remote?.thumbnail {
-                    AsyncImage(url: url) { phase in
-                        if let remote = phase.image {
-                            remote.resizable().scaledToFill()
-                        } else {
-                            Color.white.opacity(0.04)
-                        }
-                    }
                 } else {
                     Color.white.opacity(0.04)
                 }
@@ -106,7 +103,13 @@ struct ThumbImage: View {
             .clipped()
             // Decoration only. Whatever it sits in owns the click.
             .allowsHitTesting(false)
-            .task(id: path) { await load(path: path) }
+            .task(id: source) {
+                if let remote {
+                    await loadRemote(from: remote)
+                } else {
+                    await load(path: path)
+                }
+            }
     }
 
     private func load(path: String?) async {
@@ -125,6 +128,30 @@ struct ThumbImage: View {
         // A scrolled-away card may have been reused for another wallpaper
         // while this was decoding.
         guard path == store.thumbnailPath(for: item) else { return }
+        image = loaded
+    }
+
+    /// The catalog thumbnail of a wallpaper that is not downloaded: the saved
+    /// copy when there is one, otherwise fetched once and saved.
+    private func loadRemote(from url: URL) async {
+        let id = item.id
+        if let hit = ImageCache.cached(path: ThumbnailCache.path(id: id), maxPixels: maxPixels) {
+            image = hit
+            return
+        }
+        guard let saved = await ThumbnailCache.fetch(id: id, from: url) else { return }
+        let pixels = maxPixels
+        let loaded = await Task.detached(priority: .userInitiated) {
+            ImageCache.load(path: saved, maxPixels: pixels)
+        }.value
+        // A saved copy that will not decode is damaged. Dropping it means the
+        // card fetches a fresh one next time instead of staying blank.
+        guard let loaded else {
+            ThumbnailCache.discard(id: id)
+            return
+        }
+        // Downloaded meanwhile: its own thumbnail takes over.
+        guard store.thumbnailPath(for: item) == nil else { return }
         image = loaded
     }
 }
