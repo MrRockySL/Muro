@@ -74,7 +74,7 @@ wallpaper and every feature is unlocked.
 </p>
 
 <p align="center">
-  <a href="https://github.com/MrRockySL/Muro/releases/download/v4.0/muro-demo.mp4"><strong>Watch Muro in action</strong></a>
+  <a href="https://github.com/MrRockySL/Muro/releases/download/v5.0/muro-demo.mp4"><strong>Watch Muro in action</strong></a>
 </p>
 
 ---
