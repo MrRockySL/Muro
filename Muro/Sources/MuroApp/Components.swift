@@ -34,6 +34,12 @@ enum ImageCache {
         cache.object(forKey: key(path: path, maxPixels: maxPixels))
     }
 
+    /// Empties the decoded pictures. A view still showing one keeps it; every
+    /// other picture is decoded from disk again the next time it is needed.
+    static func removeAll() {
+        cache.removeAllObjects()
+    }
+
     /// Decodes at reduced size through ImageIO, so only the pixels that will
     /// actually be drawn are ever allocated. Call this off the main thread.
     static func load(path: String, maxPixels: Int) -> NSImage? {
@@ -72,6 +78,9 @@ struct ThumbImage: View {
     var maxPixels: Int = ImageCache.gridPixels
 
     @State private var image: NSImage?
+    /// True while the gallery window this card sits in is hidden. Always false
+    /// in the menu bar panel and Settings. See `GalleryVisibility`.
+    @Environment(\.galleryHidden) private var galleryHidden
 
     var body: some View {
         let path = store.thumbnailPath(for: item)
@@ -80,7 +89,9 @@ struct ThumbImage: View {
         // memory or disk instead of waiting on the network again.
         let remote = path == nil ? item.remote?.thumbnail : nil
         let source = path ?? remote.map { _ in ThumbnailCache.path(id: item.id) }
-        let ready = image ?? source.flatMap { ImageCache.cached(path: $0, maxPixels: maxPixels) }
+        let shown = image ?? source.flatMap { ImageCache.cached(path: $0, maxPixels: maxPixels) }
+        // A hidden gallery draws nothing, so its cards hold no picture.
+        let ready = galleryHidden ? nil : shown
         // The size comes from `Color.clear`, not from the picture.
         //
         // `scaledToFill` reports whatever size is needed to COVER what it was
@@ -103,7 +114,13 @@ struct ThumbImage: View {
             .clipped()
             // Decoration only. Whatever it sits in owns the click.
             .allowsHitTesting(false)
-            .task(id: source) {
+            .task(id: galleryHidden ? nil : source) {
+                // Hidden: let go of the picture. It comes back from memory or
+                // disk when the gallery is shown again, never the network.
+                guard !galleryHidden else {
+                    image = nil
+                    return
+                }
                 if let remote {
                     await loadRemote(from: remote)
                 } else {
@@ -126,8 +143,8 @@ struct ThumbImage: View {
             ImageCache.load(path: path, maxPixels: pixels)
         }.value
         // A scrolled-away card may have been reused for another wallpaper
-        // while this was decoding.
-        guard path == store.thumbnailPath(for: item) else { return }
+        // while this was decoding, and a gallery hidden meanwhile wants none.
+        guard !Task.isCancelled, path == store.thumbnailPath(for: item) else { return }
         image = loaded
     }
 
@@ -150,8 +167,9 @@ struct ThumbImage: View {
             ThumbnailCache.discard(id: id)
             return
         }
-        // Downloaded meanwhile: its own thumbnail takes over.
-        guard store.thumbnailPath(for: item) == nil else { return }
+        // Downloaded meanwhile: its own thumbnail takes over. Hidden meanwhile:
+        // nothing is wanted.
+        guard !Task.isCancelled, store.thumbnailPath(for: item) == nil else { return }
         image = loaded
     }
 }

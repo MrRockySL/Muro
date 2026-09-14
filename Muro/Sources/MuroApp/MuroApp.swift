@@ -250,6 +250,8 @@ struct MuroApp: App {
         Window(MuroWindow.gallery, id: "main") {
             RootView()
                 .environmentObject(store)
+                // Its cards let go of their pictures while the window is hidden.
+                .tracksGalleryVisibility()
                 .frame(minWidth: 1180, minHeight: 760)
                 .preferredColorScheme(.dark)
                 .onAppear {
