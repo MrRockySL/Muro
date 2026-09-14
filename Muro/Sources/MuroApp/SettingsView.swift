@@ -42,7 +42,7 @@ struct SettingsView: View {
                     .id("settings-top")
 
                 section("GENERAL") {
-                    row(icon: "power", tint: .blue, title: "Launch at Login",
+                    row(icon: .launchAtLogin, title: "Launch at Login",
                         subtitle: "Starts quietly in the background") {
                         Toggle("", isOn: $launchAtLogin)
                             .toggleStyle(.switch)
@@ -53,7 +53,7 @@ struct SettingsView: View {
                             }
                     }
                     divider
-                    row(icon: "menubar.rectangle", tint: .purple, title: "Show Menu Bar Icon",
+                    row(icon: .menuBar, title: "Show Menu Bar Icon",
                         subtitle: menuBarSubtitle) {
                         Toggle("", isOn: $showMenuBarIcon)
                             .toggleStyle(.switch)
@@ -61,7 +61,7 @@ struct SettingsView: View {
                             .labelsHidden()
                     }
                     divider
-                    row(icon: "dock.rectangle", tint: .pink, title: "Show Dock Icon",
+                    row(icon: .dockIcon, title: "Show Dock Icon",
                         subtitle: "Off keeps Muro in the menu bar only") {
                         Toggle("", isOn: $showDockIcon)
                             .toggleStyle(.switch)
@@ -75,7 +75,7 @@ struct SettingsView: View {
                 }
 
                 section("PLAYBACK") {
-                    row(icon: "speedometer", tint: .orange, title: "Playback Speed",
+                    row(icon: .playbackSpeed, title: "Playback Speed",
                         subtitle: "How fast wallpapers play") {
                         GlassDropdown(width: 120, align: .trailing, options: {
                             [0.5, 0.75, 1.0, 1.25, 1.5].map { speed in
@@ -99,7 +99,7 @@ struct SettingsView: View {
                         }
                     }
                     divider
-                    row(icon: "gauge.with.dots.needle.33percent", tint: .mint, title: "Default Quality",
+                    row(icon: .defaultQuality, title: "Default Quality",
                         subtitle: "Efficient caps at 30 fps for lower CPU") {
                         CapsuleSegments(
                             options: [("Smooth", "smooth"), ("Efficient", "efficient")],
@@ -107,7 +107,7 @@ struct SettingsView: View {
                         )
                     }
                     divider
-                    row(icon: "pause.circle", tint: .indigo, title: "Pause After",
+                    row(icon: .pauseAfter, title: "Pause After",
                         subtitle: pauseAfterSubtitle) {
                         GlassDropdown(width: 150, align: .trailing, options: {
                             SettingsView.pauseAfterChoices.map { seconds in
@@ -157,7 +157,7 @@ struct SettingsView: View {
                     // the same key Apple's own panel writes, and loginwindow
                     // picks it up at its next idle check with nothing to
                     // restart. See MuroKit/ScreenSaverDelay.swift.
-                    row(icon: "sparkles.tv", tint: .cyan, title: "Start Screen Saver",
+                    row(icon: .screenSaver, title: "Start Screen Saver",
                         subtitle: screenSaverSubtitle) {
                         GlassDropdown(width: 150, align: .trailing, options: {
                             ScreenSaverDelay.choices.map { seconds in
@@ -186,7 +186,7 @@ struct SettingsView: View {
                 }
 
                 section("ENERGY") {
-                    row(icon: "battery.25percent", tint: .yellow, title: "Auto-pause in Low Power Mode",
+                    row(icon: .lowPower, title: "Auto-pause in Low Power Mode",
                         subtitle: "Freeze while saving energy") {
                         Toggle("", isOn: Binding(
                             get: { store.autoPauseLowPower },
@@ -195,7 +195,7 @@ struct SettingsView: View {
                         .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
                     }
                     divider
-                    row(icon: "bolt.slash", tint: .red, title: "Auto-pause below 20% battery",
+                    row(icon: .lowBattery, title: "Auto-pause below 20% battery",
                         subtitle: "Resumes automatically on power") {
                         Toggle("", isOn: Binding(
                             get: { store.autoPauseBattery },
@@ -204,7 +204,7 @@ struct SettingsView: View {
                         .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
                     }
                     divider
-                    row(icon: "macwindow.on.rectangle", tint: .teal, title: "Auto-pause when covered",
+                    row(icon: .covered, title: "Auto-pause when covered",
                         subtitle: "Freeze when a window or full screen app covers it") {
                         Toggle("", isOn: Binding(
                             get: { store.autoPauseFullScreen },
@@ -215,7 +215,7 @@ struct SettingsView: View {
                     divider
                     // Issue #22. Any app window open on a screen freezes that
                     // screen's wallpaper, and a clear desktop plays it.
-                    row(icon: "menubar.dock.rectangle", tint: .blue, title: "Play only on desktop",
+                    row(icon: .desktopOnly, title: "Play only on desktop",
                         subtitle: "Freeze while a window is open on that screen") {
                         Toggle("", isOn: Binding(
                             get: { store.playOnlyOnDesktop },
@@ -228,8 +228,7 @@ struct SettingsView: View {
                 section("DISPLAYS") {
                     ForEach(Array(store.displays.enumerated()), id: \.element.id) { index, display in
                         if index > 0 { divider }
-                        row(icon: display.symbolName,
-                            tint: .cyan,
+                        row(icon: display.isBuiltIn ? .builtInDisplay : .externalDisplay,
                             title: display.displayName,
                             subtitle: "\(display.kindLabel) display") {
                             Text("\(display.pixelsW) × \(display.pixelsH)")
@@ -240,7 +239,7 @@ struct SettingsView: View {
                 }
 
                 section("STORAGE") {
-                    row(icon: "internaldrive", tint: .gray, title: "Library & Cache",
+                    row(icon: .storage, title: "Library & Cache",
                         subtitle: store.clearStatus ?? "Keeps the wallpaper in use") {
                         HStack(spacing: 10) {
                             Text(formatSize(store.libraryBytes))
@@ -268,13 +267,13 @@ struct SettingsView: View {
                 // for the owner's own testing.
 
                 section("ABOUT") {
-                    row(icon: "arrow.down.circle", tint: .green,
+                    row(icon: .softwareUpdate,
                         title: "Software Update",
                         subtitle: updateSubtitle) {
                         updateControl
                     }
                     divider
-                    row(icon: "heart.fill", tint: .pink,
+                    row(icon: .support,
                         title: "Support Muro",
                         subtitle: "Muro is free. Sponsoring keeps it that way.") {
                         sponsorControl
@@ -445,10 +444,7 @@ struct SettingsView: View {
         title: String, subtitle: String, @ViewBuilder control: () -> some View
     ) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "arrow.turn.down.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.muroSecondary)
-                .frame(width: 30, height: 30)
+            SettingsIconView(icon: .replay)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
@@ -553,18 +549,11 @@ struct SettingsView: View {
     }
 
     private func row(
-        icon: String, tint: Color, title: String, subtitle: String,
+        icon: SettingsIcon, title: String, subtitle: String,
         @ViewBuilder control: () -> some View
     ) -> some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(tint.opacity(0.22))
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(tint)
-            }
-            .frame(width: 30, height: 30)
+            SettingsIconView(icon: icon)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
