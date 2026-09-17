@@ -11,7 +11,7 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Price](https://img.shields.io/badge/Price-Free-brightgreen)
 [![Download](https://img.shields.io/badge/⬇_Download-Muro-A9C4FF)](../../releases/latest)
-[![Sponsor](https://img.shields.io/badge/♥_Sponsor-EA4AAA)](https://github.com/sponsors/MrRockySL)
+[![Buy a coffee](https://img.shields.io/badge/☕_Buy_a_coffee-FFDD00)](https://github.com/sponsors/MrRockySL)
 
 </div>
 
@@ -244,12 +244,10 @@ paused wallpaper costs nothing.
 Muro is free, and it stays that way. No Pro tier, no paywall, no account,
 nothing held back.
 
-**$10 a month pays for an Apple Developer certificate**, which removes the
-"Apple could not verify this app" warning you saw when installing.
+If you enjoy Muro, you can buy the developer a coffee to help keep the work
+going and keep Muro free for everyone.
 
-[![Sponsor Muro](https://img.shields.io/badge/♥%20Sponsor%20Muro-EA4AAA?style=for-the-badge)](https://github.com/sponsors/MrRockySL)
-
-<sub>From $1 a month, or a one-off. A star helps just as much and costs nothing.</sub>
+[![Buy a coffee for the developer](https://img.shields.io/badge/☕%20Buy%20a%20coffee%20for%20the%20developer-FFDD00?style=for-the-badge)](https://github.com/sponsors/MrRockySL)
 
 </div>
 
@@ -259,7 +257,7 @@ nothing held back.
 
 <div align="center">
 
-<sub>Muro is free because of the people who pay for it anyway.</sub>
+**They showed the developer their love. They keep Muro free for everyone.** ❤️
 
 <table>
 <tr>
