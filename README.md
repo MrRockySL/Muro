@@ -8,7 +8,7 @@
 
 ![macOS](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)
 ![Universal](https://img.shields.io/badge/Universal-Apple_Silicon_%2B_Intel-black?logo=apple)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-PolyForm_Shield-green)
 ![Price](https://img.shields.io/badge/Price-Free-brightgreen)
 [![Download](https://img.shields.io/badge/⬇_Download-Muro-A9C4FF)](../../releases/latest)
 [![Buy a coffee](https://img.shields.io/badge/☕_Buy_a_coffee-FFDD00)](https://github.com/sponsors/MrRockySL)
@@ -57,7 +57,7 @@ wallpaper and every feature is unlocked.
 - 🎛️ **Menu bar controls.** Play, pause, skip and switch wallpapers without opening the app.
 - ✨ **Tells you when there is a new Muro.** What's New shows what changed in the release and downloads it for you.
 - 💾 **Space control.** See what each wallpaper costs on disk, and remove downloads you're done with.
-- 🆓 **Free and open source** (MIT).
+- 🆓 **Free and source available.** Anyone can use it and read the code.
 
 > Requires macOS 14 (Sonoma) or newer. The build is universal, so it runs on
 > both Apple Silicon and Intel Macs. Lock screen and screen saver wallpapers
@@ -279,10 +279,16 @@ Found a bug, have an idea, or want to improve something?
 
 ## License
 
-[MIT](LICENSE), free to use and share. This covers the code only. Want something
-changed? [Open an issue](../../issues).
+Muro is free for everyone to use, at home or at work. Its code is public under the
+[PolyForm Shield 1.0.0](LICENSE) license: you can read it, learn from it and send
+changes. You may not release Muro, or a copy or changed version of it, as your own
+app, free or paid, without my permission. Want to build on it?
+[Open an issue](../../issues) or [email me](mailto:mrrockyslx@gmail.com) first.
 
-The wallpaper videos are not covered by the MIT license. Each one belongs to its
+Code published before 21 September 2026, including every release up to 5.0, stays
+under the MIT license it came with.
+
+The wallpaper videos are not covered by this license. Each one belongs to its
 original creator and is redistributed here under its own terms. See
 [NOTICE](NOTICE.md).
 
