@@ -522,7 +522,15 @@ struct SettingsView: View {
     /// never does that. Nothing here is gated, nothing is withheld, and
     /// ignoring it costs the user nothing.
     private var sponsorControl: some View {
-        Button("Sponsor ↗") { NSWorkspace.shared.open(AppStore.sponsorURL) }
+        HStack(spacing: 8) {
+            supportPill("Ko-fi ↗", AppStore.kofiURL)
+            supportPill("GitHub ↗", AppStore.sponsorURL)
+        }
+    }
+
+    /// Both ways to give wear the same capsule, so neither one is pushed.
+    private func supportPill(_ title: String, _ url: URL) -> some View {
+        Button(title) { NSWorkspace.shared.open(url) }
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(.white)

@@ -822,6 +822,10 @@ final class AppStore: ObservableObject {
     /// Where the "Support Muro" row in Settings goes.
     static let sponsorURL = URL(string: "https://github.com/sponsors/MrRockySL")!
 
+    /// The other way to give, added 2026-09-21. Ko-fi takes a card without an
+    /// account, which GitHub Sponsors cannot do, so both sit in the row.
+    static let kofiURL = URL(string: "https://ko-fi.com/mrrockysl")!
+
     static let appVersion =
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
 

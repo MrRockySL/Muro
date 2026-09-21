@@ -11,7 +11,7 @@
 ![License](https://img.shields.io/badge/License-PolyForm_Shield-green)
 ![Price](https://img.shields.io/badge/Price-Free-brightgreen)
 [![Download](https://img.shields.io/badge/⬇_Download-Muro-A9C4FF)](../../releases/latest)
-[![Buy a coffee](https://img.shields.io/badge/☕_Buy_a_coffee-FFDD00)](https://github.com/sponsors/MrRockySL)
+[![Buy a coffee](https://img.shields.io/badge/Buy_a_coffee-FFDD00)](https://github.com/sponsors/MrRockySL)
 
 </div>
 
@@ -247,7 +247,7 @@ nothing held back.
 If you enjoy Muro, you can buy the developer a coffee to help keep the work
 going and keep Muro free for everyone.
 
-[![Buy a coffee for the developer](https://img.shields.io/badge/☕%20Buy%20a%20coffee%20for%20the%20developer-FFDD00?style=for-the-badge)](https://github.com/sponsors/MrRockySL)
+[![Buy a coffee for the developer](https://img.shields.io/badge/Buy%20a%20coffee%20for%20the%20developer-FFDD00?style=for-the-badge)](https://github.com/sponsors/MrRockySL)
 
 </div>
 
