@@ -10,6 +10,7 @@
 ![Universal](https://img.shields.io/badge/Universal-Apple_Silicon_%2B_Intel-black?logo=apple)
 ![License](https://img.shields.io/badge/License-PolyForm_Shield-green)
 ![Price](https://img.shields.io/badge/Price-Free-brightgreen)
+[![Website](https://img.shields.io/badge/Website-murowallpaper.com-A9C4FF)](https://murowallpaper.com)
 [![Download](https://img.shields.io/badge/⬇_Download-Muro-A9C4FF)](../../releases/latest)
 [![Buy a coffee](https://img.shields.io/badge/Buy_a_coffee-FFDD00)](https://github.com/sponsors/MrRockySL)
 
@@ -89,7 +90,7 @@ brew install --cask MrRockySL/muro/muro
 
 ### Manual download
 
-1. Download the latest DMG from the [Releases](../../releases/latest) page.
+1. Download the latest DMG from [murowallpaper.com](https://murowallpaper.com) or the [Releases](../../releases/latest) page.
 2. Open it and drag Muro into your Applications folder.
 
 On first launch, let it through macOS security. Muro is free and self signed
