@@ -898,6 +898,29 @@ struct SelectionTick: View {
     }
 }
 
+/// A card's download progress. It used to be macOS's own circular
+/// ProgressView, which is an AppKit control, and inside the card's clip and
+/// hover scale it drew a faint square box around the ring. This one is drawn,
+/// on the same dark circle as the download arrow it replaces, so the arrow
+/// turns into the ring in place and stays readable on a bright wallpaper.
+struct DownloadRing: View {
+    let progress: Double
+    var size: CGFloat = 30
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color.white.opacity(0.28), lineWidth: 2.5)
+            Circle()
+                .trim(from: 0, to: min(max(progress, 0), 1))
+                .stroke(Color.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+        .frame(width: size * 0.54, height: size * 0.54)
+        .frame(width: size, height: size)
+        .background(Circle().fill(Color.black.opacity(0.4)))
+    }
+}
+
 // MARK: - Wallpaper card
 
 struct WallpaperCard: View {
@@ -1053,10 +1076,7 @@ struct WallpaperCard: View {
         if selecting {
             EmptyView()
         } else if let progress = store.downloads[item.id] {
-            ProgressView(value: progress)
-                .progressViewStyle(.circular)
-                .controlSize(.small)
-                .tint(.white)
+            DownloadRing(progress: progress)
                 .padding(12)
         } else if !item.isDownloaded {
             Image(systemName: "arrow.down.circle")
