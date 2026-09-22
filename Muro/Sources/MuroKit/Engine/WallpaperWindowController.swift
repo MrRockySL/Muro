@@ -98,8 +98,7 @@ public final class WallpaperWindowController {
         window.contentView = contentView
 
         currentURL = videoURL
-        let item = AVPlayerItem(url: videoURL)
-        looper = AVPlayerLooper(player: player, templateItem: item)
+        looper = LoopRange.looper(player: player, url: videoURL)
     }
 
     // MARK: - Changing wallpaper without rebuilding the window
@@ -129,7 +128,7 @@ public final class WallpaperWindowController {
         window.contentView?.layer?.addSublayer(nextLayer)
         CATransaction.commit()
 
-        let nextLooper = AVPlayerLooper(player: nextPlayer, templateItem: AVPlayerItem(url: url))
+        let nextLooper = LoopRange.looper(player: nextPlayer, url: url)
         pending = PendingVideo(player: nextPlayer, layer: nextLayer, looper: nextLooper)
         // A new wallpaper is a new chance to watch it move, including every
         // automation and playlist step.

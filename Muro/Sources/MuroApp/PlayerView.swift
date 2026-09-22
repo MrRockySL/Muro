@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import AppKit
+import MuroKit
 
 /// Muted, seamlessly looping in-window video (hero + full-screen preview).
 /// Same AVQueuePlayer + AVPlayerLooper technique as the engine, so previews
@@ -81,7 +82,7 @@ final class LoopingPlayerNSView: NSView {
         currentURL = url
         looper = nil
         player.removeAllItems()
-        looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+        looper = LoopRange.looper(player: player, url: url)
         updatePlayback()
     }
 
