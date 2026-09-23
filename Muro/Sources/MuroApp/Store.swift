@@ -694,7 +694,13 @@ final class AppStore: ObservableObject {
     func recomputeSize() {
         let root = self.root
         Task.detached(priority: .utility) {
-            let sum = directorySize(root)
+            // Videos kept in another folder sit behind a link, which counting
+            // the library does not follow. See `DownloadFolder`.
+            var linked: Int64 = 0
+            if case .custom(let folder) = DownloadFolder.location(root: root) {
+                linked = directorySize(folder)
+            }
+            let sum = directorySize(root) + linked
             await MainActor.run { AppStore.shared.libraryBytes = sum }
         }
     }

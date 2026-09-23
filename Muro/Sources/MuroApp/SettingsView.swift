@@ -11,6 +11,7 @@ struct SettingsView: View {
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var confirmClear = false
+    @ObservedObject private var downloadFolder = DownloadFolderController.shared
     @State private var customPauseAfter = false
     /// macOS's own screen saver delay, not a Muro setting, so it is read from
     /// Apple's preference rather than stored here and re-read whenever this
@@ -254,6 +255,18 @@ struct SettingsView: View {
                                 .glassCapsule(fill: 0.09, stroke: 0.15)
                         }
                     }
+                    divider
+                    row(icon: .downloadFolder, title: "Download Folder",
+                        subtitle: downloadFolder.subtitle) {
+                        HStack(spacing: 8) {
+                            if downloadFolder.isCustom {
+                                settingsPill("Default") { downloadFolder.reset() }
+                            }
+                            settingsPill("Change") { downloadFolder.choose() }
+                        }
+                        .disabled(downloadFolder.moving != nil)
+                        .opacity(downloadFolder.moving != nil ? 0.45 : 1)
+                    }
                     // An "Auto-clear memory: Manual / Daily / Weekly" row used
                     // to sit here. Nothing ever read it, and the RAM it claimed
                     // to free is not RAM Muro holds, so it was removed rather
@@ -316,6 +329,14 @@ struct SettingsView: View {
         .frame(width: 560, height: 600)
         .menuHost()
         .background(SettingsWindowConfigurator())
+        .alert("Download Folder", isPresented: Binding(
+            get: { downloadFolder.message != nil },
+            set: { if !$0 { downloadFolder.message = nil } }
+        )) {
+            Button("OK", role: .cancel) { downloadFolder.message = nil }
+        } message: {
+            Text(downloadFolder.message ?? "")
+        }
         .alert("Clear the library?", isPresented: $confirmClear) {
             Button("Cancel", role: .cancel) {}
             Button("Clear", role: .destructive) { store.clearDownloadedCache() }
@@ -554,6 +575,17 @@ struct SettingsView: View {
         showMenuBarIcon || showDockIcon
             ? "Quick controls from the menu bar"
             : "Open Muro from Launchpad or Spotlight"
+    }
+
+    /// The glass capsule the Clear button uses, for the rows beside it.
+    private func settingsPill(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.plain)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 5.5)
+            .glassCapsule(fill: 0.09, stroke: 0.15)
     }
 
     private func row(

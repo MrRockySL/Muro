@@ -12,12 +12,15 @@ import SwiftUI
 /// matches a node there. The glyphs are drawn rather than loaded as images, so
 /// they stay sharp at any scale and nothing has to be bundled.
 ///
+/// Download Folder came later, on 2026-09-23: drawn here on the same grid and
+/// rules, and approved from a render beside the others rather than in Figma.
+///
 /// Replay on Clear Desktop has no tile. It belongs to the row above it, and a
 /// dependent setting keeps an arrow where its icon would be.
 enum SettingsIcon {
     case launchAtLogin, menuBar, dockIcon, playbackSpeed, defaultQuality, pauseAfter
     case replay, screenSaver, lowPower, lowBattery, covered, desktopOnly
-    case builtInDisplay, externalDisplay, storage, softwareUpdate, support
+    case builtInDisplay, externalDisplay, storage, downloadFolder, softwareUpdate, support
 
     /// The tile's colour. Nil for the replay arrow, which has no tile.
     var tint: Color? {
@@ -37,6 +40,7 @@ enum SettingsIcon {
         case .builtInDisplay: return Color(hex: 0x3CC4F0)
         case .externalDisplay: return Color(hex: 0x3CC4F0)
         case .storage: return Color(hex: 0x9AA4B2)
+        case .downloadFolder: return Color(hex: 0xFFB23F)
         case .softwareUpdate: return Color(hex: 0x45D483)
         case .support: return Color(hex: 0xFF6B8E)
         }
@@ -60,6 +64,7 @@ enum SettingsIcon {
         case .builtInDisplay: return Color(hex: 0x9EE2F8)
         case .externalDisplay: return Color(hex: 0x9EE2F8)
         case .storage: return Color(hex: 0xCCD2D8)
+        case .downloadFolder: return Color(hex: 0xFFD89F)
         case .softwareUpdate: return Color(hex: 0xA2EAC1)
         case .support: return Color(hex: 0xFFB5C6)
         }
@@ -302,6 +307,32 @@ enum SettingsIcon {
                 p.addLine(to: pt(8.5, 12.375))
             })
             fill(circle(12.75, 12.375, 0.85))
+        case .downloadFolder:
+            let folder = Path { p in
+                p.move(to: pt(1.75, 13.25))
+                p.addLine(to: pt(1.75, 4.75))
+                p.addQuadCurve(to: pt(3.75, 2.75), control: pt(1.75, 2.75))
+                p.addLine(to: pt(6.55, 2.75))
+                p.addQuadCurve(to: pt(7.75, 3.35), control: pt(7.3, 2.75))
+                p.addLine(to: pt(8.55, 4.45))
+                p.addQuadCurve(to: pt(9.75, 5.05), control: pt(9, 5.05))
+                p.addLine(to: pt(14.25, 5.05))
+                p.addQuadCurve(to: pt(16.25, 7.05), control: pt(16.25, 5.05))
+                p.addLine(to: pt(16.25, 13.25))
+                p.addQuadCurve(to: pt(14.25, 15.25), control: pt(16.25, 15.25))
+                p.addLine(to: pt(3.75, 15.25))
+                p.addQuadCurve(to: pt(1.75, 13.25), control: pt(1.75, 15.25))
+                p.closeSubpath()
+            }
+            fill(folder, soft: true)
+            stroke(folder)
+            stroke(Path { p in
+                p.move(to: pt(9, 7.75))
+                p.addLine(to: pt(9, 12.5))
+                p.move(to: pt(6.9, 10.4))
+                p.addLine(to: pt(9, 12.5))
+                p.addLine(to: pt(11.1, 10.4))
+            })
         case .softwareUpdate:
             fill(circle(9, 9, 7), soft: true)
             stroke(circle(9, 9, 7))

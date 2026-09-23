@@ -32,6 +32,7 @@ final class LoopingPlayerNSView: NSView {
     private var currentURL: URL?
     private var isActive = true
     private var occlusionObserver: NSObjectProtocol?
+    private var ejectObserver: NSObjectProtocol?
 
     init() {
         super.init(frame: .zero)
@@ -41,6 +42,21 @@ final class LoopingPlayerNSView: NSView {
         playerLayer.player = player
         playerLayer.videoGravity = .resizeAspectFill
         layer?.addSublayer(playerLayer)
+        // Wallpapers can live on a drive (`DownloadFolder`). A paused player
+        // still holds its file open, so one playing from a drive about to be
+        // ejected lets go of it, or the eject is refused. The next update
+        // loads it again if it is still there.
+        ejectObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willUnmountNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self, let url = self.currentURL,
+                  let volume = note.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL,
+                  DownloadFolder.isInside(url, volume)
+            else { return }
+            self.looper = nil
+            self.player.removeAllItems()
+            self.currentURL = nil
+        }
     }
 
     @available(*, unavailable)
@@ -111,6 +127,9 @@ final class LoopingPlayerNSView: NSView {
     deinit {
         if let occlusionObserver {
             NotificationCenter.default.removeObserver(occlusionObserver)
+        }
+        if let ejectObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(ejectObserver)
         }
         player.pause()
     }

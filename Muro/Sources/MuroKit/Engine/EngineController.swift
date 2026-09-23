@@ -13,6 +13,7 @@ public final class EngineController {
     private var videos: [String: String] = [:]
     private var configWatcher: DispatchSourceFileSystemObject?
     private var observers: [NSObjectProtocol] = []
+    private var diskObservers: [NSObjectProtocol] = []
     private let power = PowerMonitor()
     private let desktopWindows = DesktopWindowMonitor()
 
@@ -31,6 +32,36 @@ public final class EngineController {
             EngineLog.log("displays changed — reconciling")
             self?.reconcile()
         })
+        watchDisks()
+    }
+
+    /// The wallpapers can live on a drive (`DownloadFolder`). When that drive is
+    /// about to be ejected, its wallpapers are let go, or the eject is refused
+    /// because Muro has the files open. When a drive comes or goes, the screens
+    /// are looked at again, so the wallpapers come back by themselves once it
+    /// is plugged in. Looking again is harmless for any other disk: nothing
+    /// that is already right is touched.
+    private func watchDisks() {
+        let center = NSWorkspace.shared.notificationCenter
+        diskObservers.append(center.addObserver(
+            forName: NSWorkspace.willUnmountNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  let volume = note.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL,
+                  case .custom(let folder) = DownloadFolder.location(root: self.root),
+                  DownloadFolder.isInside(folder, volume)
+            else { return }
+            EngineLog.log("\(volume.lastPathComponent) is being ejected, letting go of its wallpapers")
+            self.stopAll()
+            // A refused eject never says so. Look again shortly: if the drive
+            // is still there, its wallpapers simply come back.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in self?.reconcile() }
+        })
+        for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {
+            diskObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.reconcile()
+            })
+        }
     }
 
     /// Takes every wallpaper window off the screen, for a quit.
