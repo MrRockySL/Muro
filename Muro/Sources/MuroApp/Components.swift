@@ -40,6 +40,12 @@ enum ImageCache {
         cache.removeAllObjects()
     }
 
+    /// Empties one decoded picture, for a load that finished after nobody
+    /// wanted it any more.
+    static func forget(path: String, maxPixels: Int) {
+        cache.removeObject(forKey: key(path: path, maxPixels: maxPixels))
+    }
+
     /// Decodes at reduced size through ImageIO, so only the pixels that will
     /// actually be drawn are ever allocated. Call this off the main thread.
     static func load(path: String, maxPixels: Int) -> NSImage? {
@@ -81,6 +87,7 @@ struct ThumbImage: View {
     /// True while the gallery window this card sits in is hidden. Always false
     /// in the menu bar panel and Settings. See `GalleryVisibility`.
     @Environment(\.galleryHidden) private var galleryHidden
+    @Environment(\.inGallery) private var inGallery
 
     var body: some View {
         let path = store.thumbnailPath(for: item)
@@ -121,6 +128,8 @@ struct ThumbImage: View {
                     image = nil
                     return
                 }
+                // The flag can be behind the window: see `isHiddenNow`.
+                if inGallery, GalleryVisibility.shared.isHiddenNow() { return }
                 if let remote {
                     await loadRemote(from: remote)
                 } else {
@@ -145,6 +154,10 @@ struct ThumbImage: View {
         // A scrolled-away card may have been reused for another wallpaper
         // while this was decoding, and a gallery hidden meanwhile wants none.
         guard !Task.isCancelled, path == store.thumbnailPath(for: item) else { return }
+        guard !(inGallery && GalleryVisibility.shared.isHiddenNow()) else {
+            ImageCache.forget(path: path, maxPixels: pixels)
+            return
+        }
         image = loaded
     }
 
@@ -170,6 +183,10 @@ struct ThumbImage: View {
         // Downloaded meanwhile: its own thumbnail takes over. Hidden meanwhile:
         // nothing is wanted.
         guard !Task.isCancelled, store.thumbnailPath(for: item) == nil else { return }
+        guard !(inGallery && GalleryVisibility.shared.isHiddenNow()) else {
+            ImageCache.forget(path: saved, maxPixels: pixels)
+            return
+        }
         image = loaded
     }
 }
@@ -473,6 +490,37 @@ func makeMinimiseHideTheWindow(titled title: String) {
     button.action = #selector(WindowButtonTarget.hideWindow(_:))
 }
 
+/// Make the gallery's red button put it away rather than close it.
+///
+/// A window that is really closed is one SwiftUI stops updating, so the
+/// gallery's cards never heard it had gone and kept every picture: 20 pictures
+/// and their 20 copies were still held 90 seconds after a red button close on
+/// 2026-09-23. Put away like the yellow button does, the window is still
+/// updated, and in a test with the same card code every picture went within a
+/// second. To a person the two look the same: the window goes, and Open Muro
+/// brings it back. Command-W does the same (`MuroAppDelegate`).
+///
+/// The gallery only. Settings holds no card pictures and closes as before.
+@MainActor
+func makeCloseHideTheGallery() {
+    guard let button = mainWindow?.standardWindowButton(.closeButton) else { return }
+    button.target = WindowButtonTarget.shared
+    button.action = #selector(WindowButtonTarget.putAwayGallery(_:))
+}
+
+/// Put the gallery away, for its red button and Command-W.
+@MainActor
+func putGalleryAway() {
+    mainWindow?.orderOut(nil)
+    // With the Dock icon off Muro has no menu bar, and an app left in front
+    // with nothing on screen swallows the next thing typed. Hand the keyboard
+    // back, as Command-H does, unless another Muro window is still up.
+    if NSApp.activationPolicy() == .accessory,
+       !muroDocumentWindows.contains(where: { $0.isVisible }) {
+        NSApp.deactivate()
+    }
+}
+
 /// Owns the retargeted button action. A plain function cannot be a `#selector`
 /// target, and a button does not retain its target, so this has to outlive it.
 @MainActor
@@ -483,6 +531,11 @@ final class WindowButtonTarget: NSObject {
     /// serve every window rather than one per scene.
     @objc func hideWindow(_ sender: Any?) {
         (sender as? NSView)?.window?.orderOut(nil)
+    }
+
+    /// The gallery's red button. See `makeCloseHideTheGallery`.
+    @objc func putAwayGallery(_ sender: Any?) {
+        putGalleryAway()
     }
 }
 

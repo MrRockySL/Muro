@@ -11,13 +11,25 @@ import SwiftUI
 /// a 267 MB footprint. While the window is hidden the cards now hold nothing,
 /// and the pictures come back from memory or disk when it is shown again.
 ///
+/// This only works on a window that is ordered out. A window that is really
+/// closed is one SwiftUI stops updating, so its cards never hear the news: 20
+/// pictures and their 20 copies were still held 90 seconds after a red button
+/// close on 2026-09-23. That is why the red button and Command-W put the
+/// gallery away instead of closing it (`makeCloseHideTheGallery`).
+///
 /// Only the gallery is watched. The menu bar panel and Settings keep their
 /// pictures exactly as before.
 @MainActor
 final class GalleryVisibility: ObservableObject {
     static let shared = GalleryVisibility()
 
-    @Published private(set) var isHidden = false
+    /// Hidden until the window is seen on screen. At launch SwiftUI builds the
+    /// gallery and the launch suppressor puts it away in the same moment, so it
+    /// is never visible and no notification ever says so. Starting from "shown",
+    /// its cards loaded every picture into a window nobody had opened: 19 held
+    /// right after a launch on 2026-09-23. A window that really appears always
+    /// reports it, and that is what lets them load.
+    @Published private(set) var isHidden = true
 
     private var observers: [NSObjectProtocol] = []
 
@@ -54,9 +66,22 @@ final class GalleryVisibility: ObservableObject {
         // in a hidden gallery needs them.
         if hidden { ImageCache.removeAll() }
     }
+
+    /// Asks the window itself, for a card about to load a picture or keep one
+    /// it has just decoded. Notifications alone left two gaps: a gallery put
+    /// away the moment it was shown, as at launch, and a picture that finished
+    /// decoding just after the window went away, after the cache was emptied.
+    func isHiddenNow() -> Bool {
+        if let window = mainWindow { update(for: window) }
+        return isHidden
+    }
 }
 
 private struct GalleryHiddenKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+private struct InGalleryKey: EnvironmentKey {
     static let defaultValue = false
 }
 
@@ -67,6 +92,14 @@ extension EnvironmentValues {
         get { self[GalleryHiddenKey.self] }
         set { self[GalleryHiddenKey.self] = newValue }
     }
+
+    /// True for everything inside the gallery window, shown or hidden. Its
+    /// cards check the window before they load or keep a picture; the menu bar
+    /// panel and Settings keep theirs.
+    var inGallery: Bool {
+        get { self[InGalleryKey.self] }
+        set { self[InGalleryKey.self] = newValue }
+    }
 }
 
 /// Hands the gallery's visibility to everything inside it.
@@ -74,7 +107,9 @@ private struct GalleryHiddenModifier: ViewModifier {
     @ObservedObject private var visibility = GalleryVisibility.shared
 
     func body(content: Content) -> some View {
-        content.environment(\.galleryHidden, visibility.isHidden)
+        content
+            .environment(\.galleryHidden, visibility.isHidden)
+            .environment(\.inGallery, true)
     }
 }
 

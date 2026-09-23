@@ -26,6 +26,7 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         engine.start()
         statusBar = StatusBarController(store: AppStore.shared)
         watchForHideKey()
+        watchForCloseKey()
 
         // A launch is not a request to see the gallery. Muro lives in the menu
         // bar and keeps running, so the window is asked for, never announced.
@@ -227,6 +228,25 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
     /// Held for the life of the app. A local monitor is removed by handing this
     /// token back, so losing it would leak the monitor.
     private var hideKeyMonitor: Any?
+    private var closeKeyMonitor: Any?
+
+    /// Command-W on the gallery puts it away, the same as its red button, for
+    /// the reason given at `makeCloseHideTheGallery`. Every other window,
+    /// Settings included, closes as it always has.
+    private func watchForCloseKey() {
+        closeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  event.charactersIgnoringModifiers?.lowercased() == "w"
+            else { return event }
+
+            let putAway = MainActor.assumeIsolated { () -> Bool in
+                guard NSApp.keyWindow?.title == MuroWindow.gallery else { return false }
+                putGalleryAway()
+                return true
+            }
+            return putAway ? nil : event
+        }
+    }
 }
 
 /// Why the gallery did or did not appear at this launch. One line per start.
@@ -260,6 +280,7 @@ struct MuroApp: App {
                     // it definitely exists. Re-applied on every appearance, so
                     // it survives the window being rebuilt.
                     makeMinimiseHideTheWindow(titled: MuroWindow.gallery)
+                    makeCloseHideTheGallery()
                 }
         }
         .defaultSize(width: 1440, height: 920)
