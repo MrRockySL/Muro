@@ -28,6 +28,9 @@ final class VideoRenderer: @unchecked Sendable {
     private var nextOutput: AVAssetReaderTrackOutput?
     private var presentationOffset: CMTime = .zero
     private var lastEnqueuedEnd: CMTime = .zero
+    /// The earliest frame time the reader gives for this file. See
+    /// `beginNextLoop`.
+    private var firstFrameTime: CMTime = .invalid
     private var isRunning = true
     private var isPaused = false
 
@@ -245,6 +248,19 @@ final class VideoRenderer: @unchecked Sendable {
         // renderer that has just been switched off.
         guard isRunning else { return }
         presentationOffset = lastEnqueuedEnd
+        // Issue #39, on the lock screen and the screen saver. This reader gives
+        // the file's raw frame times, and in many files the first frame is not
+        // at zero: Camper Van on the Hill and Miles Morales in Space both start
+        // at 33 ms. Placed at the last frame's end, every loop then began with
+        // that much nothing, and the last frame stayed up that much longer each
+        // time round. The screen saver runs for minutes, so it loops. Moving
+        // the loop back by the first frame's time makes it start right after
+        // the last frame. A file whose first frame is at zero keeps the line
+        // above as it was.
+        if firstFrameTime.isValid, firstFrameTime > .zero {
+            presentationOffset = CMTimeSubtract(lastEnqueuedEnd, firstFrameTime)
+            extensionTrace("renderer loop moved back \(Int((firstFrameTime.seconds * 1000).rounded())) ms to its first frame")
+        }
         if let preparedReader = nextReader, let preparedOutput = nextOutput {
             currentReader = preparedReader
             currentOutput = preparedOutput
@@ -270,6 +286,8 @@ final class VideoRenderer: @unchecked Sendable {
     private func noteEnd(of sample: CMSampleBuffer) {
         let pts = CMSampleBufferGetPresentationTimeStamp(sample)
         guard pts.isValid else { return }
+        // Only the first pass can set it: every later loop is moved forward.
+        if !firstFrameTime.isValid || pts < firstFrameTime { firstFrameTime = pts }
         let duration = CMSampleBufferGetDuration(sample)
         let end = duration.isValid && duration > .zero
             ? CMTimeAdd(pts, duration)
