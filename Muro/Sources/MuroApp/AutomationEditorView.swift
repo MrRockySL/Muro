@@ -25,6 +25,7 @@ struct AutomationEditorView: View {
     @State private var name = ""
     @State private var mode = Automation.Mode.timer
     @State private var steps: [Automation.Step] = []
+    @State private var surface: ApplySurface = .desktop
     @State private var loaded = false
     @State private var customFor: String?
     @State private var focusedStepID: String?
@@ -110,6 +111,26 @@ struct AutomationEditorView: View {
                 .foregroundStyle(Color.muroSecondary)
                 .padding(.horizontal, 26)
                 .padding(.top, 10)
+
+            if store.lockScreenAvailable {
+                SectionLabel("APPLY TO")
+                    .padding(.horizontal, 26)
+                    .padding(.top, 22)
+                PillSegments(
+                    options: ApplySurface.scheduleCases.map {
+                        PillOption($0.rawValue, $0.scheduleLabel)
+                    },
+                    selection: Binding(
+                        get: { surface.rawValue },
+                        set: { surface = ApplySurface(rawValue: $0) ?? .desktop }
+                    ),
+                    height: 34,
+                    labelSize: 12,
+                    horizontalPadding: 15
+                )
+                .padding(.horizontal, 26)
+                .padding(.top, 10)
+            }
 
             SectionLabel("CHOOSE WALLPAPERS", trailing: "\(steps.count) in this schedule")
                 .padding(.horizontal, 26)
@@ -230,6 +251,7 @@ struct AutomationEditorView: View {
             name = automation.name
             mode = automation.mode
             steps = automation.steps
+            surface = automation.surface
         }
     }
 
@@ -668,18 +690,21 @@ struct AutomationEditorView: View {
     }
 
     private var draft: Automation {
-        Automation(name: trimmedName, mode: mode, steps: steps)
+        Automation(name: trimmedName, mode: mode, steps: steps, surface: surface)
     }
 
     private func save() {
         switch target {
         case .new:
-            store.addAutomation(Automation(name: trimmedName, mode: mode, steps: steps))
+            store.addAutomation(
+                Automation(name: trimmedName, mode: mode, steps: steps, surface: surface)
+            )
         case .edit(let original):
             var updated = original
             updated.name = trimmedName
             updated.mode = mode
             updated.steps = steps
+            updated.surface = surface
             store.updateAutomation(updated)
             // Editing the schedule that is currently running has to take
             // effect now, not at the next boundary.
