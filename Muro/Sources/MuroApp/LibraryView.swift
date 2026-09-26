@@ -497,6 +497,9 @@ struct PlaylistCard: View {
                 MetaChip(systemImage: "rectangle.stack", text: "\(playlist.wallpaperIDs.count) wallpapers")
                 MetaChip(systemImage: "clock", text: intervalText)
                 MetaChip(systemImage: "shuffle", text: playlist.shuffle ? "Shuffle on" : "Shuffle off")
+                if let surfaceLabel = store.scheduleSurfaceLabel(playlist.surface) {
+                    MetaChip(systemImage: "lock", text: surfaceLabel)
+                }
             }
             .padding(.top, 11)
             Spacer(minLength: 8)
@@ -656,7 +659,12 @@ struct AutomationCard: View {
                     isActive ? store.stopAutomation() : store.startAutomation(automation)
                 }
             }
-            HStack(spacing: 8) { ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in chip } }
+            HStack(spacing: 8) {
+                ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in chip }
+                if let surfaceLabel = store.scheduleSurfaceLabel(automation.surface) {
+                    MetaChip(systemImage: "lock", text: surfaceLabel)
+                }
+            }
                 .padding(.top, 11)
             Spacer(minLength: 8)
             schedule
@@ -774,6 +782,7 @@ struct PlaylistEditorView: View {
     @State private var selected: Set<String> = []
     @State private var intervalMinutes = 30
     @State private var shuffle = false
+    @State private var surface: ApplySurface = .desktop
     @State private var loaded = false
     @State private var showCustomInterval = false
     /// Whether the bar is sitting on "Custom". Kept separately from the value
@@ -894,6 +903,26 @@ struct PlaylistEditorView: View {
             .padding(.horizontal, 26)
             .padding(.top, 10)
 
+            if store.lockScreenAvailable {
+                SectionLabel("APPLY TO")
+                    .padding(.horizontal, 26)
+                    .padding(.top, 22)
+                PillSegments(
+                    options: ApplySurface.scheduleCases.map {
+                        PillOption($0.rawValue, $0.scheduleLabel)
+                    },
+                    selection: Binding(
+                        get: { surface.rawValue },
+                        set: { surface = ApplySurface(rawValue: $0) ?? .desktop }
+                    ),
+                    height: 34,
+                    labelSize: 12,
+                    horizontalPadding: 15
+                )
+                .padding(.horizontal, 26)
+                .padding(.top, 10)
+            }
+
             HStack(spacing: 10) {
                 SectionLabel("CHOOSE WALLPAPERS")
                 Spacer()
@@ -1006,6 +1035,7 @@ struct PlaylistEditorView: View {
             selected = Set(playlist.wallpaperIDs)
             intervalMinutes = playlist.intervalMinutes
             shuffle = playlist.shuffle
+            surface = playlist.surface
         }
     }
 
@@ -1024,7 +1054,8 @@ struct PlaylistEditorView: View {
                 name: trimmedName,
                 wallpaperIDs: ordered,
                 intervalMinutes: intervalMinutes,
-                shuffle: shuffle
+                shuffle: shuffle,
+                surface: surface
             ))
         case .edit(let original):
             var updated = original
@@ -1032,6 +1063,7 @@ struct PlaylistEditorView: View {
             updated.wallpaperIDs = ordered
             updated.intervalMinutes = intervalMinutes
             updated.shuffle = shuffle
+            updated.surface = surface
             store.updatePlaylist(updated)
         }
         dismiss()
