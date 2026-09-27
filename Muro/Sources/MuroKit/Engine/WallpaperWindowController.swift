@@ -32,8 +32,11 @@ public final class WallpaperWindowController {
     private var swapTimeout: DispatchWorkItem?
 
     /// The crossfade is short on purpose: long enough not to read as a cut,
-    /// short enough that two videos are rarely decoding at once.
-    private static let crossfadeSeconds = 0.45
+    /// short enough that two videos are rarely decoding at once. The lock
+    /// screen and screen saver use the same length and curve
+    /// (`RendererState.stepCrossfade` in the extension), so a playlist changes
+    /// alike on all three.
+    private static let crossfadeSeconds = 0.6
 
     /// Both the visible player and any swap still in flight, so a pause or a
     /// speed change never leaves the incoming video out of step.
@@ -170,6 +173,7 @@ public final class WallpaperWindowController {
 
         CATransaction.begin()
         CATransaction.setAnimationDuration(Self.crossfadeSeconds)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
         CATransaction.setCompletionBlock {
             outgoingLooper?.disableLooping()
             outgoingPlayer.pause()

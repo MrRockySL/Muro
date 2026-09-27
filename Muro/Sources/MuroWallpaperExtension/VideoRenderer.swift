@@ -34,7 +34,10 @@ final class VideoRenderer: @unchecked Sendable {
     private var isRunning = true
     private var isPaused = false
 
-    static func create(rootLayer: CALayer, videoURL: URL) throws -> VideoRenderer {
+    /// `behind` puts the video under any video already on the surface rather
+    /// than over it. A playlist or automation step is built that way, so the
+    /// video on screen stays in front until the new one can take over.
+    static func create(rootLayer: CALayer, videoURL: URL, behind: Bool = false) throws -> VideoRenderer {
         let asset = AVURLAsset(url: videoURL)
         let semaphore = DispatchSemaphore(value: 0)
         nonisolated(unsafe) var loadedTrack: AVAssetTrack?
@@ -62,7 +65,8 @@ final class VideoRenderer: @unchecked Sendable {
             rootLayer: rootLayer,
             displayLayer: displayLayer,
             asset: asset,
-            videoTrack: track
+            videoTrack: track,
+            behind: behind
         )
     }
 
@@ -70,7 +74,8 @@ final class VideoRenderer: @unchecked Sendable {
         rootLayer: CALayer,
         displayLayer: AVSampleBufferDisplayLayer,
         asset: AVURLAsset,
-        videoTrack: AVAssetTrack
+        videoTrack: AVAssetTrack,
+        behind: Bool
     ) {
         self.displayLayer = displayLayer
         renderer = displayLayer.sampleBufferRenderer
@@ -90,7 +95,11 @@ final class VideoRenderer: @unchecked Sendable {
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        rootLayer.addSublayer(displayLayer)
+        if behind {
+            rootLayer.insertSublayer(displayLayer, at: 0)
+        } else {
+            rootLayer.addSublayer(displayLayer)
+        }
         CATransaction.commit()
         CATransaction.flush()
     }
@@ -189,6 +198,86 @@ final class VideoRenderer: @unchecked Sendable {
             self.currentReader?.cancelReading()
             self.nextReader?.cancelReading()
             self.displayLayer.removeFromSuperlayer()
+        }
+    }
+
+    // MARK: - Playlist steps
+
+    /// Moves the stopped clock onto the first frame.
+    ///
+    /// A paused layer shows the frame at the clock's time, and in many files
+    /// the first frame is not at zero: Camper Van on the Hill starts at 33 ms.
+    /// With the clock left at zero, such a file has nothing to show until it
+    /// plays, so a step waiting for its first frame would wait for nothing.
+    /// Playing then starts from that frame.
+    func showFirstFrame() {
+        queue.async { [weak self] in
+            guard let self, isRunning, isPaused, firstFrameTime.isValid else { return }
+            CMTimebaseSetTime(timebase, time: firstFrameTime)
+        }
+    }
+
+    /// Calls back once the layer really has a frame to show, or with false
+    /// after `timeout`.
+    ///
+    /// A frame handed to the layer is not yet a frame on screen: it is still
+    /// compressed, and decoding it takes a moment. Taking the old video away
+    /// in that moment is what flashed whatever was underneath it at a
+    /// playlist step. macOS says when the frame is ready. It is polled a few
+    /// milliseconds apart, because it usually comes within a few frames.
+    ///
+    /// Holds itself strongly until it has answered, so the answer always
+    /// comes and a step never waits on a renderer that went away.
+    func whenReadyForDisplay(timeout: TimeInterval, _ body: @escaping @Sendable (Bool) -> Void) {
+        let deadline = DispatchTime.now() + timeout
+        queue.async { [self] in pollReady(until: deadline, body) }
+    }
+
+    private func pollReady(until deadline: DispatchTime, _ body: @escaping @Sendable (Bool) -> Void) {
+        guard isRunning else { body(false); return }
+        if displayLayer.isReadyForDisplay { body(true); return }
+        guard DispatchTime.now() < deadline else { body(false); return }
+        queue.asyncAfter(deadline: .now() + .milliseconds(8)) { [self] in
+            pollReady(until: deadline, body)
+        }
+    }
+
+    /// Fades this video out over `seconds`, then stops it and takes its layer
+    /// away. Zero takes it away at once.
+    ///
+    /// A playlist step builds the next video underneath this one, so fading
+    /// this one out is the crossfade: the next video shows through it. The
+    /// fade runs in the system compositor rather than in this process. The
+    /// layer goes in a transaction of its own, flushed, because this queue has
+    /// no run loop that would commit it. Strongly held for the same reason as
+    /// `stop`.
+    func fadeOutAndStop(over seconds: TimeInterval) {
+        queue.async { [self] in
+            guard isRunning else { return }
+            if seconds > 0 {
+                let fade = CABasicAnimation(keyPath: "opacity")
+                fade.fromValue = displayLayer.opacity
+                fade.toValue = 0
+                fade.duration = seconds
+                fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                displayLayer.add(fade, forKey: "muro.stepFade")
+                displayLayer.opacity = 0
+                CATransaction.commit()
+                CATransaction.flush()
+            }
+            queue.asyncAfter(deadline: .now() + seconds) { [self] in
+                isRunning = false
+                renderer.stopRequestingMediaData()
+                currentReader?.cancelReading()
+                nextReader?.cancelReading()
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                displayLayer.removeFromSuperlayer()
+                CATransaction.commit()
+                CATransaction.flush()
+            }
         }
     }
 

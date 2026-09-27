@@ -48,6 +48,16 @@ enum WallpaperFrame {
         return image
     }
 
+    /// Drops the frame remembered for `choiceID`. A playlist or automation
+    /// keeps one id while its video changes, so the frame remembered for it
+    /// is the last step's. The copy on disk went with the last step's staged
+    /// folder, so the next request decodes the new one.
+    static func forget(_ choiceID: String?) {
+        memoryLock.lock()
+        if memory?.id == choiceID { memory = nil }
+        memoryLock.unlock()
+    }
+
     private static func load(_ choiceID: String) -> CGImage? {
         let cache = cacheURL(for: choiceID)
         if let existing = DesktopStill.image(at: cache) { return existing }

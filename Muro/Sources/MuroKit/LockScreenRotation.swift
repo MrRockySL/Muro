@@ -1,29 +1,46 @@
 import Foundation
 
-/// The decisions behind a rotating lock-screen wallpaper, kept pure so they
-/// can be tested without the Apple wallpaper store or a real extension
-/// container.
+/// The rules behind a playlist or an automation on the lock screen or the
+/// screen saver, kept pure so they can be tested without Apple's wallpaper
+/// store or a real extension container.
 ///
-/// A playlist or automation that covers the lock screen writes Apple's store
-/// **once**, under a wallpaper id that never changes for the schedule's life:
-/// the schedule's own id (`Playlist.id` / `Automation.id`, a bare lowercased
-/// UUID, the same shape as a `WallpaperEntry.id`). Every tick then swaps the
-/// staged video behind that fixed id rather than rewriting the store, so macOS
-/// never restarts `WallpaperAgent` and the lock screen never flashes.
-/// `LockScreenService` owns the store and the file IO; this type owns the
-/// rules it follows.
+/// Each of the two places has **one fixed id**. The first step writes Apple's
+/// store with it, like applying a wallpaper by hand. Every step after that only
+/// swaps the video staged behind the id, so the store is not written again,
+/// `WallpaperAgent` is not restarted and nothing flashes. The id is the same
+/// for every playlist, so moving from one to another on the same place is a
+/// swap as well. `LockScreenService` owns the store and the files; this type
+/// owns the names and the one decision about what an id stands for.
 public enum LockScreenRotation {
-    /// The wallpaper id Apple's store is written with while `scheduleID` drives
-    /// the lock screen. It is the schedule id itself, fixed for the run, so the
-    /// store is written once and only the file behind it moves afterwards.
-    public static func storeID(scheduleID: String) -> String { scheduleID }
+    /// The id Apple's store holds while a schedule plays on the lock screen.
+    public static let lockScreenID = "muro-rotation-lockscreen"
+    /// The same for the screen saver.
+    public static let screenSaverID = "muro-rotation-screensaver"
 
-    /// The wallpaper a query should be compared against.
+    /// The extension recognises a rotation by this, so everything it does for
+    /// one stays away from wallpapers applied by hand.
+    public static let idPrefix = "muro-rotation-"
+
+    /// The fixed id for one role.
+    public static func fixedID(for role: AppleWallpaperStore.Surface) -> String {
+        role == .screenSaver ? screenSaverID : lockScreenID
+    }
+
+    /// The key a role's current wallpaper is recorded under in `lockscreen.json`.
+    public static func stateKey(for role: AppleWallpaperStore.Surface) -> String {
+        role == .screenSaver ? "screenSaver" : "lockScreen"
+    }
+
+    public static func isRotationID(_ id: String?) -> Bool {
+        id?.hasPrefix(idPrefix) ?? false
+    }
+
+    /// The wallpaper a selection stands for.
     ///
-    /// When the live selection is the rotation's fixed id, "is wallpaper X on
-    /// the lock screen" means "is X the step the schedule is showing right
-    /// now", so the comparison resolves through `currentStepID`. Any other
-    /// selection value is a plain wallpaper id and stands for itself.
+    /// A selection holding the fixed id stands for whichever wallpaper was last
+    /// staged behind it, so "is wallpaper X on the lock screen" is answered
+    /// through `currentStepID`. Any other value is a wallpaper id already and
+    /// stands for itself.
     public static func resolvedWallpaperID(
         selectionValue: String?,
         rotationID: String?,
@@ -32,29 +49,5 @@ public enum LockScreenRotation {
         guard let selectionValue else { return nil }
         if let rotationID, selectionValue == rotationID { return currentStepID }
         return selectionValue
-    }
-
-    /// Whether a recorded rotation id belongs to no running schedule and must
-    /// be torn down. A crash between "schedule stopped" and "lock screen
-    /// restored" leaves the fixed id in the store with its last frame staged;
-    /// `healIfNeeded` uses this to strip it on the next launch.
-    public static func isOrphaned(
-        rotationID: String?,
-        runningScheduleIDs: Set<String>
-    ) -> Bool {
-        guard let rotationID else { return false }
-        return !runningScheduleIDs.contains(rotationID)
-    }
-
-    /// What `endRotation` should write back to the desktop-role selections, or
-    /// `nil` to mean "fall through to `remove()`'s existing non-Muro-default
-    /// path" (D7). Reached only when the rotation began with nothing already
-    /// selected — an old state file predating this field decodes to `nil` and
-    /// takes the same path, so it keeps behaving exactly as it did before.
-    public static func selectionsToRestore(
-        snapshot: [String: String]?
-    ) -> [String: String]? {
-        guard let snapshot, !snapshot.isEmpty else { return nil }
-        return snapshot
     }
 }

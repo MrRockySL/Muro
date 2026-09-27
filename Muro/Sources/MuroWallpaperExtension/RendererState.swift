@@ -71,16 +71,26 @@ struct WallpaperSurfaceKey: Hashable {
     let identifier: String
 }
 
-/// A staged file's identity, enough to tell an in-place atomic replace from
-/// no change at all: the filename behind a rotation id never varies, so a URL
-/// compare cannot see a swap, but the inode and size both move when
-/// `replaceItemAt` swings a new file into place.
+/// Whether a choice is a playlist or an automation on the lock screen or the
+/// screen saver rather than one wallpaper. The app stages each of those under
+/// a fixed id with this prefix (MuroKit's `LockScreenRotation`, which this
+/// target does not link), and only swaps the video behind it from step to
+/// step. Everything below that reacts to a swap is gated on this, so a
+/// wallpaper applied by hand is handled exactly as it always was.
+func isRotationChoice(_ choiceID: String?) -> Bool {
+    choiceID?.hasPrefix("muro-rotation-") ?? false
+}
+
+/// A staged file's identity. The file behind a fixed id always has the same
+/// path, so a path cannot say a step has swapped it, but the inode and the
+/// size both change when a different video is linked into place.
 struct FileIdentity: Equatable {
     let inode: Int
     let size: Int
 
-    static func of(_ url: URL) -> FileIdentity? {
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+    static func of(_ url: URL?) -> FileIdentity? {
+        guard let url,
+              let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
               let inode = attributes[.systemFileNumber] as? Int,
               let size = attributes[.size] as? Int
         else { return nil }
@@ -102,12 +112,6 @@ final class ActiveWallpaper: @unchecked Sendable {
 
     let renderer: VideoRenderer
     let choiceID: String?
-
-    /// The file this renderer was built on, and that file's identity when it
-    /// was built. `library-changed` re-checks the identity to decide whether a
-    /// rotation step has replaced the video underneath a live surface.
-    let videoURL: URL
-    var stagedIdentity: FileIdentity?
 
     /// Whether this surface draws the desktop's own picture at all. False for
     /// a System Settings preview, which is showing the lock wallpaper on
@@ -131,7 +135,12 @@ final class ActiveWallpaper: @unchecked Sendable {
 
     /// A frame of this wallpaper itself, kept so a desktop still going away
     /// falls back to something rather than to nothing.
-    let fallback: CGImage?
+    private let fallback: CGImage?
+
+    /// The staged file this surface's video was built from, for a playlist
+    /// or automation only. When the file behind the fixed id is no longer
+    /// this one, the surface is showing the step before.
+    var stagedIdentity: FileIdentity?
 
     /// What was last asked for, which is not always what is on screen: the
     /// still can only win while it has a picture. Kept so that a still
@@ -146,8 +155,6 @@ final class ActiveWallpaper: @unchecked Sendable {
         rootLayer: CALayer,
         renderer: VideoRenderer,
         choiceID: String?,
-        videoURL: URL,
-        stagedIdentity: FileIdentity? = nil,
         drawsStill: Bool,
         isScreenSaverSurface: Bool = false,
         displayID: UInt32? = nil,
@@ -158,8 +165,6 @@ final class ActiveWallpaper: @unchecked Sendable {
         self.rootLayer = rootLayer
         self.renderer = renderer
         self.choiceID = choiceID
-        self.videoURL = videoURL
-        self.stagedIdentity = stagedIdentity
         self.drawsStill = drawsStill
         self.isScreenSaverSurface = isScreenSaverSurface
         self.fallback = fallback
@@ -189,6 +194,26 @@ final class ActiveWallpaper: @unchecked Sendable {
         setShowingStill(wantsStill)
     }
 
+    /// The same surface playing the next step of a playlist or automation.
+    /// Everything macOS knows it by stays: the context, the layer, the
+    /// display. Only the video and the frame behind it are the new step's.
+    func carrying(
+        _ renderer: VideoRenderer, identity: FileIdentity?, fallback frame: CGImage?
+    ) -> ActiveWallpaper {
+        let next = ActiveWallpaper(
+            context: context,
+            rootLayer: rootLayer,
+            renderer: renderer,
+            choiceID: choiceID,
+            drawsStill: drawsStill,
+            isScreenSaverSurface: isScreenSaverSurface,
+            displayID: displayID,
+            fallback: frame ?? fallback
+        )
+        next.stagedIdentity = identity
+        return next
+    }
+
     /// The same picture in a different object, so assigning it counts as a
     /// change. Falls back to the image itself, which is no worse than what
     /// was there before.
@@ -212,6 +237,10 @@ final class ActiveWallpaper: @unchecked Sendable {
         wantsStill = showing
         renderer.setHidden(showing && rootLayer.contents != nil)
     }
+
+    /// Whether this surface was last told to show its picture rather than its
+    /// video: the lock screen behind the desktop, or a display that is asleep.
+    var isHeld: Bool { wantsStill }
 }
 
 final class RendererState: @unchecked Sendable {
@@ -319,77 +348,6 @@ final class RendererState: @unchecked Sendable {
         wallpapers.forEach(body)
     }
 
-    /// True only while macOS has told this process the screen is locked. The
-    /// `library-changed` observer swaps nothing on the desktop: unlocked, the
-    /// renderer is paused and a stale staged file is harmless until the next
-    /// lock.
-    var isLocked: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return presentationMode == "locked"
-    }
-
-    /// A rotation step has staged a new video. While locked, rebuild the
-    /// renderer for every surface whose staged file identity has moved,
-    /// serialized on the lifecycle queue so rapid next/previous collapses to
-    /// the latest file.
-    func handleLibraryChanged() {
-        guard isLocked else { return }
-        Self.lifecycleQueue.async { [weak self] in self?.swapChangedRotations() }
-    }
-
-    private func swapChangedRotations() {
-        lock.lock()
-        let entries = Array(active)
-        lock.unlock()
-        for (key, wallpaper) in entries {
-            guard let url = stagedVideoURL(for: wallpaper.choiceID) else { continue }
-            let identity = FileIdentity.of(url)
-            if url == wallpaper.videoURL,
-               let recorded = wallpaper.stagedIdentity,
-               recorded == identity {
-                continue
-            }
-            swapRenderer(for: key, from: wallpaper, to: url, identity: identity)
-        }
-    }
-
-    private func swapRenderer(
-        for key: WallpaperSurfaceKey,
-        from old: ActiveWallpaper,
-        to url: URL,
-        identity: FileIdentity?
-    ) {
-        let renderer: VideoRenderer
-        do {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            renderer = try VideoRenderer.create(rootLayer: old.rootLayer, videoURL: url)
-            CATransaction.commit()
-            CATransaction.flush()
-        } catch {
-            extensionLog("rotation-swap \(old.choiceID ?? "?") failed: \(error.localizedDescription)")
-            return
-        }
-        let fresh = ActiveWallpaper(
-            context: old.context,
-            rootLayer: old.rootLayer,
-            renderer: renderer,
-            choiceID: old.choiceID,
-            videoURL: url,
-            stagedIdentity: identity,
-            drawsStill: old.drawsStill,
-            isScreenSaverSurface: old.isScreenSaverSurface,
-            displayID: old.displayID,
-            fallback: old.fallback
-        )
-        install(fresh, for: key)
-        let play = shouldPlayNow()
-        renderer.start(initiallyPaused: !play) { _ in }
-        fresh.setShowingStill(!play)
-        extensionLog("rotation-swap \(old.choiceID ?? "?") \(url.lastPathComponent)")
-    }
-
     func setPresentation(mode: String, activity: String) {
         lock.lock()
         presentationMode = mode
@@ -434,7 +392,8 @@ final class RendererState: @unchecked Sendable {
         let activity = requestedActivity ?? activityState
         lock.unlock()
         if activity.contains("suspended") { return false }
-        if mode == "locked" || ScreenState.isCovered() { return !ExtensionPreferences.shared.pauseLockScreen }
+        if mode == "locked" { return true }
+        if ScreenState.isCovered() { return true }
         if mode == "idle" { return false }
         return !ExtensionPreferences.shared.alwaysPauseDesktop
     }
@@ -475,9 +434,16 @@ final class RendererState: @unchecked Sendable {
             // saver is up the desktop is behind it and holding still, and
             // giving that answer to both is what froze the screen saver.
             let play = wallpaper.isScreenSaverSurface ? saverPlays : shouldPlay
-            play ? wallpaper.renderer.resume() : wallpaper.renderer.pause()
-            wallpaper.setShowingStill(!play)
+            // A playlist or automation surface that skipped steps while nobody
+            // could see it holds an earlier step. It stays on its picture until
+            // the current step has a frame, rather than showing the old video
+            // first. Always false for a wallpaper applied by hand, and for a
+            // surface that was already on screen.
+            let waiting = play && wallpaper.isHeld && hasNewerStagedStep(wallpaper)
+            play && !waiting ? wallpaper.renderer.resume() : wallpaper.renderer.pause()
+            wallpaper.setShowingStill(!play || waiting)
         }
+        Self.lifecycleQueue.async { RendererState.shared.revealHeldSteps() }
     }
 
     /// The app has staged a different desktop picture: a new wallpaper, a
@@ -548,5 +514,212 @@ final class RendererState: @unchecked Sendable {
         if removed != nil {
             extensionLog("released surface d=\(key.displayID) left=\(activeCount)")
         }
+    }
+
+    // MARK: - Playlist steps
+
+    /// A step started for a surface and not finished yet: the file it is
+    /// for, and a number so that only the newest step for a surface lands.
+    private var pendingSteps: [WallpaperSurfaceKey: (generation: Int, identity: FileIdentity)] = [:]
+    private var stepGeneration = 0
+
+    /// Whether a surface built for a playlist or automation is still showing
+    /// an earlier step than the file now staged behind its id. False for
+    /// every wallpaper applied by hand.
+    func isShowingEarlierStep(_ wallpaper: ActiveWallpaper) -> Bool {
+        guard isRotationChoice(wallpaper.choiceID) else { return false }
+        return FileIdentity.of(stagedVideoURL(for: wallpaper.choiceID)) != wallpaper.stagedIdentity
+    }
+
+    /// The app staged a different video behind a fixed id: the next step of a
+    /// playlist or automation on the lock screen or the screen saver. Every
+    /// surface showing that id changes to it in place, the context, the layer
+    /// and the display all kept, so macOS sees no new wallpaper and nothing
+    /// flashes.
+    ///
+    /// Locked or not. Waiting for the lock would race the app's own step on
+    /// the same notification, and a surface behind the desktop is paused, so
+    /// changing it early costs one decoded frame.
+    func handleLibraryChanged() {
+        Self.lifecycleQueue.async { RendererState.shared.swapPlaylistSteps() }
+    }
+
+    private func swapPlaylistSteps() {
+        lock.lock()
+        let showing = active.filter { key, wallpaper in
+            isRotationChoice(wallpaper.choiceID) && teardown[key] == nil
+        }
+        lock.unlock()
+        for (key, wallpaper) in showing {
+            guard let url = stagedVideoURL(for: wallpaper.choiceID),
+                  let identity = FileIdentity.of(url),
+                  identity != wallpaper.stagedIdentity
+            else { continue }
+            // Nobody can see this surface: the lock screen's video while the
+            // Mac is in use, or a screen saver whose display is asleep. Building
+            // the step here decoded a video and wrote a picture at every step
+            // for nothing. It is built when the surface is shown instead, from
+            // whatever is staged by then. See `revealHeldSteps`.
+            guard isShown(wallpaper) else {
+                extensionTrace("playlist step d=\(key.displayID) waits until shown")
+                continue
+            }
+            beginStep(for: key, from: wallpaper, url: url, identity: identity)
+        }
+    }
+
+    /// A different video is staged behind this surface's fixed id than the one
+    /// it is showing. Unlike `isShowingEarlierStep`, false when nothing is
+    /// staged at all, so a surface whose files are gone is never left waiting
+    /// on its picture for a step that cannot come.
+    private func hasNewerStagedStep(_ wallpaper: ActiveWallpaper) -> Bool {
+        guard isRotationChoice(wallpaper.choiceID),
+              let staged = FileIdentity.of(stagedVideoURL(for: wallpaper.choiceID))
+        else { return false }
+        return staged != wallpaper.stagedIdentity
+    }
+
+    /// Whether macOS is showing this surface right now, by the same rule the
+    /// playback policy uses.
+    private func isShown(_ wallpaper: ActiveWallpaper) -> Bool {
+        wallpaper.isScreenSaverSurface ? shouldScreenSaverPlay() : shouldPlayNow()
+    }
+
+    /// Builds the step a surface skipped while it was hidden, now that it is
+    /// shown. The surface stays on its picture meanwhile (see
+    /// `applyCurrentPlaybackPolicy`), so the first video anyone sees on it is
+    /// the current one.
+    private func revealHeldSteps() {
+        lock.lock()
+        let rotation = active.filter { key, wallpaper in
+            isRotationChoice(wallpaper.choiceID) && teardown[key] == nil
+        }
+        lock.unlock()
+        for (key, wallpaper) in rotation where wallpaper.isHeld && isShown(wallpaper) {
+            guard let url = stagedVideoURL(for: wallpaper.choiceID),
+                  let identity = FileIdentity.of(url),
+                  identity != wallpaper.stagedIdentity
+            else { continue }
+            extensionLog("playlist step d=\(key.displayID) built on show")
+            beginStep(for: key, from: wallpaper, url: url, identity: identity)
+        }
+    }
+
+    /// How long one step crossfades into the next. The desktop uses the same,
+    /// in `WallpaperWindowController`, so all three places change alike.
+    static let stepCrossfade: TimeInterval = 0.6
+
+    /// How long a step waits for macOS to say its first frame is ready before
+    /// it changes without a fade. A frame is normally ready in well under a
+    /// tenth of a second; this is only there so a step can never hang.
+    static let stepReadyTimeout: TimeInterval = 2
+
+    /// Builds the new step's video on the surface's own layer, underneath the
+    /// old one, and holds it on its first frame. Once macOS says that frame
+    /// is ready, the new video starts and the old one fades out over it, so a
+    /// step is a crossfade and never shows a gap.
+    ///
+    /// Only a surface on screen gets here (see `swapPlaylistSteps`). If it was
+    /// hidden again by the time the frame is ready, it changes at once, since
+    /// there is nothing to fade.
+    private func beginStep(
+        for key: WallpaperSurfaceKey,
+        from old: ActiveWallpaper,
+        url: URL,
+        identity: FileIdentity
+    ) {
+        lock.lock()
+        if pendingSteps[key]?.identity == identity {
+            lock.unlock()
+            return
+        }
+        stepGeneration += 1
+        let generation = stepGeneration
+        pendingSteps[key] = (generation, identity)
+        lock.unlock()
+
+        // The frame kept behind the video belongs to the new step too, and the
+        // one remembered for this id is the last step's.
+        WallpaperFrame.forget(old.choiceID)
+        let frame = WallpaperFrame.image(for: old.choiceID)
+        let renderer: VideoRenderer
+        do {
+            renderer = try VideoRenderer.create(rootLayer: old.rootLayer, videoURL: url, behind: true)
+        } catch {
+            extensionLog("playlist step failed d=\(key.displayID): \(error.localizedDescription)")
+            lock.lock()
+            if pendingSteps[key]?.generation == generation { pendingSteps[key] = nil }
+            lock.unlock()
+            return
+        }
+        let fresh = old.carrying(renderer, identity: identity, fallback: frame)
+        let play = fresh.isScreenSaverSurface ? shouldScreenSaverPlay() : shouldPlayNow()
+        fresh.setShowingStill(!play)
+        renderer.start(initiallyPaused: true) { composited in
+            renderer.showFirstFrame()
+            guard composited, play else {
+                Self.lifecycleQueue.async {
+                    RendererState.shared.finishStep(
+                        for: key, old: old, fresh: fresh,
+                        generation: generation, composited: composited, ready: false
+                    )
+                }
+                return
+            }
+            renderer.whenReadyForDisplay(timeout: Self.stepReadyTimeout) { ready in
+                Self.lifecycleQueue.async {
+                    RendererState.shared.finishStep(
+                        for: key, old: old, fresh: fresh,
+                        generation: generation, composited: true, ready: ready
+                    )
+                }
+            }
+        }
+    }
+
+    /// `ready` is whether macOS said the new video's first frame is ready to
+    /// show. Only then does the step fade; without it, it changes at once, as
+    /// every step did before the fade.
+    private func finishStep(
+        for key: WallpaperSurfaceKey,
+        old: ActiveWallpaper,
+        fresh: ActiveWallpaper,
+        generation: Int,
+        composited: Bool,
+        ready: Bool
+    ) {
+        lock.lock()
+        let newest = pendingSteps[key]?.generation == generation
+        if newest { pendingSteps[key] = nil }
+        // Only onto the surface it was built for. One that macOS released, or
+        // rebuilt, in the meantime has no use for it, and a newer step wins.
+        let lands = newest && composited && active[key] === old && teardown[key] == nil
+        if lands { active[key] = fresh }
+        lock.unlock()
+
+        guard lands else {
+            // Stopped here, because nothing else holds it. It is underneath
+            // the video on screen, so it goes without being seen.
+            fresh.renderer.fadeOutAndStop(over: 0)
+            if newest, !composited {
+                extensionLog("playlist step drew nothing d=\(key.displayID), kept the last one")
+            }
+            return
+        }
+        // The screen may have locked or unlocked while the new video was being
+        // built, and the policy that ran then only reached the old one.
+        let play = fresh.isScreenSaverSurface ? shouldScreenSaverPlay() : shouldPlayNow()
+        play ? fresh.renderer.resume() : fresh.renderer.pause()
+        fresh.setShowingStill(!play)
+        if fresh.drawsStill { fresh.setStill(DesktopStill.current(displayID: fresh.displayID)) }
+        // The old video goes last, on top of the new one, so the new one is
+        // what shows through it.
+        let fades = play && ready
+        old.renderer.fadeOutAndStop(over: fades ? Self.stepCrossfade : 0)
+        extensionLog(
+            "playlist step d=\(key.displayID) "
+                + "\(fresh.isScreenSaverSurface ? "saver" : "lock") \(play ? "playing" : "held")"
+                + (play && !fades ? " without a fade" : "")
+        )
     }
 }

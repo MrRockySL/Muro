@@ -8,12 +8,10 @@ final class ExtensionPreferences: @unchecked Sendable {
 
     private struct FileContents: Codable {
         var alwaysPauseDesktop: Bool
-        var pauseLockScreen: Bool?
     }
 
     private let lock = NSLock()
     private var pauseDesktop = true
-    private var lockScreenPaused = false
 
     private static var url: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -32,6 +30,9 @@ final class ExtensionPreferences: @unchecked Sendable {
             nil,
             .deliverImmediately
         )
+        // The app posts this whenever it stages or removes a video. The one
+        // case that needs an answer is a playlist or automation step on the
+        // lock screen or the screen saver; everything else is left alone.
         CFNotificationCenterAddObserver(
             center,
             Unmanaged.passUnretained(self).toOpaque(),
@@ -48,14 +49,6 @@ final class ExtensionPreferences: @unchecked Sendable {
         return pauseDesktop
     }
 
-    /// The locked wallpaper holds its current frame while this is true (Muro
-    /// is paused with a lock-screen rotation running).
-    var pauseLockScreen: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return lockScreenPaused
-    }
-
     /// The app writes preferences and the desktop still through the same
     /// notification, so both are picked up here.
     func reloadAndApply() {
@@ -69,7 +62,6 @@ final class ExtensionPreferences: @unchecked Sendable {
         else { return }
         lock.lock()
         pauseDesktop = contents.alwaysPauseDesktop
-        lockScreenPaused = contents.pauseLockScreen ?? false
         lock.unlock()
     }
 }

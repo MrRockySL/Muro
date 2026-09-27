@@ -664,9 +664,18 @@ struct MenuOption: Identifiable {
     var checked = false
     var destructive = false
     var isDivider = false
+    /// Grey words at the end of the row, for something it is doing somewhere
+    /// else: "On desktop".
+    var detail: String? = nil
+    /// A small title over a group of rows. Clicking it does nothing.
+    var isHeader = false
     var action: () -> Void = {}
 
     static let divider = MenuOption(title: "", isDivider: true)
+
+    static func header(_ title: String) -> MenuOption {
+        MenuOption(title: title, isHeader: true)
+    }
 }
 
 /// The rows themselves — used by GlassDropdown and by ad-hoc popovers
@@ -687,6 +696,15 @@ struct GlassMenuList: View {
                         .frame(height: 1)
                         .padding(.vertical, 4)
                         .padding(.horizontal, 4)
+                } else if option.isHeader {
+                    Text(option.title)
+                        .font(.system(size: 8.5, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundStyle(Color.muroSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 4)
+                        .padding(.bottom, 3)
                 } else {
                     GlassMenuRow(option: option, dismiss: dismiss)
                 }
@@ -712,7 +730,17 @@ private struct GlassMenuRow: View {
                 Text(option.title)
                     .font(.system(size: 12.5, weight: option.checked ? .semibold : .medium))
                     .foregroundStyle(option.destructive ? Color.muroDanger : .white.opacity(0.92))
+                    // Beside grey words the name keeps its room and the words
+                    // shorten first. A row without them is laid out as before.
+                    .lineLimit(option.detail == nil ? nil : 1)
+                    .layoutPriority(option.detail == nil ? 0 : 1)
                 Spacer(minLength: 12)
+                if let detail = option.detail {
+                    Text(detail)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Color.muroSecondary)
+                        .lineLimit(1)
+                }
                 if option.checked {
                     Image(systemName: "checkmark")
                         .font(.system(size: 10, weight: .semibold))
