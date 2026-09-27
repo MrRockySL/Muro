@@ -202,6 +202,10 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
 
         if let existing = RendererState.shared.context(for: key),
            existing.choiceID == info.choiceID,
+           // A playlist or automation keeps one id and changes the video
+           // behind it, so the same id can be a different wallpaper now.
+           // Always false for a wallpaper applied by hand.
+           !RendererState.shared.isShowingEarlierStep(existing),
            let response = createRemoteContextXPC(contextId: existing.context.contextId)
         {
             extensionLog("reusing surface ctx=\(existing.context.contextId)")
@@ -266,7 +270,6 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 rootLayer: rootLayer,
                 renderer: renderer,
                 choiceID: info.choiceID,
-                videoURL: videoURL,
                 // A screen saver keeps the frame it was built with. Restaging
                 // the desktop's picture must not reach across onto it.
                 drawsStill: !info.isPreview && !info.isScreenSaver,
@@ -274,7 +277,9 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 displayID: info.displayID,
                 fallback: fallbackStill
             )
-            wallpaper.stagedIdentity = FileIdentity.of(videoURL)
+            if isRotationChoice(info.choiceID) {
+                wallpaper.stagedIdentity = FileIdentity.of(videoURL)
+            }
             RendererState.shared.install(wallpaper, for: key)
             // A surface is not trusted to have come up right. See
             // RendererState.scheduleStillReassert for what was measured.

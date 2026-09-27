@@ -77,26 +77,18 @@ final class LockScreenService {
         var selections: [String: String] = [:]
         /// The same, for the screen saver.
         var screenSaver: [String: String] = [:]
-        /// The schedule id currently rotating the lock screen, or `nil`. It is
-        /// also the value sitting in `selections["all"]` while a rotation runs:
-        /// the store is written once under this fixed id and later steps only
-        /// swap the staged file. See `LockScreenRotation`.
-        var rotation: String?
-        /// The desktop-role `selections` exactly as they were the instant
-        /// before a rotation collapsed them to the fixed schedule id. `nil`
-        /// when no rotation is running; an empty dictionary means the
-        /// rotation began with nothing previously selected. `endRotation`
-        /// restores this exact snapshot, per display, instead of falling
-        /// through to `restoreWallpaperStores`'s non-Muro default (D7).
-        var preRotationSelections: [String: String]?
+        /// The wallpaper a playlist or automation last staged behind each
+        /// role's fixed id, keyed by `LockScreenRotation.stateKey`. It is what
+        /// that id stands for whenever a selection holds it, so the app can
+        /// say which wallpaper the lock screen or the screen saver is showing.
+        var rotationWallpapers: [String: String] = [:]
 
         init() {}
 
         /// Written by hand so a state file from a build that had no screen
-        /// saver (or no rotation snapshot) still decodes. The synthesised
-        /// initialiser throws on the missing key, and this file is loaded
-        /// with `try?`, so that would have quietly thrown away somebody's
-        /// lock screen selection.
+        /// saver still decodes. The synthesised initialiser throws on the
+        /// missing key, and this file is loaded with `try?`, so that would
+        /// have quietly thrown away somebody's lock screen selection.
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             selections = try container.decodeIfPresent(
@@ -105,10 +97,9 @@ final class LockScreenService {
             screenSaver = try container.decodeIfPresent(
                 [String: String].self, forKey: .screenSaver
             ) ?? [:]
-            rotation = try container.decodeIfPresent(String.self, forKey: .rotation)
-            preRotationSelections = try container.decodeIfPresent(
-                [String: String].self, forKey: .preRotationSelections
-            )
+            rotationWallpapers = try container.decodeIfPresent(
+                [String: String].self, forKey: .rotationWallpapers
+            ) ?? [:]
         }
     }
 
@@ -125,7 +116,6 @@ final class LockScreenService {
 
     private struct ExtensionPrefs: Codable {
         let alwaysPauseDesktop: Bool
-        let pauseLockScreen: Bool
     }
 
     private struct StoreSnapshot: Sendable {
@@ -135,25 +125,6 @@ final class LockScreenService {
 
     private let root: URL
     private var state: SelectionState
-
-    /// The wallpaper the running lock-screen schedule is showing right now,
-    /// set by the store. While a rotation drives the surface the live
-    /// selection is the fixed schedule id, so "is wallpaper X applied" has to
-    /// resolve through the current step — this is how it does. `nil` when no
-    /// rotation runs.
-    var rotationCurrentWallpaperID: (() -> String?)?
-
-    /// Resolves a wallpaper id back to its master video/thumbnail/title, for
-    /// re-staging a snapshotted pre-rotation selection whose staged file was
-    /// reaped by `pruneStagedLibrary` while the rotation ran (D7). `nil` when
-    /// the id no longer exists in the library — the restore then skips that
-    /// entry's store write rather than pointing it at a missing file.
-    var restageSource: ((String) -> (videoURL: URL, thumbnailURL: URL, title: String)?)?
-
-    /// Mirror of Muro's pause button while a lock-screen rotation runs. Written
-    /// into `muro-prefs.json` so the extension can hold the locked video on its
-    /// current frame instead of playing through a pause.
-    private var lockScreenPlaybackPaused = false
 
     /// Cheap half only: read Muro's own small state file. Everything
     /// expensive moved to `healIfNeeded()`.
@@ -172,25 +143,12 @@ final class LockScreenService {
     /// WallpaperAgent, so on a slow launch it froze the interface behind a
     /// process spawn. It is a background job now, and the only thing it
     /// changes in the interface is an "Applied" badge that was already wrong.
-    ///
-    /// - Parameter runningRotationIDs: the ids of the lock-screen schedules
-    ///   running right now, or `nil` when the caller does not know. A rotation
-    ///   id recorded in the state but absent from a non-`nil` set is orphaned —
-    ///   a crash between "schedule stopped" and "lock screen restored" — and is
-    ///   torn down here so the next launch does not sit on a frozen last frame.
-    func healIfNeeded(runningRotationIDs: Set<String>? = nil) async {
+    func healIfNeeded() async {
         // Before anything else, and on every launch rather than only when a
         // lock-screen wallpaper is set: an app that is still quarantined has an
         // extension macOS will not load, and the user finds out at the worst
         // moment. Cheap when there is nothing to clear (two `getxattr` calls).
         await Task.detached(priority: .utility) { Self.clearQuarantine() }.value
-
-        if let runningRotationIDs,
-           LockScreenRotation.isOrphaned(
-               rotationID: state.rotation, runningScheduleIDs: runningRotationIDs
-           ) {
-            try? await endRotation()
-        }
 
         let root = self.root
         let extensionURL = extensionBundleURL
@@ -348,13 +306,147 @@ final class LockScreenService {
         Self.heldIDs(state)
     }
     var activeWallpaperID: String? {
-        state.selections["all"]
-            ?? state.selections.values.first(where: { $0 != Self.removedSelection })
+        resolved(
+            state.selections["all"]
+                ?? state.selections.values.first(where: { $0 != Self.removedSelection }),
+            role: .desktop
+        )
     }
 
     var screenSaverWallpaperID: String? {
-        state.screenSaver["all"]
-            ?? state.screenSaver.values.first(where: { $0 != Self.removedSelection })
+        resolved(
+            state.screenSaver["all"]
+                ?? state.screenSaver.values.first(where: { $0 != Self.removedSelection }),
+            role: .screenSaver
+        )
+    }
+
+    // MARK: - Playlists and automations
+
+    /// The wallpaper a selection stands for. Only a role's fixed id changes
+    /// here, into whichever wallpaper was last staged behind it; every other
+    /// value is already a wallpaper id.
+    private func resolved(_ value: String?, role: AppleWallpaperStore.Surface) -> String? {
+        LockScreenRotation.resolvedWallpaperID(
+            selectionValue: value,
+            rotationID: LockScreenRotation.fixedID(for: role),
+            currentStepID: state.rotationWallpapers[LockScreenRotation.stateKey(for: role)]
+        )
+    }
+
+    /// Whether a playlist or automation holds this role right now, which is
+    /// to say whether its fixed id is what every display reads.
+    func isRotating(_ role: AppleWallpaperStore.Surface) -> Bool {
+        Self.selections(state, for: role)[LockScreenSelections.allKey]
+            == LockScreenRotation.fixedID(for: role)
+    }
+
+    /// The wallpaper a playlist or automation is showing on this role, or nil
+    /// when none holds it. It stays after the playlist stops, the same as the
+    /// desktop keeps the last wallpaper a playlist put there.
+    func rotationWallpaperID(_ role: AppleWallpaperStore.Surface) -> String? {
+        guard isRotating(role) else { return nil }
+        return state.rotationWallpapers[LockScreenRotation.stateKey(for: role)]
+    }
+
+    /// Puts one step of a playlist or an automation on the lock screen or the
+    /// screen saver.
+    ///
+    /// The first one is an ordinary apply to every display, with one
+    /// difference: Apple's store is written with the role's fixed id instead
+    /// of the wallpaper's own. Every step after it only swaps the video staged
+    /// behind that id and tells the extension, which changes the video on the
+    /// surface it is already showing. So the store is written once, and
+    /// WallpaperAgent is not restarted and nothing flashes between steps.
+    ///
+    /// The video is hard linked, so a step costs no disk space. Wallpapers kept
+    /// on another drive cannot be linked from here, and are copied instead.
+    ///
+    /// Returns nil for a step that only swapped the file.
+    @discardableResult
+    func showInRotation(
+        entry: WallpaperEntry,
+        videoURL: URL,
+        thumbnailURL: URL,
+        role: AppleWallpaperStore.Surface,
+        connectedDisplays: Set<String>
+    ) async throws -> LockScreenApplyOutcome? {
+        let fixedID = LockScreenRotation.fixedID(for: role)
+        let stateKey = LockScreenRotation.stateKey(for: role)
+        let holding = isRotating(role)
+        let storeShowsIt = holding
+            ? await Task.detached(priority: .userInitiated) {
+                Self.storeShowsRotation(fixedID, role: role)
+            }.value
+            : false
+
+        guard holding, storeShowsIt else {
+            // macOS is not reading the fixed id: the first step, or someone
+            // put another wallpaper there since. Apply it like one picked by
+            // hand, under the fixed id.
+            let outcome = try await apply(
+                entry: entry,
+                videoURL: videoURL,
+                thumbnailURL: thumbnailURL,
+                target: .all,
+                surface: role,
+                connectedDisplays: connectedDisplays,
+                storeID: fixedID,
+                linkFiles: true
+            )
+            state.rotationWallpapers[stateKey] = entry.id
+            try? Self.saveState(state, root: root)
+            return outcome
+        }
+
+        try await Task.detached(priority: .userInitiated) {
+            try Self.stage(
+                id: fixedID, entry: entry, videoURL: videoURL,
+                thumbnailURL: thumbnailURL, link: true
+            )
+        }.value
+        // Written into the record as it is now, not a copy taken before the
+        // file work, so an apply that finished in the meantime is kept.
+        state.rotationWallpapers[stateKey] = entry.id
+        try Self.saveState(state, root: root)
+        Self.notifyLibraryChanged()
+        return nil
+    }
+
+    /// Whether macOS keeps the lock screen and the screen saver on one key,
+    /// a `linked` node (see `AppleWallpaperStore.surfaceName`). There they
+    /// are one place: a playlist on each would take the key back from the
+    /// other at every step.
+    var lockAndSaverAreLinked: Bool {
+        guard let url = Self.wallpaperStoreURLs.first,
+              let store = Self.loadWallpaperStore(at: url)
+        else { return false }
+        var linked = false
+        AppleWallpaperStore.forEachNode(in: store) { _, node in
+            if node["Type"] as? String == "linked" { linked = true }
+        }
+        return linked
+    }
+
+    /// Whether `Index.plist`, the store macOS reads, has this role on Muro
+    /// with the fixed id. Not only on Muro: a Muro wallpaper picked in System
+    /// Settings is Muro too, and swapping the file behind the fixed id would
+    /// change nothing anyone can see.
+    private static func storeShowsRotation(
+        _ fixedID: String, role: AppleWallpaperStore.Surface
+    ) -> Bool {
+        guard let url = wallpaperStoreURLs.first,
+              let store = loadWallpaperStore(at: url)
+        else { return false }
+        var found = false
+        AppleWallpaperStore.forEachNode(in: store) { _, node in
+            guard !found,
+                  let name = AppleWallpaperStore.surfaceName(of: node, for: role),
+                  let surface = node[name] as? [String: Any]
+            else { return }
+            if muroWallpaperID(of: surface) == fixedID { found = true }
+        }
+        return found
     }
 
     /// The targets whose lock screen currently shows one of `ids`. A delete
@@ -395,31 +487,25 @@ final class LockScreenService {
         surface: AppleWallpaperStore.Surface = .desktop
     ) -> Bool {
         let selections = Self.selections(state, for: surface)
+        // A playlist or automation holds its role with a fixed id, and that
+        // id stands for the wallpaper it is showing. Every other value is a
+        // wallpaper id already and comes back unchanged.
+        func shown(_ value: String?) -> String? { resolved(value, role: surface) }
         // One screen saver for the Mac: asking about a single display is the
-        // same question as asking about all of them. A rotation never drives
-        // the screen saver, so this side needs no step resolution.
+        // same question as asking about all of them.
         if surface == .screenSaver {
-            return selections["all"] == wallpaperID
-        }
-        // A rotation's selection value is the fixed schedule id; resolve it to
-        // the step showing now before comparing. Every other value is a plain
-        // wallpaper id and `resolve` returns it unchanged.
-        let rotationID = state.rotation
-        let currentStepID = rotationCurrentWallpaperID?()
-        func resolve(_ value: String?) -> String? {
-            LockScreenRotation.resolvedWallpaperID(
-                selectionValue: value, rotationID: rotationID, currentStepID: currentStepID
-            )
+            return shown(selections["all"]) == wallpaperID
         }
         switch target {
         case .all:
-            guard resolve(selections["all"]) == wallpaperID else { return false }
+            guard shown(selections["all"]) == wallpaperID else { return false }
             return selections
                 .filter { $0.key != "all" }
                 .values
-                .allSatisfy { resolve($0) == wallpaperID }
+                .allSatisfy { shown($0) == wallpaperID }
         case .display(let uuid):
-            return resolve(selections[uuid] ?? selections["all"]) == wallpaperID
+            let effective = selections[uuid] ?? selections["all"]
+            return shown(effective) == wallpaperID
         }
     }
 
@@ -474,12 +560,10 @@ final class LockScreenService {
     }
 
     /// - Parameters:
-    ///   - storeID: the id Apple's store is written with. Defaults to the
-    ///     wallpaper's own id; a rotation passes the schedule id so the store
-    ///     is written once and later steps only swap the staged file.
-    ///   - rotation: records `storeID` as the running rotation, so `isApplied`
-    ///     resolves through the current step and `healIfNeeded` can strip it
-    ///     if the schedule is gone.
+    ///   - storeID: the id Apple's store is written with. The wallpaper's own
+    ///     id unless a playlist or automation passes its role's fixed id. See
+    ///     `showInRotation`.
+    ///   - linkFiles: hard link the video into place instead of copying it.
     @discardableResult
     func apply(
         entry: WallpaperEntry,
@@ -489,8 +573,7 @@ final class LockScreenService {
         surface: AppleWallpaperStore.Surface = .desktop,
         connectedDisplays: Set<String> = [],
         storeID: String? = nil,
-        rotation: Bool = false,
-        preRotationSnapshot: [String: String] = [:]
+        linkFiles: Bool = false
     ) async throws -> LockScreenApplyOutcome {
         try validateAvailability()
         let storeID = storeID ?? entry.id
@@ -512,28 +595,9 @@ final class LockScreenService {
             for: surface,
             in: &nextState
         )
-        if rotation {
-            nextState.rotation = storeID
-            nextState.preRotationSelections = preRotationSnapshot
-        } else if nextState.rotation != nil {
-            // A manual (non-rotation) apply just overwrote the selection this
-            // rotation owned. Only one rotation can be active app-wide, so if
-            // we got here the old rotation's store ownership is now stale —
-            // drop it instead of leaving an orphaned pointer that the next
-            // scheduled tick would silently stage a file behind (see the
-            // playlist-play-button-stuck-while-lockscreen-stops-updating bug).
-            // Clearing `preRotationSelections` too: if the schedule is still
-            // "running" from the scheduler's point of view, its next tick will
-            // see `isRotating == false` and call `beginRotation` again fresh,
-            // snapshotting the manual choice as the new baseline — which is
-            // correct, unlike restoring the OLD pre-rotation snapshot here.
-            nextState.rotation = nil
-            nextState.preRotationSelections = nil
-        }
 
         let extensionURL = extensionBundleURL
         let root = root
-        let lockPausedForPrefs = lockScreenPlaybackPaused
         let outcome = try await Task.detached(priority: .userInitiated) {
             () -> LockScreenApplyOutcome in
             let storeSnapshots = Self.wallpaperStoreURLs.map {
@@ -541,9 +605,10 @@ final class LockScreenService {
             }
             do {
                 try Self.stage(
-                    id: storeID, entry: entry, videoURL: videoURL, thumbnailURL: thumbnailURL
+                    id: storeID, entry: entry, videoURL: videoURL,
+                    thumbnailURL: thumbnailURL, link: linkFiles
                 )
-                try Self.writePreferences(pauseLockScreen: lockPausedForPrefs)
+                try Self.writePreferences()
                 try await Self.registerExtension(at: extensionURL)
 
                 // WallpaperAgent restarts asynchronously and rewrites the store
@@ -607,12 +672,11 @@ final class LockScreenService {
                 // first report of it unanswerable.
                 Self.recordDiagnostics(
                     root: root,
-                    wallpaperID: storeID,
+                    wallpaperID: entry.id,
                     targetKey: targetKey,
                     registered: true,
                     settled: settled,
-                    acknowledged: acknowledged,
-                    rotation: rotation ? storeID : nil
+                    acknowledged: acknowledged
                 )
                 if !settled { return .needsSystemSettings }
                 return acknowledged ? .applied : .pendingAcknowledgement
@@ -637,11 +701,10 @@ final class LockScreenService {
                 }
                 Self.recordDiagnostics(
                     root: root,
-                    wallpaperID: storeID,
+                    wallpaperID: entry.id,
                     targetKey: targetKey,
                     registered: Self.extensionIsRegistered(),
                     settled: false,
-                    rotation: rotation ? storeID : nil,
                     error: error
                 )
                 throw error
@@ -649,160 +712,6 @@ final class LockScreenService {
         }.value
         state = nextState
         return outcome
-    }
-
-    /// True while the rotation whose fixed id is `scheduleID` owns the lock
-    /// screen. The per-step driver checks this to tell "begin" from "swap".
-    func isRotating(scheduleID: String) -> Bool {
-        state.rotation == scheduleID
-    }
-
-    /// Start a rotating lock screen. One ordinary apply, except the id written
-    /// to Apple's store is the schedule's own and fixed for the run, so the
-    /// store is written once here and every later step is a file swap through
-    /// `stageRotationStep`. Always the desktop role, every display.
-    @discardableResult
-    func beginRotation(
-        scheduleID: String,
-        entry: WallpaperEntry,
-        videoURL: URL,
-        thumbnailURL: URL,
-        connectedDisplays: Set<String> = []
-    ) async throws -> LockScreenApplyOutcome {
-        try await apply(
-            entry: entry,
-            videoURL: videoURL,
-            thumbnailURL: thumbnailURL,
-            target: .all,
-            surface: .desktop,
-            connectedDisplays: connectedDisplays,
-            storeID: scheduleID,
-            rotation: true,
-            preRotationSnapshot: Self.selections(state, for: .desktop)
-        )
-    }
-
-    /// Swap the video behind a running rotation. No store write, no extension
-    /// registration, no `WallpaperAgent` restart, no flash: the fixed id stays
-    /// put and only the staged file moves. The extension rebuilds its renderer
-    /// on the `library-changed` signal this posts.
-    func stageRotationStep(
-        scheduleID: String,
-        title: String,
-        videoURL: URL,
-        thumbnailURL: URL
-    ) throws {
-        try Self.stageRotationStep(
-            scheduleID: scheduleID, title: title, videoURL: videoURL, thumbnailURL: thumbnailURL
-        )
-    }
-
-    /// Tear down a rotating lock screen: forget the fixed id, unlink its
-    /// staged step, and put back exactly what the desktop role held before
-    /// the rotation started — not `remove()`'s generic non-Muro fallback,
-    /// which is structurally incapable of landing on anything Muro applied
-    /// (D7). A snapshot that was empty (nothing selected before the rotation
-    /// began) still falls through to today's `remove()` path unchanged.
-    func endRotation() async throws {
-        guard let snapshot = LockScreenRotation.selectionsToRestore(
-            snapshot: state.preRotationSelections
-        ) else {
-            try await remove(target: .all, surface: .desktop)
-            return
-        }
-        var nextState = state
-        nextState.rotation = nil
-        nextState.preRotationSelections = nil
-
-        let root = root
-        let extensionURL = extensionBundleURL
-        let restageSource = restageSource
-        state = try await Task.detached(priority: .userInitiated) {
-            var nextState = nextState
-            // A staged file backing one of these ids can have been reaped by
-            // `pruneStagedLibrary` while the rotation ran — `heldIDs` only
-            // ever sees the rotation's own fixed id, never the ids this
-            // snapshot is about to put back. Re-stage anything that is gone
-            // before writing the plist. An id whose source has also been
-            // removed from the library (`restageSource` returns `nil`) is
-            // dropped from the restored selection instead of being written
-            // pointing at a file that was never re-staged.
-            var effectiveSnapshot = snapshot
-            for wallpaperID in Set(snapshot.values).subtracting([Self.removedSelection]) {
-                guard !FileManager.default.fileExists(
-                    atPath: Self.stagedVideoURL(id: wallpaperID).path
-                ) else { continue }
-                guard let source = restageSource?(wallpaperID) else {
-                    for (key, value) in snapshot where value == wallpaperID {
-                        effectiveSnapshot[key] = Self.removedSelection
-                    }
-                    continue
-                }
-                try Self.stageFiles(
-                    id: wallpaperID,
-                    title: source.title,
-                    videoURL: source.videoURL,
-                    thumbnailURL: source.thumbnailURL,
-                    link: false
-                )
-            }
-            Self.setSelections(effectiveSnapshot, for: .desktop, in: &nextState)
-
-            // "all" writes to every node unconditionally (AppleWallpaperStore
-            // .applyChoice), so it must land first or it overwrites any
-            // per-display exception restored after it.
-            let orderedKeys = (effectiveSnapshot.keys.contains("all") ? ["all"] : [])
-                + effectiveSnapshot.keys.filter { $0 != "all" }
-            for targetKey in orderedKeys {
-                guard let wallpaperID = effectiveSnapshot[targetKey] else { continue }
-                if wallpaperID == Self.removedSelection {
-                    try await Self.restoreWallpaperStores(
-                        targetKey: targetKey, surface: .desktop, root: root
-                    )
-                } else {
-                    try await Self.updateWallpaperStores(
-                        wallpaperID: wallpaperID,
-                        videoURL: Self.stagedVideoURL(id: wallpaperID),
-                        targetKey: targetKey,
-                        surface: .desktop,
-                        root: root
-                    )
-                }
-            }
-            try Self.saveState(nextState, root: root)
-            Self.restartWallpaperAgent()
-            try Self.pruneStagedLibrary(keeping: Self.heldIDs(nextState))
-            if (try? Self.purgeDeadMuroSurfaces(root: root)) == true {
-                Self.restartWallpaperAgent()
-            }
-            if Self.heldIDs(nextState).isEmpty {
-                Self.unregisterExtension(at: extensionURL)
-                try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
-                try? FileManager.default.removeItem(at: Self.legacyBackupURL(root: root))
-            }
-            return nextState
-        }.value
-    }
-
-    /// Freeze or resume the locked wallpaper's video without touching any
-    /// selection or staged file. Called when Muro is paused / unpaused while a
-    /// lock-screen rotation runs.
-    func setLockScreenPlaybackPaused(_ paused: Bool) {
-        guard paused != lockScreenPlaybackPaused else { return }
-        lockScreenPlaybackPaused = paused
-        try? Self.writePreferences(pauseLockScreen: paused)
-    }
-
-    /// End a rotation whose schedule is no longer running — stopped, deleted,
-    /// emptied, or its surface edited back to Desktop only. Cheap: an in-memory
-    /// check, and a `remove()` only when actually orphaned. Called from
-    /// `AppStore.syncScheduler()` on every schedule change.
-    func reconcileRotation(runningRotationIDs: Set<String>) async {
-        if LockScreenRotation.isOrphaned(
-            rotationID: state.rotation, runningScheduleIDs: runningRotationIDs
-        ) {
-            try? await endRotation()
-        }
     }
 
     func remove(
@@ -822,13 +731,6 @@ final class LockScreenService {
             selections[targetKey] = nil
         }
         Self.setSelections(selections, for: surface, in: &nextState)
-        // A rotation lives in the desktop role's "all" slot; once that slot is
-        // clear the rotation is over. `pruneStagedLibrary` below drops the
-        // staged step with it, because the fixed id has left `heldIDs`.
-        if surface == .desktop,
-           Self.selections(nextState, for: .desktop)[LockScreenSelections.allKey] == nil {
-            nextState.rotation = nil
-        }
         let root = root
         let extensionURL = extensionBundleURL
         let stateAfter = nextState
@@ -1068,42 +970,17 @@ final class LockScreenService {
             .appendingPathComponent("wallpaper.mov")
     }
 
+    /// `id` is the wallpaper's own unless a playlist or automation stages
+    /// under its role's fixed id. `link` hard links the files instead of
+    /// copying them, and falls back to a copy where a link cannot go.
     private static func stage(
-        id: String,
+        id: String? = nil,
         entry: WallpaperEntry,
         videoURL: URL,
-        thumbnailURL: URL
-    ) throws {
-        try stageFiles(
-            id: id, title: entry.title, videoURL: videoURL, thumbnailURL: thumbnailURL, link: false
-        )
-    }
-
-    /// Swap the video behind a running rotation id. No store write, no
-    /// `registerExtension`, no `WallpaperAgent` restart: only the staged file
-    /// moves, and `library-changed` tells the extension to rebuild its
-    /// renderer on the live context. Hard-links the step's files so a long
-    /// playlist does not copy a gigabyte per tick, and copies instead when the
-    /// link would cross a volume (an external-drive library).
-    static func stageRotationStep(
-        scheduleID: String,
-        title: String,
-        videoURL: URL,
-        thumbnailURL: URL
-    ) throws {
-        try stageFiles(
-            id: scheduleID, title: title, videoURL: videoURL, thumbnailURL: thumbnailURL, link: true
-        )
-        notifyLibraryChanged()
-    }
-
-    private static func stageFiles(
-        id: String,
-        title: String,
-        videoURL: URL,
         thumbnailURL: URL,
-        link: Bool
+        link: Bool = false
     ) throws {
+        let id = id ?? entry.id
         let manager = FileManager.default
         let videos = extensionDocumentsURL.appendingPathComponent("videos", isDirectory: true)
         try manager.createDirectory(at: videos, withIntermediateDirectories: true)
@@ -1136,7 +1013,7 @@ final class LockScreenService {
         library.wallpapers.removeAll { $0.id == id }
         library.wallpapers.append(ExtensionEntry(
             id: id,
-            title: title,
+            title: entry.title,
             videoFilename: "wallpaper.mov",
             thumbnailFilename: "thumbnail.jpg"
         ))
@@ -1144,19 +1021,15 @@ final class LockScreenService {
         try data.write(to: libraryURL, options: .atomic)
     }
 
-    /// A hard link when `link` is set, falling back to a copy when the link
-    /// fails (a different volume, or a filesystem without links).
+    /// A hard link when `link` is set, so a playlist step on the lock screen
+    /// or the screen saver takes no disk space of its own. A link cannot
+    /// cross to another drive, where the wallpapers may be kept (see
+    /// `DownloadFolder`), so any failure falls back to the copy every other
+    /// apply makes.
     private static func placeFile(_ source: URL, at destination: URL, link: Bool) throws {
         let manager = FileManager.default
-        guard link else {
-            try manager.copyItem(at: source, to: destination)
-            return
-        }
-        do {
-            try manager.linkItem(at: source, to: destination)
-        } catch {
-            try manager.copyItem(at: source, to: destination)
-        }
+        if link, (try? manager.linkItem(at: source, to: destination)) != nil { return }
+        try manager.copyItem(at: source, to: destination)
     }
 
     private static func loadExtensionLibrary() -> ExtensionLibrary {
@@ -1301,14 +1174,12 @@ final class LockScreenService {
         )
     }
 
-    private static func writePreferences(pauseLockScreen: Bool) throws {
+    private static func writePreferences() throws {
         try FileManager.default.createDirectory(
             at: extensionDocumentsURL,
             withIntermediateDirectories: true
         )
-        let data = try JSONEncoder().encode(
-            ExtensionPrefs(alwaysPauseDesktop: true, pauseLockScreen: pauseLockScreen)
-        )
+        let data = try JSONEncoder().encode(ExtensionPrefs(alwaysPauseDesktop: true))
         try data.write(
             to: extensionDocumentsURL.appendingPathComponent("muro-prefs.json"),
             options: .atomic
@@ -1759,7 +1630,6 @@ final class LockScreenService {
         registered: Bool,
         settled: Bool,
         acknowledged: Bool = false,
-        rotation: String? = nil,
         error: Error? = nil
     ) {
         let version = ProcessInfo.processInfo.operatingSystemVersionString
@@ -1792,7 +1662,6 @@ final class LockScreenService {
             // The honest half. `settled` only says the stores kept what Muro
             // wrote; `acknowledged` says macOS came and collected it.
             "acknowledged=\(acknowledged)",
-            rotation.map { "rotation=\($0)" } ?? "",
             latestReceipt().map {
                 "receipt=\($0.detail)/\($0.ok ? "ok" : "failed")"
                     + ($0.preview ? "/preview" : "")

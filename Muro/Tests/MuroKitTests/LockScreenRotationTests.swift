@@ -1,144 +1,101 @@
 import XCTest
 @testable import MuroKit
 
-/// The pure decisions behind a rotating lock screen. The store writes and the
-/// file swaps live in `LockScreenService` (MuroApp) and are covered by the
-/// manual playback spikes; everything decidable without a real container is
-/// here.
+/// The pure rules behind a playlist or automation on the lock screen or the
+/// screen saver. The store writes and the file swaps live in
+/// `LockScreenService` (MuroApp); everything decidable without a real
+/// extension container is here.
 final class LockScreenRotationTests: XCTestCase {
-    let schedule = "6b1f2c9e-0000-4a4a-9b9b-111111111111"
     let stepA = "aaaa1111-2222-4333-8444-555566667777"
     let stepB = "bbbb1111-2222-4333-8444-555566667777"
 
-    // MARK: - The fixed id
+    // MARK: - The fixed ids
 
-    func testTheStoreIDIsTheScheduleIDUnchanged() {
-        XCTAssertEqual(LockScreenRotation.storeID(scheduleID: schedule), schedule)
+    func testEachRoleHasItsOwnFixedID() {
+        XCTAssertEqual(LockScreenRotation.fixedID(for: .desktop), LockScreenRotation.lockScreenID)
+        XCTAssertEqual(LockScreenRotation.fixedID(for: .screenSaver), LockScreenRotation.screenSaverID)
+        XCTAssertNotEqual(LockScreenRotation.lockScreenID, LockScreenRotation.screenSaverID)
     }
 
-    /// The store is written once, so the id that lands in the selection record
-    /// is the schedule's own and it stays put across steps.
-    func testTheRotationIDFlowsThroughAfterApplyAndStandsAlone() {
+    /// The extension recognises a rotation by the prefix alone, and must never
+    /// take a wallpaper's own id for one.
+    func testOnlyTheFixedIDsCountAsRotations() {
+        XCTAssertTrue(LockScreenRotation.isRotationID(LockScreenRotation.lockScreenID))
+        XCTAssertTrue(LockScreenRotation.isRotationID(LockScreenRotation.screenSaverID))
+        XCTAssertFalse(LockScreenRotation.isRotationID(stepA))
+        XCTAssertFalse(LockScreenRotation.isRotationID(nil))
+    }
+
+    /// `lockscreen.json` keeps the current wallpaper of each role apart.
+    func testEachRoleKeepsItsCurrentWallpaperUnderItsOwnKey() {
+        XCTAssertNotEqual(
+            LockScreenRotation.stateKey(for: .desktop),
+            LockScreenRotation.stateKey(for: .screenSaver)
+        )
+    }
+
+    /// The first step writes the fixed id for every display, and it stays put
+    /// across steps, which only swap the file behind it.
+    func testTheFixedIDStandsAloneForEveryDisplay() {
         let displays: Set<String> = ["37D8832A-2D66-02CA-B9F7-8F30A301B230"]
-        var record = LockScreenSelections.afterApply(
-            current: [:],
+        let fixed = LockScreenRotation.lockScreenID
+        let record = LockScreenSelections.afterApply(
+            current: ["37D8832A-2D66-02CA-B9F7-8F30A301B230": stepA],
             targetKey: LockScreenSelections.allKey,
-            wallpaperID: LockScreenRotation.storeID(scheduleID: schedule),
+            wallpaperID: fixed,
             connectedDisplays: displays
         )
-        XCTAssertEqual(record, [LockScreenSelections.allKey: schedule])
-        // A later step does not re-apply, so the record is identical.
-        record = LockScreenSelections.afterApply(
-            current: record,
-            targetKey: LockScreenSelections.allKey,
-            wallpaperID: schedule,
-            connectedDisplays: displays
-        )
-        XCTAssertEqual(record, [LockScreenSelections.allKey: schedule])
+        XCTAssertEqual(record, [LockScreenSelections.allKey: fixed])
     }
 
-    // MARK: - isApplied resolves through the current step
+    // MARK: - What a selection stands for
 
-    func testARotationSelectionResolvesToTheStepShowingNow() {
+    func testTheFixedIDStandsForTheStepShowingNow() {
+        let fixed = LockScreenRotation.lockScreenID
         XCTAssertEqual(
             LockScreenRotation.resolvedWallpaperID(
-                selectionValue: schedule, rotationID: schedule, currentStepID: stepA
+                selectionValue: fixed, rotationID: fixed, currentStepID: stepA
             ),
             stepA
         )
-    }
-
-    func testAdvancingTheStepMovesWhatCountsAsApplied() {
         XCTAssertEqual(
             LockScreenRotation.resolvedWallpaperID(
-                selectionValue: schedule, rotationID: schedule, currentStepID: stepB
+                selectionValue: fixed, rotationID: fixed, currentStepID: stepB
             ),
             stepB
         )
     }
 
-    func testAPlainSelectionStandsForItself() {
+    func testAWallpaperIDStandsForItself() {
         XCTAssertEqual(
             LockScreenRotation.resolvedWallpaperID(
-                selectionValue: stepA, rotationID: schedule, currentStepID: stepB
+                selectionValue: stepA,
+                rotationID: LockScreenRotation.lockScreenID,
+                currentStepID: stepB
             ),
             stepA
         )
     }
 
-    func testNoRotationLeavesTheSelectionUntouched() {
+    /// The screen saver's id never stands for the lock screen's step.
+    func testTheOtherRolesIDIsNotResolved() {
         XCTAssertEqual(
             LockScreenRotation.resolvedWallpaperID(
-                selectionValue: stepA, rotationID: nil, currentStepID: nil
+                selectionValue: LockScreenRotation.screenSaverID,
+                rotationID: LockScreenRotation.lockScreenID,
+                currentStepID: stepA
             ),
-            stepA
+            LockScreenRotation.screenSaverID
         )
     }
 
     func testAnEmptySelectionResolvesToNothing() {
         XCTAssertNil(
             LockScreenRotation.resolvedWallpaperID(
-                selectionValue: nil, rotationID: schedule, currentStepID: stepA
+                selectionValue: nil,
+                rotationID: LockScreenRotation.lockScreenID,
+                currentStepID: stepA
             )
         )
-    }
-
-    // MARK: - Orphan detection for healIfNeeded
-
-    func testARunningRotationIsNotOrphaned() {
-        XCTAssertFalse(
-            LockScreenRotation.isOrphaned(
-                rotationID: schedule, runningScheduleIDs: [schedule]
-            )
-        )
-    }
-
-    func testARotationWhoseScheduleStoppedIsOrphaned() {
-        XCTAssertTrue(
-            LockScreenRotation.isOrphaned(rotationID: schedule, runningScheduleIDs: [])
-        )
-    }
-
-    func testARotationForADifferentScheduleIsOrphaned() {
-        XCTAssertTrue(
-            LockScreenRotation.isOrphaned(
-                rotationID: schedule, runningScheduleIDs: ["some-other-schedule"]
-            )
-        )
-    }
-
-    func testNoRotationIsNeverOrphaned() {
-        XCTAssertFalse(
-            LockScreenRotation.isOrphaned(rotationID: nil, runningScheduleIDs: [])
-        )
-    }
-
-    // MARK: - D7: restore-or-fallback on endRotation
-
-    func testASinglePriorSelectionRoundTrips() {
-        let beforeRotationBegan = ["all": "wallpaper-A"]
-        XCTAssertEqual(
-            LockScreenRotation.selectionsToRestore(snapshot: beforeRotationBegan),
-            beforeRotationBegan
-        )
-    }
-
-    func testTwoDifferentPerDisplaySelectionsBothRoundTrip() {
-        let beforeRotationBegan = [
-            "DISPLAY-1": "wallpaper-A",
-            "DISPLAY-2": "wallpaper-B",
-        ]
-        XCTAssertEqual(
-            LockScreenRotation.selectionsToRestore(snapshot: beforeRotationBegan),
-            beforeRotationBegan
-        )
-    }
-
-    func testNoPriorSelectionFallsThroughToRemove() {
-        XCTAssertNil(LockScreenRotation.selectionsToRestore(snapshot: [:]))
-    }
-
-    func testAStateFileFromBeforeThisFieldExistedFallsThroughToRemove() {
-        XCTAssertNil(LockScreenRotation.selectionsToRestore(snapshot: nil))
     }
 }

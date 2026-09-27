@@ -296,21 +296,28 @@ struct MetaChip: View {
     }
 }
 
-/// The green "PLAYING" marker on a running playlist or automation.
+/// The green "PLAYING" marker on a running playlist or automation. A card
+/// says where it is playing too: "PLAYING ON DESKTOP".
 struct PlayingChip: View {
+    var text = "PLAYING"
+
     var body: some View {
         HStack(spacing: 5) {
             Circle().fill(Color.muroGreen).frame(width: 5.5, height: 5.5)
-            Text("PLAYING")
+            Text(text)
                 .font(.system(size: 9, weight: .semibold))
                 .tracking(0.9)
                 .foregroundStyle(.white.opacity(0.95))
+                .lineLimit(1)
         }
         .padding(.leading, 9)
         .padding(.trailing, 10)
         .padding(.vertical, 4)
         .background(Capsule().fill(Color.black.opacity(0.42)))
         .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.5), lineWidth: 1))
+        // Where it plays is the point of the chip, so a long name beside it
+        // is what gets shortened, never this.
+        .fixedSize()
     }
 }
 

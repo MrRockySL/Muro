@@ -11,7 +11,15 @@ struct LibraryView: View {
     /// it was the narrower of the two while calling itself All.
     enum LibTab: String, CaseIterable {
         case all = "Downloaded", liked = "Liked"
-        case playlists = "Playlists", automations = "Automations"
+        /// Playlists and automations share one tab, under the one Now Playing
+        /// bar that plays them. A switch inside it picks which of the two the
+        /// grid shows.
+        case schedules = "Playlists & Automations"
+    }
+
+    /// Which of the two the Playlists & Automations tab is showing.
+    enum ScheduleKind: String {
+        case playlists, automations
     }
 
     @State private var tab: LibTab = .all
@@ -27,6 +35,7 @@ struct LibraryView: View {
     @State private var automationTarget: AutomationEditorTarget?
     @State private var selecting = false
     @State private var selected: Set<String> = []
+    @AppStorage("libraryScheduleKind") private var scheduleKind: ScheduleKind = .playlists
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 24),
@@ -78,10 +87,8 @@ struct LibraryView: View {
                                 grid(items: searched)
                             case .liked:
                                 grid(items: likedGridItems)
-                            case .playlists:
-                                playlistsGrid
-                            case .automations:
-                                automationsGrid
+                            case .schedules:
+                                schedulesTab
                             }
                         }
                         .padding(.horizontal, 40)
@@ -140,8 +147,10 @@ struct LibraryView: View {
                 options: [
                     PillOption(LibTab.all.rawValue, "Downloaded", count: store.localItems.count),
                     PillOption(LibTab.liked.rawValue, "Liked", count: store.likedItems.count),
-                    PillOption(LibTab.playlists.rawValue, "Playlists", count: store.playlists.count),
-                    PillOption(LibTab.automations.rawValue, "Automations", count: store.automations.count)
+                    PillOption(
+                        LibTab.schedules.rawValue, "Playlists & Automations",
+                        count: store.playlists.count + store.automations.count
+                    )
                 ],
                 selection: Binding(
                     get: { tab.rawValue },
@@ -381,6 +390,44 @@ struct LibraryView: View {
         }
     }
 
+    // MARK: - Playlists & Automations
+
+    /// The Now Playing bar is the only place they are played from in Library,
+    /// so it sits above both. The switch under it is the tabs row again at a
+    /// smaller size: one tab showing both kinds at once read as a mix.
+    private var schedulesTab: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            NowPlayingBar()
+            VStack(alignment: .leading, spacing: 18) {
+                PillSegments(
+                    options: [
+                        PillOption(ScheduleKind.playlists.rawValue, "Playlists", count: store.playlists.count),
+                        PillOption(ScheduleKind.automations.rawValue, "Automations", count: store.automations.count)
+                    ],
+                    selection: Binding(
+                        get: { scheduleKind.rawValue },
+                        set: { raw in
+                            guard let kind = ScheduleKind(rawValue: raw) else { return }
+                            withAnimation(.easeOut(duration: 0.18)) { scheduleKind = kind }
+                        }
+                    ),
+                    height: 30,
+                    labelSize: 12,
+                    horizontalPadding: 14
+                )
+                .fixedSize()
+                Group {
+                    switch scheduleKind {
+                    case .playlists: playlistsGrid
+                    case .automations: automationsGrid
+                    }
+                }
+                .id(scheduleKind)
+                .transition(.opacity)
+            }
+        }
+    }
+
     // MARK: - Playlists
 
     private var playlistsGrid: some View {
@@ -410,7 +457,7 @@ struct LibraryView: View {
             NewThingCard(
                 title: "New Automation",
                 subtitle: "Give each wallpaper its own time of day, or its own length",
-                height: 216
+                height: 200
             ) { automationTarget = .new }
         }
     }
@@ -464,7 +511,10 @@ struct PlaylistCard: View {
 
     @State private var hovering = false
 
-    private var isActive: Bool { store.activePlaylistID == playlist.id }
+    /// Where it is playing, if anywhere. A card has no play button of its
+    /// own: playlists are played from Now Playing and the menu bar.
+    private var playingLabel: String? { store.playingLabel(for: .playlist(playlist.id)) }
+    private var isActive: Bool { playingLabel != nil }
 
     private var thumbs: [WallpaperItem] {
         playlist.wallpaperIDs.compactMap { store.item(id: $0) }
@@ -485,21 +535,16 @@ struct PlaylistCard: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                if isActive { PlayingChip() }
+                if let playingLabel { PlayingChip(text: playingLabel) }
                 Spacer(minLength: 8)
-                GlassPlayButton(playing: isActive) {
-                    isActive ? store.stopPlaylist() : store.startPlaylist(playlist)
-                }
             }
+            .frame(minHeight: 30)
             // Three facts, three chips. The old single sentence ran them
             // together and none of them could be read at a glance.
             HStack(spacing: 8) {
                 MetaChip(systemImage: "rectangle.stack", text: "\(playlist.wallpaperIDs.count) wallpapers")
                 MetaChip(systemImage: "clock", text: intervalText)
                 MetaChip(systemImage: "shuffle", text: playlist.shuffle ? "Shuffle on" : "Shuffle off")
-                if let surfaceLabel = store.scheduleSurfaceLabel(playlist.surface) {
-                    MetaChip(systemImage: "lock", text: surfaceLabel)
-                }
             }
             .padding(.top, 11)
             Spacer(minLength: 8)
@@ -521,9 +566,6 @@ struct PlaylistCard: View {
 
     private var menuOptions: [MenuOption] {
         [
-            MenuOption(title: isActive ? "Stop" : "Play") {
-                isActive ? store.stopPlaylist() : store.startPlaylist(playlist)
-            },
             MenuOption(title: "Edit Playlist") { onEdit() },
             MenuOption(title: playlist.shuffle ? "Shuffle Off" : "Shuffle On") {
                 var updated = playlist
@@ -602,7 +644,10 @@ struct AutomationCard: View {
 
     @State private var hovering = false
 
-    private var isActive: Bool { store.activeAutomationID == automation.id }
+    /// Where it is playing, if anywhere. Played from Now Playing, like a
+    /// playlist.
+    private var playingLabel: String? { store.playingLabel(for: .automation(automation.id)) }
+    private var isActive: Bool { playingLabel != nil }
 
     private var thumbs: [WallpaperItem] {
         automation.steps.compactMap { store.item(id: $0.wallpaperID) }
@@ -653,18 +698,11 @@ struct AutomationCard: View {
                     text: automation.mode == .clock ? "CLOCK" : "TIMER",
                     tint: Color.muroAccent
                 )
-                if isActive { PlayingChip() }
+                if let playingLabel { PlayingChip(text: playingLabel) }
                 Spacer(minLength: 8)
-                GlassPlayButton(playing: isActive, enabled: !automation.steps.isEmpty) {
-                    isActive ? store.stopAutomation() : store.startAutomation(automation)
-                }
             }
-            HStack(spacing: 8) {
-                ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in chip }
-                if let surfaceLabel = store.scheduleSurfaceLabel(automation.surface) {
-                    MetaChip(systemImage: "lock", text: surfaceLabel)
-                }
-            }
+            .frame(minHeight: 30)
+            HStack(spacing: 8) { ForEach(Array(chips.enumerated()), id: \.offset) { _, chip in chip } }
                 .padding(.top, 11)
             Spacer(minLength: 8)
             schedule
@@ -678,7 +716,9 @@ struct AutomationCard: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 216)
+        // The same height as a playlist card. The two share one tab now, and
+        // cards of two heights in one grid read as two kinds of thing.
+        .frame(height: 200)
         .glassPanel(active: isActive, top: hovering ? 0.085 : 0.065)
         .scaleEffect(hovering ? 1.006 : 1)
         .animation(.easeOut(duration: 0.16), value: hovering)
@@ -692,7 +732,6 @@ struct AutomationCard: View {
         switch automation.mode {
         case .clock:
             DayTimelineStrip(automation: automation, height: 40)
-                .padding(.bottom, nowLine == nil ? 12 : 0)
         case .timer:
             HStack(spacing: 10) {
                 ForEach(Array(automation.steps.prefix(4).enumerated()), id: \.offset) { index, step in
@@ -706,7 +745,6 @@ struct AutomationCard: View {
                         .frame(height: 81)
                 }
             }
-            .padding(.bottom, nowLine == nil ? 12 : 0)
         }
     }
 
@@ -746,9 +784,6 @@ struct AutomationCard: View {
 
     private var menuOptions: [MenuOption] {
         [
-            MenuOption(title: isActive ? "Stop" : "Play") {
-                isActive ? store.stopAutomation() : store.startAutomation(automation)
-            },
             MenuOption(title: "Edit Automation") { onEdit() },
             .divider,
             MenuOption(title: "Delete Automation", destructive: true) {
@@ -782,7 +817,6 @@ struct PlaylistEditorView: View {
     @State private var selected: Set<String> = []
     @State private var intervalMinutes = 30
     @State private var shuffle = false
-    @State private var surface: ApplySurface = .desktop
     @State private var loaded = false
     @State private var showCustomInterval = false
     /// Whether the bar is sitting on "Custom". Kept separately from the value
@@ -903,26 +937,6 @@ struct PlaylistEditorView: View {
             .padding(.horizontal, 26)
             .padding(.top, 10)
 
-            if store.lockScreenAvailable {
-                SectionLabel("APPLY TO")
-                    .padding(.horizontal, 26)
-                    .padding(.top, 22)
-                PillSegments(
-                    options: ApplySurface.scheduleCases.map {
-                        PillOption($0.rawValue, $0.scheduleLabel)
-                    },
-                    selection: Binding(
-                        get: { surface.rawValue },
-                        set: { surface = ApplySurface(rawValue: $0) ?? .desktop }
-                    ),
-                    height: 34,
-                    labelSize: 12,
-                    horizontalPadding: 15
-                )
-                .padding(.horizontal, 26)
-                .padding(.top, 10)
-            }
-
             HStack(spacing: 10) {
                 SectionLabel("CHOOSE WALLPAPERS")
                 Spacer()
@@ -1035,7 +1049,6 @@ struct PlaylistEditorView: View {
             selected = Set(playlist.wallpaperIDs)
             intervalMinutes = playlist.intervalMinutes
             shuffle = playlist.shuffle
-            surface = playlist.surface
         }
     }
 
@@ -1054,8 +1067,7 @@ struct PlaylistEditorView: View {
                 name: trimmedName,
                 wallpaperIDs: ordered,
                 intervalMinutes: intervalMinutes,
-                shuffle: shuffle,
-                surface: surface
+                shuffle: shuffle
             ))
         case .edit(let original):
             var updated = original
@@ -1063,7 +1075,6 @@ struct PlaylistEditorView: View {
             updated.wallpaperIDs = ordered
             updated.intervalMinutes = intervalMinutes
             updated.shuffle = shuffle
-            updated.surface = surface
             store.updatePlaylist(updated)
         }
         dismiss()
