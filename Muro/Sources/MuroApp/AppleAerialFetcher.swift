@@ -49,9 +49,9 @@ final class AppleAerialFetcher: ObservableObject {
 
     func requestFrame(for aerial: AppleAerial) {
         let id = aerial.assetID
-        // Pictures and the ones macOS draws have no video to read a frame
-        // from. They show the picture macOS keeps for them.
-        guard aerial.kind == .video,
+        // Pictures, the ones macOS draws and the screen savers have no video
+        // to read a frame from; theirs is the card picture on Muro's server.
+        guard aerial.kind == .video || ApplePreviews.isHosted(id),
               !AppleAerialInfo.hasFrame(assetID: id),
               !running.contains(id), !failed.contains(id)
         else { return }
@@ -200,7 +200,16 @@ enum AppleAerialFrame {
     /// Takes the picture and saves it, with what the video's header says.
     /// False when it could not, so the card keeps Apple's still for now.
     static func make(for aerial: AppleAerial) async -> Bool {
-        await withTimeout(timeout) { await take(aerial) } ?? false
+        if aerial.kind != .video {
+            let made = await ApplePreviews.fetchCardPicture(assetID: aerial.assetID)
+            if made {
+                _ = ImageCache.load(
+                    path: AppleAerialInfo.framePath(assetID: aerial.assetID),
+                    maxPixels: ImageCache.gridPixels)
+            }
+            return made
+        }
+        return await withTimeout(timeout) { await take(aerial) } ?? false
     }
 
     private static func take(_ aerial: AppleAerial) async -> Bool {

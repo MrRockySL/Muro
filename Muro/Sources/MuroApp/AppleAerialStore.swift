@@ -139,7 +139,11 @@ extension AppStore {
     /// the sharp pictures arrive.
     func appleAerialThumbnailPath(id: String) -> String? {
         if id.hasPrefix(AppleScreenSavers.idPrefix) {
-            return AppleScreenSavers.cached().first { $0.id == id }?.thumbnailPath
+            guard let saver = AppleScreenSavers.cached().first(where: { $0.id == id }) else { return nil }
+            // Muro's own picture of it once fetched, Apple's small one until then.
+            return AppleAerialInfo.hasFrame(assetID: saver.assetID)
+                ? AppleAerialInfo.framePath(assetID: saver.assetID)
+                : saver.thumbnailPath
         }
         guard let aerial = AppleAerials.cachedAerials(libraryRoot: root)?
             .first(where: { $0.id == id })

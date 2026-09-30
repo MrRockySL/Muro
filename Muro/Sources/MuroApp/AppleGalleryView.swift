@@ -264,11 +264,13 @@ struct AppleGalleryView: View {
     }
 
     private func saverSection(_ title: String, items: [AppleAerial], adding: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let _ = fetcher.revision
+        return VStack(alignment: .leading, spacing: 14) {
             SectionLabel(title, trailing: items.isEmpty ? nil : "\(items.count)")
             LazyVGrid(columns: gridColumns, spacing: 24) {
                 ForEach(items) { saver in
                     WallpaperCard(item: saver.wallpaperItem, persistentTitle: true)
+                        .onAppear { fetcher.requestFrame(for: saver) }
                 }
                 if adding { AddScreenSaverCard { addScreenSaver() } }
             }

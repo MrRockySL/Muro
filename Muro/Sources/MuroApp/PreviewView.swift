@@ -113,45 +113,13 @@ struct PreviewView: View {
     }
 
     @ViewBuilder private func remotePreview(_ item: WallpaperItem) -> some View {
-        if AppleAerials.isMacOSOnly(item.id), !hasSharpPicture(item) {
-            smallPicturePoster(item)
+        if AppleAerials.isMacOSOnly(item.id) {
+            // The full-screen picture Muro keeps for each of these, which is
+            // sharp; Apple's own are 214 to 356 pixels across.
+            ApplePreviewPicture(item: item)
         } else {
             fullRemotePreview(item)
         }
-    }
-
-    /// Apple keeps only small pictures of its screen savers, its drawn
-    /// wallpapers and its still pictures before one is downloaded, 214 to 356
-    /// pixels across. Stretched over the whole window they fell apart (owner,
-    /// 2026-09-30), so they are shown at a size they can hold, over a soft
-    /// wash of themselves.
-    private func smallPicturePoster(_ item: WallpaperItem) -> some View {
-        GeometryReader { proxy in
-            ZStack {
-                ThumbImage(item: item, maxPixels: ImageCache.gridPixels)
-                    .blur(radius: 40, opaque: true)
-                    .overlay(Color.black.opacity(0.35))
-                ThumbImage(item: item, maxPixels: ImageCache.gridPixels)
-                    .frame(
-                        width: min(proxy.size.width * 0.5, 640),
-                        height: min(proxy.size.width * 0.5, 640) * 9 / 16
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.45), radius: 30, y: 12)
-                    .offset(y: -40)
-            }
-        }
-    }
-
-    /// A still picture that has been downloaded has a sharp picture of its
-    /// own, cut from the real one.
-    private func hasSharpPicture(_ item: WallpaperItem) -> Bool {
-        guard let path = store.thumbnailPath(for: item) else { return false }
-        return path.hasPrefix(AppleAerialInfo.directory.path) && !item.id.hasPrefix(AppleScreenSavers.idPrefix)
     }
 
     @ViewBuilder private func fullRemotePreview(_ item: WallpaperItem) -> some View {
@@ -491,12 +459,12 @@ struct PreviewView: View {
                 .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.4), lineWidth: 1))
             }
             .buttonStyle(.plain)
-        } else if item.id.hasPrefix(AppleAerials.picturePrefix), !hasSharpPicture(item) {
-            // The same pair as a video that is not downloaded: Preview fetches
-            // the real picture from Apple and shows it sharp.
+        } else if item.id.hasPrefix(AppleAerials.picturePrefix), !store.isApplePictureDownloaded(item) {
+            // Download fetches the full picture from Apple. Set Wallpaper does
+            // the same by itself when it has to (owner, 2026-09-30).
             HStack(spacing: 10) {
-                glassButton("Preview", systemName: "eye") {
-                    store.previewApplePicture(item)
+                glassButton("Download", systemName: "arrow.down") {
+                    store.downloadApplePictureNow(item)
                 }
                 capsuleButton("Set Wallpaper", systemName: nil) {
                     showDisplayPopover.toggle()
@@ -954,5 +922,35 @@ struct ChooseDisplayPopover: View {
                 ? "Remove \(item.title) from \(display.displayName)"
                 : "Apply \(item.title) to \(display.displayName)"
         )
+    }
+}
+
+/// The full-screen picture of one of Apple's wallpapers that only macOS
+/// shows. Muro keeps one for each on its own server, made once from Apple's
+/// original, because Apple ships only small ones (owner, 2026-09-30: previews
+/// of a few megabytes, the full picture only on Download). The card's picture
+/// shows at once and this one takes over when it has loaded.
+struct ApplePreviewPicture: View {
+    let item: WallpaperItem
+    @State private var picture: NSImage?
+
+    var body: some View {
+        ZStack {
+            ThumbImage(item: item, maxPixels: ImageCache.fullPixels)
+            if let picture {
+                Image(nsImage: picture)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+                    .transition(.opacity)
+            }
+        }
+        .clipped()
+        .animation(.easeInOut(duration: 0.3), value: picture != nil)
+        .task(id: item.id) {
+            picture = nil
+            guard let assetID = AppleAerials.assetID(fromMuroID: item.id) else { return }
+            picture = await ApplePreviews.fullPicture(assetID: assetID)
+        }
     }
 }

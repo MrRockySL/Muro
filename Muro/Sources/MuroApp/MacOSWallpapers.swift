@@ -480,9 +480,15 @@ extension AppStore {
         UserDefaults.standard.set(recentIDs, forKey: "recents")
     }
 
-    /// The Preview button: fetches the picture so it can be seen sharp,
-    /// without setting it.
-    func previewApplePicture(_ item: WallpaperItem) {
+    /// Whether the full picture from Apple is on this Mac.
+    func isApplePictureDownloaded(_ item: WallpaperItem) -> Bool {
+        guard let aerial = macOSOnlyAerial(id: item.id) else { return false }
+        return ApplePictures.isReady(aerial, libraryRoot: root)
+    }
+
+    /// The Download button: fetches the full picture from Apple, without
+    /// setting it.
+    func downloadApplePictureNow(_ item: WallpaperItem) {
         guard let aerial = macOSOnlyAerial(id: item.id), aerial.kind == .picture else { return }
         Task {
             do {
