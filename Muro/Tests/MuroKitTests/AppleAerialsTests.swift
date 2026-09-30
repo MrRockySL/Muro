@@ -710,4 +710,27 @@ final class AppleAerialsTests: XCTestCase {
         XCTAssertTrue(yours.id.hasPrefix(AppleScreenSavers.installedIDPrefix))
         XCTAssertFalse(apple.id.hasPrefix(AppleScreenSavers.installedIDPrefix))
     }
+
+    /// Apple's screen savers as Muro's recordings are videos Muro downloads
+    /// and plays, under a category of their own, never ones only macOS shows.
+    func testScreenSaverRecordingsAreVideosOfTheirOwn() {
+        let cache = FileManager.default.temporaryDirectory
+            .appendingPathComponent("saver-videos-\(UUID().uuidString)")
+        let savers = AppleScreenSaverVideos.found(categoryOrder: 9, cacheDir: cache)
+        XCTAssertEqual(savers.count, 8)
+        XCTAssertEqual(Set(savers.map(\.name)), AppleScreenSavers.recorded)
+        for saver in savers {
+            XCTAssertEqual(saver.kind, .video)
+            XCTAssertEqual(saver.category, AppleScreenSaverVideos.category)
+            XCTAssertTrue(saver.id.hasPrefix(AppleScreenSaverVideos.idPrefix))
+            XCTAssertFalse(saver.id.hasPrefix(AppleScreenSavers.idPrefix), "not a screen saver macOS runs")
+            XCTAssertFalse(AppleAerials.isMacOSOnly(saver.id))
+            XCTAssertEqual(saver.videoURL.host, "cdn.murowallpaper.com")
+            XCTAssertEqual(saver.videoURL.pathExtension, "mov")
+            XCTAssertTrue(saver.cachePath.hasPrefix(cache.path))
+            XCTAssertNotNil(saver.knownBytes)
+            XCTAssertNotNil(saver.knownDuration)
+            XCTAssertNil(saver.playablePath, "nothing downloaded yet")
+        }
+    }
 }

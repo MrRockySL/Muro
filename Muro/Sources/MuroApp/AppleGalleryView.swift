@@ -35,7 +35,6 @@ struct AppleGalleryView: View {
     /// Which way the last category change went, so the grid leaves towards the
     /// pill you came from. Same reasoning as Explore's.
     @State private var categoryShift: CGFloat = 1
-    @State private var screenSavers: [AppleAerial] = []
 
     private let gridColumns = [
         GridItem(.flexible(), spacing: 24),
@@ -88,9 +87,9 @@ struct AppleGalleryView: View {
         ZStack {
             PillSegments(
                 options: [
-                    PillOption(Kind.aerials.rawValue, "Aerials", count: model.aerials?.count),
+                    PillOption(Kind.aerials.rawValue, "Aerials", count: model.aerialCount),
                     PillOption(Kind.screenSavers.rawValue, "Screen Savers",
-                               count: AppleScreenSavers.cachedApple().count)
+                               count: model.aerials == nil ? nil : model.screenSavers(matching: "").count)
                 ],
                 selection: Binding(
                     get: { kind.rawValue },
@@ -198,9 +197,9 @@ struct AppleGalleryView: View {
         return "\(count) \(noun) in \(category)"
     }
 
-    /// Videos ready to play, and still pictures downloaded.
+    /// Videos ready to play, and still pictures downloaded, on this page.
     private var downloadedCount: Int {
-        (model.aerials ?? []).filter { $0.isDownloaded || $0.hasMuroCopy }.count
+        model.aerials(in: "All", matching: "").filter { $0.isDownloaded || $0.hasMuroCopy }.count
     }
 
     /// Says how many are ready to play without a download, because on a fresh
@@ -237,14 +236,15 @@ struct AppleGalleryView: View {
 
     // MARK: - Screen savers
 
-    /// Apple's own screen savers, and nothing else: the ones a person adds
-    /// from the Library's import bar stay in the Library with the rest of
-    /// what they import (owner, 2026-09-30). Only macOS runs these, so each
-    /// is set the same way as Apple's pictures: see `AppleScreenSavers`.
+    /// Apple's eight screen savers, as Muro's own 4K recordings
+    /// (`AppleScreenSaverVideos`): downloaded and played like an aerial, on
+    /// the desktop, the lock screen and the screen saver separately (owner,
+    /// 2026-09-30). The ones a person adds from the Library's import bar stay
+    /// in the Library with the rest of what they import.
     private var screenSaversPage: some View {
         ZStack {
             ScrollView(.vertical, showsIndicators: false) {
-                saverGrid(savers)
+                saverGrid(model.screenSavers(matching: store.searchText))
                     .padding(.horizontal, 40)
                     .padding(.top, 20)
                     .padding(.bottom, 40)
@@ -252,16 +252,6 @@ struct AppleGalleryView: View {
             .scrollFade(top: 20, bottom: 46)
         }
         .padding(.top, 18)
-        .onAppear {
-            AppleScreenSavers.refresh()
-            screenSavers = AppleScreenSavers.cachedApple()
-        }
-    }
-
-    private var savers: [AppleAerial] {
-        screenSavers.filter { saver in
-            store.searchText.isEmpty || saver.name.localizedCaseInsensitiveContains(store.searchText)
-        }
     }
 
     private func saverGrid(_ items: [AppleAerial]) -> some View {
@@ -270,6 +260,7 @@ struct AppleGalleryView: View {
             ForEach(items) { saver in
                 WallpaperCard(item: store.appleWallpaperItem(saver), persistentTitle: true)
                     .onAppear { fetcher.requestFrame(for: saver) }
+                    .onDisappear { fetcher.cancelFrame(for: saver) }
             }
         }
     }

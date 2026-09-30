@@ -34,16 +34,18 @@ public enum AppleScreenSavers {
         ]
     }
 
-    /// Apple's screen savers the section offers, by module name: the eight
-    /// recorded as 4K videos (owner, 2026-09-30). Album Artwork, Message and
-    /// Photos show the person's own music, computer name and photos, so they
-    /// were never recorded and are left out, as is any a later macOS adds.
+    /// Apple's screen savers Muro knows, by module name: the eight recorded
+    /// as 4K videos (owner, 2026-09-30). The Apple section offers the
+    /// recordings (`AppleScreenSaverVideos`); these are still read so an
+    /// earlier choice of one through macOS can be found and taken back.
+    /// Album Artwork, Message and Photos show the person's own music,
+    /// computer name and photos, so they were never recorded and are left
+    /// out, as is any a later macOS adds.
     public static let recorded: Set<String> = [
         "Arabesque", "Drift", "Flurry", "Hello", "Monterey", "Shell", "Ventura", "Word of the Day",
     ]
 
-    /// The two groups: Apple's, shown in the Apple section, and the person's
-    /// own, shown in the Library.
+    /// The two groups: Apple's, and the person's own, shown in the Library.
     public static let appleGroup = "Apple"
     public static let installedGroup = "Yours"
 
@@ -88,11 +90,6 @@ public enum AppleScreenSavers {
         cache = nil
         cacheLock.unlock()
         return cached()
-    }
-
-    /// Apple's own, for the Apple section.
-    public static func cachedApple() -> [AppleAerial] {
-        cached().filter { $0.category == appleGroup }
     }
 
     /// The ones the person added, like XScreenSaver. They show in the Library

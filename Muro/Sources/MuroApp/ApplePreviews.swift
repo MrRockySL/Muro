@@ -3,7 +3,8 @@ import MuroKit
 
 /// The pictures Muro keeps on its own server for Apple's wallpapers that only
 /// macOS shows: the 30 still pictures (each side), Sequoia and Macintosh, and
-/// eight of Apple's screen savers.
+/// eight of Apple's screen savers. The screen savers' recordings
+/// (`AppleScreenSaverVideos`) have theirs here too, cut from the videos.
 ///
 /// **Why.** Apple ships only small pictures of these, 214 to 356 pixels
 /// across, and its still pictures come as one file of 7 to 139 MB with the
@@ -27,6 +28,7 @@ enum ApplePreviews {
 
     static func isHosted(_ assetID: String) -> Bool {
         if assetID.hasPrefix("picture-") || assetID.hasPrefix("drawn-") { return true }
+        if assetID.hasPrefix(AppleScreenSaverVideos.assetPrefix) { return true }
         if assetID.hasPrefix("saver-yours-") { return false }
         return assetID.hasPrefix("saver-") && !personal.contains(assetID)
     }

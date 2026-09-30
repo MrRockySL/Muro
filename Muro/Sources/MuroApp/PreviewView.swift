@@ -82,6 +82,11 @@ struct PreviewView: View {
             store.applySurface = .screensaver
             return
         }
+        // Apple's screen savers as Muro's recordings open there too, and are
+        // still read like any aerial below.
+        if itemID.hasPrefix(AppleScreenSaverVideos.idPrefix), store.lockScreenAvailable {
+            store.applySurface = .screensaver
+        }
         guard isAerial,
               let aerial = AppleAerials.cachedAerials(libraryRoot: store.root)?
                 .first(where: { $0.id == itemID })
@@ -114,7 +119,7 @@ struct PreviewView: View {
     }
 
     @ViewBuilder private func remotePreview(_ item: WallpaperItem) -> some View {
-        if AppleAerials.isMacOSOnly(item.id) {
+        if AppleAerials.isMacOSOnly(item.id) || item.id.hasPrefix(AppleScreenSaverVideos.idPrefix) {
             // The full-screen picture Muro keeps for each of these, which is
             // sharp; Apple's own are 214 to 356 pixels across.
             ApplePreviewPicture(item: item)

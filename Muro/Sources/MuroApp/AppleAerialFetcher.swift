@@ -200,7 +200,9 @@ enum AppleAerialFrame {
     /// Takes the picture and saves it, with what the video's header says.
     /// False when it could not, so the card keeps Apple's still for now.
     static func make(for aerial: AppleAerial) async -> Bool {
-        if aerial.kind != .video {
+        // The screen savers' recordings have their picture on Muro's server,
+        // chosen from the video, so nothing of a 1 GB file is read for it.
+        if aerial.kind != .video || ApplePreviews.isHosted(aerial.assetID) {
             let made = await ApplePreviews.fetchCardPicture(assetID: aerial.assetID)
             if made {
                 _ = ImageCache.load(

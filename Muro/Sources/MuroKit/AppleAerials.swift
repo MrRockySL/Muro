@@ -240,6 +240,11 @@ public struct AppleAerial: Identifiable, Equatable, Sendable {
     public let knownWidth: Int?
     public let knownHeight: Int?
     public let knownBytes: Int64?
+    /// Also known in advance for Muro's own recordings of Apple's screen
+    /// savers (`AppleScreenSaverVideos`), whose pictures come from Muro's
+    /// server rather than from reading the video.
+    public let knownDuration: Double?
+    public let knownFPS: Double?
 
     /// Apple's Dynamic Wallpapers come in three kinds, and only the first is
     /// a video Muro can play.
@@ -289,7 +294,8 @@ public struct AppleAerial: Identifiable, Equatable, Sendable {
         categoryOrder: Int, order: Int, thumbnailPath: String?,
         previewImageURL: URL?, videoURL: URL, applePath: String, cachePath: String,
         isPortrait: Bool = false, stillMatchesVideo: Bool = true, kind: Kind = .video,
-        knownWidth: Int? = nil, knownHeight: Int? = nil, knownBytes: Int64? = nil
+        knownWidth: Int? = nil, knownHeight: Int? = nil, knownBytes: Int64? = nil,
+        knownDuration: Double? = nil, knownFPS: Double? = nil
     ) {
         self.id = id
         self.assetID = assetID
@@ -308,6 +314,8 @@ public struct AppleAerial: Identifiable, Equatable, Sendable {
         self.knownWidth = knownWidth
         self.knownHeight = knownHeight
         self.knownBytes = knownBytes
+        self.knownDuration = knownDuration
+        self.knownFPS = knownFPS
     }
 }
 
@@ -570,8 +578,8 @@ extension AppleAerials {
             thumbnail: sharpestThumbnail(for: aerial),
             width: facts?.width ?? aerial.knownWidth ?? Format.width,
             height: facts?.height ?? aerial.knownHeight ?? Format.height,
-            fps: facts?.fps ?? Format.fps,
-            duration: facts?.duration ?? Format.duration,
+            fps: facts?.fps ?? aerial.knownFPS ?? Format.fps,
+            duration: facts?.duration ?? aerial.knownDuration ?? Format.duration,
             sizeBytes: size ?? facts?.bytes ?? aerial.knownBytes ?? Format.approximateBytes,
             liked: false,
             dateAdded: .distantPast
@@ -646,6 +654,12 @@ extension AppleAerials {
         loaded += DynamicWallpapers.found(
             category: dynamic?.name ?? "Dynamic Wallpapers",
             categoryOrder: dynamic?.rank ?? ((loaded.map(\.categoryOrder).max() ?? 0) + 1),
+            cacheDir: cacheDir(libraryRoot: libraryRoot)
+        )
+        // Apple's screen savers, recorded by Muro (owner, 2026-09-30). Only
+        // the Apple section's Screen Savers page shows them.
+        loaded += AppleScreenSaverVideos.found(
+            categoryOrder: (loaded.map(\.categoryOrder).max() ?? 0) + 1,
             cacheDir: cacheDir(libraryRoot: libraryRoot)
         )
         loaded.sort(by: appleOrder)

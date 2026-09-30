@@ -48,17 +48,35 @@ final class AppleAerialModel: ObservableObject {
         }
     }
 
+    /// What the Aerials page shows: everything but Apple's screen savers,
+    /// which have a page of their own.
+    private var aerialsOnly: [AppleAerial] {
+        (aerials ?? []).filter { $0.category != AppleScreenSaverVideos.category }
+    }
+
+    /// How many the Aerials page has, nil until they are read.
+    var aerialCount: Int? { aerials == nil ? nil : aerialsOnly.count }
+
+    /// Apple's screen savers, as Muro's own recordings
+    /// (`AppleScreenSaverVideos`), for the Screen Savers page.
+    func screenSavers(matching search: String) -> [AppleAerial] {
+        (aerials ?? []).filter { saver in
+            saver.category == AppleScreenSaverVideos.category
+                && (search.isEmpty || saver.name.localizedCaseInsensitiveContains(search))
+        }
+    }
+
     /// Apple's categories, in Apple's order, and only the ones that actually
     /// have something in them on this Mac.
     var categories: [String] {
         var seen = Set<String>()
-        return (aerials ?? [])
+        return aerialsOnly
             .map(\.category)
             .filter { seen.insert($0).inserted }
     }
 
     func aerials(in category: String, matching search: String) -> [AppleAerial] {
-        (aerials ?? []).filter { aerial in
+        aerialsOnly.filter { aerial in
             if category != "All", aerial.category != category { return false }
             if !search.isEmpty,
                !aerial.name.localizedCaseInsensitiveContains(search),
@@ -111,8 +129,8 @@ extension AppleAerial {
             category: category,
             width: facts?.width ?? knownWidth ?? AppleAerials.Format.width,
             height: facts?.height ?? knownHeight ?? AppleAerials.Format.height,
-            fps: isVideo ? (facts?.fps ?? AppleAerials.Format.fps) : 0,
-            duration: isVideo ? (facts?.duration ?? AppleAerials.Format.duration) : 0,
+            fps: isVideo ? (facts?.fps ?? knownFPS ?? AppleAerials.Format.fps) : 0,
+            duration: isVideo ? (facts?.duration ?? knownDuration ?? AppleAerials.Format.duration) : 0,
             sizeBytes: kept ?? facts?.bytes ?? knownBytes
                 ?? (isVideo ? AppleAerials.Format.approximateBytes : 0),
             video: videoURL,
@@ -207,15 +225,15 @@ extension AppStore {
             .map(appleWallpaperItem)
     }
 
-    /// Everything liked in the Apple section, Apple's screen savers too, for
-    /// the Library's Liked tab. The person's own screen savers have their own
-    /// group there.
+    /// Everything liked in the Apple section, Apple's screen savers too (they
+    /// are in the aerial list as recordings), for the Library's Liked tab.
+    /// The person's own screen savers have their own group there.
     var likedAppleItems: [WallpaperItem] {
         let ids = likedIDs.filter(AppleAerials.isAppleID)
         guard !ids.isEmpty else { return [] }
-        let aerials = (AppleAerials.cachedAerials(libraryRoot: root) ?? []).filter { ids.contains($0.id) }
-        let savers = AppleScreenSavers.cachedApple().filter { ids.contains($0.id) }
-        return (aerials + savers).map(appleWallpaperItem)
+        return (AppleAerials.cachedAerials(libraryRoot: root) ?? [])
+            .filter { ids.contains($0.id) }
+            .map(appleWallpaperItem)
     }
 
     /// Whether this wallpaper is ready on this Mac, for the download arrow.
