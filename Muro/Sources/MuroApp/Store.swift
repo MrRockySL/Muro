@@ -327,6 +327,9 @@ final class AppStore: ObservableObject {
     /// The still frame behind the video, so the desktop still shows the right
     /// wallpaper when Muro is not running. See DesktopStillService.
     private lazy var desktopStill = DesktopStillService(root: root)
+    /// Apple's pictures and drawn wallpapers, which only macOS can show.
+    /// See MacOSWallpaperService.
+    lazy var macOSWallpapers = MacOSWallpaperService(root: root)
 
     private init() {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -1047,6 +1050,11 @@ final class AppStore: ObservableObject {
         target: ApplyTarget = .all,
         surface: ApplySurface? = nil
     ) {
+        // Apple's pictures and the ones macOS draws are handed to macOS.
+        if AppleAerials.isMacOSOnly(item.id) {
+            showThroughMacOS(item, target: target, surface: surface ?? .desktop)
+            return
+        }
         guard item.local != nil else { return }
         Task { await applyWallpaper(item, mode: mode, target: target, surface: surface) }
     }
@@ -1200,6 +1208,9 @@ final class AppStore: ObservableObject {
     }
 
     func isApplied(_ item: WallpaperItem, surface: ApplySurface, target: ApplyTarget) -> Bool {
+        if AppleAerials.isMacOSOnly(item.id) {
+            return isAppliedThroughMacOS(item, surface: surface, target: target)
+        }
         let desktopApplied: Bool
         switch target {
         case .all:
@@ -1227,6 +1238,10 @@ final class AppStore: ObservableObject {
         target: ApplyTarget,
         surface: ApplySurface = .desktop
     ) {
+        if AppleAerials.isMacOSOnly(item.id) {
+            removeFromMacOS(item, target: target, surface: surface)
+            return
+        }
         if surface.coversDesktop {
             switch target {
             case .all:
@@ -1375,7 +1390,25 @@ final class AppStore: ObservableObject {
     /// those alone or it would throw the lock screen away.
     private var lockScreenOwnedDisplays: Set<String> {
         guard lockScreenAvailable else { return [] }
-        return Set(displays.map(\.id).filter { lockScreen.ownsWallpaperSurface(displayUUID: $0) })
+        return Set(displays.map(\.id).filter {
+            lockScreen.ownsWallpaperSurface(displayUUID: $0)
+                // An Apple picture set through macOS sits in the same slot.
+                || macOSWallpapers.holdsDesktop(displayUUID: $0)
+        })
+    }
+
+    /// Whether Muro's own lock screen sits on this display's slot. For the
+    /// wallpapers macOS shows, which take that slot over.
+    func lockScreenOwnsDisplay(_ uuid: String) -> Bool {
+        lockScreen.ownsWallpaperSurface(displayUUID: uuid)
+    }
+
+    /// Takes Muro's own lock screen or screen saver off before macOS is given
+    /// one of Apple's wallpapers for the same place.
+    func removeLockScreenForMacOS(
+        target: ApplyTarget, surface: AppleWallpaperStore.Surface
+    ) async throws {
+        try await lockScreen.remove(target: target, surface: surface)
     }
 
     private func pushRecent(_ id: String) {
@@ -1415,6 +1448,7 @@ final class AppStore: ObservableObject {
     /// know nothing about the lock screen and a wallpaper applied only there
     /// looked unapplied.
     func appliedPlaces(for id: String) -> [AppliedPlace] {
+        if AppleAerials.isMacOSOnly(id) { return placesThroughMacOS(for: id) }
         var out: [AppliedPlace] = []
         for display in displays {
             if config.assignment(forDisplayUUID: display.id)?.wallpaperID == id {

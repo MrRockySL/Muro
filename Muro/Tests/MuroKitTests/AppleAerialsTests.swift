@@ -517,7 +517,7 @@ final class AppleAerialsTests: XCTestCase {
             source: URL(fileURLWithPath: NSTemporaryDirectory()), width: 6016, height: 6016,
             bytes: 65_395_097)
         let drawn = maker.drawn(
-            slug: "sequoia-light", name: "Sequoia Light", order: 0, thumbnail: nil,
+            slug: "sequoia", name: "Sequoia", order: 0, thumbnail: nil,
             source: URL(fileURLWithPath: NSTemporaryDirectory()))
         XCTAssertNil(picture.playablePath)
         XCTAssertNil(drawn.playablePath)
@@ -530,5 +530,54 @@ final class AppleAerialsTests: XCTestCase {
         XCTAssertEqual(DynamicWallpapers.slugged("Big Sur Graphic"), "big-sur-graphic")
         XCTAssertEqual(DynamicWallpapers.slugged("hello Orange"), "hello-orange")
         XCTAssertFalse(DynamicWallpapers.slugged("Utah’s Monument / Valley").contains("/"))
+    }
+
+    // MARK: - Shown by macOS
+
+    /// A picture's record names its file twice, in the configuration and in
+    /// Files, because macOS refuses the screen saver role without the second.
+    func testPictureChoiceNamesItsFile() throws {
+        let file = URL(fileURLWithPath: "/tmp/Muro Wallpapers/apple-picture-the-beach-light.heic")
+        let choice = MacOSWallpaperChoice.picture(file: file)
+        XCTAssertEqual(choice["Provider"] as? String, "com.apple.wallpaper.choice.image")
+        let files = try XCTUnwrap(choice["Files"] as? [[String: String]])
+        XCTAssertEqual(files.first?["relative"], file.absoluteString)
+        let data = try XCTUnwrap(choice["Configuration"] as? Data)
+        let configuration = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+        XCTAssertEqual(configuration["type"] as? String, "imageFile")
+        XCTAssertEqual((configuration["url"] as? [String: String])?["relative"], file.absoluteString)
+    }
+
+    func testDrawnProviderComesFromTheCardsID() {
+        XCTAssertEqual(MacOSWallpaperChoice.drawnProvider(forAssetID: "drawn-sequoia"),
+                       "com.apple.wallpaper.choice.sequoia")
+        XCTAssertNil(MacOSWallpaperChoice.drawnProvider(forAssetID: "picture-the-beach-light"))
+    }
+
+    /// Muro's own desktop still goes through the same image provider, so only
+    /// the same file counts as showing the same picture.
+    func testOnlyTheSameFileCountsAsShowingIt() {
+        let beach = MacOSWallpaperChoice.picture(file: URL(fileURLWithPath: "/tmp/a.heic"))
+        let still = MacOSWallpaperChoice.picture(file: URL(fileURLWithPath: "/tmp/still.jpg"))
+        let surface: [String: Any] = ["Content": ["Choices": [still]]]
+        XCTAssertFalse(MacOSWallpaperChoice.surface(surface, shows: beach))
+        XCTAssertTrue(MacOSWallpaperChoice.surface(["Content": ["Choices": [beach]]], shows: beach))
+    }
+
+    /// Both cards of a picture share one download, so either names both.
+    func testLightAndDarkCardsShareADownload() {
+        let maker = DynamicWallpapers.Maker(
+            category: "D", categoryOrder: 0, cacheDir: URL(fileURLWithPath: NSTemporaryDirectory()))
+        let dark = maker.picture(
+            slug: "the-beach-dark", name: "The Beach Dark", order: 0, thumbnail: nil,
+            source: URL(fileURLWithPath: "/tmp/x.zip"), width: nil, height: nil, bytes: nil)
+        let sides = ApplePictures.sides(of: dark)
+        XCTAssertEqual(sides?.light, "picture-the-beach-light")
+        XCTAssertEqual(sides?.dark, "picture-the-beach-dark")
+        let solar = maker.picture(
+            slug: "solar-gradients", name: "Solar Gradients", order: 0, thumbnail: nil,
+            source: URL(fileURLWithPath: "/tmp/x.zip"), width: nil, height: nil, bytes: nil)
+        XCTAssertNil(ApplePictures.sides(of: solar), "kept whole, macOS changes it with the time of day")
     }
 }

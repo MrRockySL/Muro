@@ -317,16 +317,7 @@ struct PreviewView: View {
 
     @ViewBuilder private func setButton(_ item: WallpaperItem) -> some View {
         if AppleAerials.isMacOSOnly(item.id) {
-            // Shown through macOS rather than Muro's player. That part is the
-            // next step (owner, 2026-09-30), so this says so rather than
-            // offering a button that does nothing.
-            Text("Set through macOS: next step")
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(Capsule().fill(Color.white.opacity(0.1)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+            macOSSetButton(item)
         } else if let progress = store.downloads[item.id] {
             HStack(spacing: 10) {
                 ProgressView(value: progress)
@@ -385,6 +376,60 @@ struct PreviewView: View {
                     // and with four places a wallpaper can be in, which one it
                     // is in is the answer someone opened this for.
                     Text(store.appliedFullLabel(for: item.id) ?? "Applied")
+                        .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Color.muroGreen)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
+                .background(Capsule().fill(Color.white.opacity(0.12)))
+                .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.4), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+        } else {
+            capsuleButton("Set Wallpaper", systemName: nil) {
+                showDisplayPopover.toggle()
+            }
+        }
+    }
+
+    /// Apple's pictures and the ones macOS draws. There is no download step
+    /// of their own: Set Wallpaper fetches a picture from Apple when it is
+    /// needed and hands it to macOS, and the same panel as every other
+    /// wallpaper chooses where.
+    @ViewBuilder private func macOSSetButton(_ item: WallpaperItem) -> some View {
+        if let progress = store.downloads[item.id] {
+            HStack(spacing: 10) {
+                ProgressView(value: progress)
+                    .progressViewStyle(.linear)
+                    .tint(.white)
+                    .frame(width: 70)
+                Text("\(Int(progress * 100))% of \(formatSize(item.sizeBytes))")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Capsule().fill(Color.white.opacity(0.14)))
+        } else if store.applyingLockScreen {
+            HStack(spacing: 9) {
+                ProgressView().controlSize(.small).tint(.white)
+                Text("Setting…")
+                    .font(.system(size: 12.5, weight: .semibold))
+            }
+            .foregroundStyle(.white.opacity(0.82))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 11)
+            .background(Capsule().fill(Color.white.opacity(0.12)))
+        } else if let label = store.appliedFullLabel(for: item.id) {
+            Button {
+                showDisplayPopover.toggle()
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(label)
                         .font(.system(size: 13, weight: .semibold))
                         .lineLimit(1)
                 }

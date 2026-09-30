@@ -18,7 +18,8 @@ import Foundation
 ///
 /// Each one appears twice, once Light and once Dark, the way the owner asked
 /// for them (2026-09-30), except Solar Gradients, which only changes with the
-/// time of day and has no light or dark of its own. The order is System
+/// time of day and has no light or dark of its own, and Sequoia and
+/// Macintosh, which follow the Mac's own light or dark mode (see `drawn`). The order is System
 /// Settings' own: Golden Gate, Tahoe, Sequoia, Macintosh, Sonoma, then the
 /// pictures in the order `.orderedPictures.plist` gives them.
 ///
@@ -121,22 +122,20 @@ public enum DynamicWallpapers {
 
     // MARK: - Drawn by macOS (Sequoia, Macintosh)
 
+    /// One card each. macOS draws these with its own code and follows the
+    /// Mac's light or dark mode; which part of the record forces one or the
+    /// other is not known yet (tested 2026-09-30: the obvious keys are
+    /// ignored), so a Light and a Dark card would both show the same thing.
     static func drawn(_ maker: Maker) -> [AppleAerial] {
         var out: [AppleAerial] = []
         let sequoia = extensions.appendingPathComponent("WallpaperSequoiaExtension.appex", isDirectory: true)
         if FileManager.default.fileExists(atPath: sequoia.path) {
             let resources = sequoia.appendingPathComponent("Contents/Resources", isDirectory: true)
             let strings = localizedStrings(resources.appendingPathComponent("Localizable.loctable"))
-            let words = lightDarkWords(strings)
-            let name = strings["SEQUOIA_LABEL"] ?? "Sequoia"
             out.append(maker.drawn(
-                slug: "sequoia-light", name: "\(name) \(words.light)", order: Slot.sequoia,
-                thumbnail: existing(resources.appendingPathComponent("thumbnail light.heic")),
-                source: sequoia
-            ))
-            out.append(maker.drawn(
-                slug: "sequoia-dark", name: "\(name) \(words.dark)", order: Slot.sequoia + 1,
-                thumbnail: existing(resources.appendingPathComponent("thumbnail dark.heic")),
+                slug: "sequoia", name: strings["SEQUOIA_LABEL"] ?? "Sequoia", order: Slot.sequoia,
+                thumbnail: existing(resources.appendingPathComponent("thumbnail.heic"))
+                    ?? existing(resources.appendingPathComponent("thumbnail light.heic")),
                 source: sequoia
             ))
         }
@@ -144,16 +143,10 @@ public enum DynamicWallpapers {
         if FileManager.default.fileExists(atPath: macintosh.path) {
             let resources = macintosh.appendingPathComponent("Contents/Resources", isDirectory: true)
             let strings = localizedStrings(resources.appendingPathComponent("Localizable.loctable"))
-            let words = lightDarkWords(strings)
-            let name = strings["MACINTOSH_LABEL"] ?? "Macintosh"
-            let thumbnail = existing(systemWallpapers.appendingPathComponent(".thumbnails/Macintosh.heic"))
             out.append(maker.drawn(
-                slug: "macintosh-light", name: "\(name) \(words.light)", order: Slot.macintosh,
-                thumbnail: thumbnail, source: macintosh
-            ))
-            out.append(maker.drawn(
-                slug: "macintosh-dark", name: "\(name) \(words.dark)", order: Slot.macintosh + 1,
-                thumbnail: thumbnail, source: macintosh
+                slug: "macintosh", name: strings["MACINTOSH_LABEL"] ?? "Macintosh", order: Slot.macintosh,
+                thumbnail: existing(systemWallpapers.appendingPathComponent(".thumbnails/Macintosh.heic")),
+                source: macintosh
             ))
         }
         return out
