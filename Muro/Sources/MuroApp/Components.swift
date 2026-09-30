@@ -1190,6 +1190,12 @@ struct WallpaperCard: View {
         } else if let progress = store.downloads[item.id] {
             DownloadRing(progress: progress)
                 .padding(12)
+        } else if showsDelete && hovering && store.canDeleteScreenSaver(item.id) {
+            // A screen saver the person added can go to the Trash, though
+            // macOS draws it like Apple's below.
+            DeleteButton { store.requestDelete([item]) }
+                .padding(12)
+                .transition(Self.popIn)
         } else if item.id.hasPrefix(AppleAerials.drawnPrefix)
                     || item.id.hasPrefix(AppleScreenSavers.idPrefix) {
             // Drawn live by macOS: nothing to download and no file of Muro's
