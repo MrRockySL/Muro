@@ -49,6 +49,7 @@ struct HomeView: View {
                         .padding(.horizontal, 64)
                         .padding(.bottom, 48)
                 }
+                .background(NoOverscroll())
             }
             .ignoresSafeArea(edges: .top)
             // A drop that lands while the app is open replaces the row's
@@ -322,5 +323,33 @@ struct HomeView: View {
         GlassBubbleButton(systemName: systemName, size: 34, glyphScale: 0.33, action: action)
             .disabled(!enabled)
             .opacity(enabled ? 1 : 0.35)
+    }
+}
+
+/// Stops Home from being pulled past its ends (owner, 2026-09-30). The hero
+/// runs full bleed under the top bar, and a fast pull down slid it away from
+/// the top of the window and showed the bare background above it. The page
+/// scrolls exactly as before; it only no longer stretches.
+///
+/// A probe inside the scrolling content that finds the `NSScrollView` SwiftUI
+/// made, like `ScrollViewFinder`, and never takes a click.
+private struct NoOverscroll: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { Probe() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    final class Probe: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            var view = superview
+            while let current = view {
+                if let scroller = current as? NSScrollView {
+                    scroller.verticalScrollElasticity = .none
+                    return
+                }
+                view = current.superview
+            }
+        }
     }
 }
