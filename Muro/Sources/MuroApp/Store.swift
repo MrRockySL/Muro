@@ -259,6 +259,10 @@ final class AppStore: ObservableObject {
     /// anything else that should open it later (the menu bar, a first run
     /// after an update) has one switch to flip.
     @Published var whatsNewOpen = false
+    /// The Apple section's notice card (`AppleNoticeCard`). Raised each time
+    /// the section opens, until the person ticks "Do not show this message
+    /// again".
+    @Published var appleNoticeOpen = false
     @Published var previewItem: WallpaperItem?
     @Published var previewMode = "smooth"
     @Published var applySurface: ApplySurface = .all

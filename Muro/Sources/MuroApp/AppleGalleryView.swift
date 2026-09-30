@@ -72,6 +72,9 @@ struct AppleGalleryView: View {
             .padding(.bottom, 20)
         }
         .onAppear { if !model.loaded { model.load() } }
+        // Every time the section opens, until it is turned off in the card
+        // itself (owner, 2026-09-30).
+        .onAppear { if AppleNoticeCard.wanted { store.appleNoticeOpen = true } }
         // A category Apple no longer ships would leave the page filtered to
         // nothing with no lit pill to say why. Explore guards the same thing.
         .onChange(of: model.categories) { _, list in
