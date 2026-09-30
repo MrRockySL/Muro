@@ -272,7 +272,7 @@ struct MuroApp: App {
                 .environmentObject(store)
                 // Its cards let go of their pictures while the window is hidden.
                 .tracksGalleryVisibility()
-                .frame(minWidth: 1180, minHeight: 760)
+                .frame(minWidth: GallerySize.opening.width, minHeight: GallerySize.opening.height)
                 .preferredColorScheme(.dark)
                 .onAppear {
                     // Here rather than in the delegate: the window is what is
@@ -283,7 +283,7 @@ struct MuroApp: App {
                     makeCloseHideTheGallery()
                 }
         }
-        .defaultSize(width: 1440, height: 920)
+        .defaultSize(width: GallerySize.opening.width, height: GallerySize.opening.height)
         .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .appSettings) {

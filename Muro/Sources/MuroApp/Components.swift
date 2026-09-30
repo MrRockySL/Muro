@@ -467,10 +467,46 @@ func showMainWindow() {
         // It arrives on a later pass of the event loop, so taking the
         // keyboard has to wait for it. `openWindow` has already put it in
         // front, this is only insurance.
-        DispatchQueue.main.async { mainWindow?.makeKeyAndOrderFront(nil) }
+        DispatchQueue.main.async {
+            if let window = mainWindow { GallerySize.openAtOpeningSize(window) }
+            mainWindow?.makeKeyAndOrderFront(nil)
+        }
         return
     }
+    // Only when it opens: a window already on screen keeps the size it has.
+    if !window.isVisible { GallerySize.openAtOpeningSize(window) }
     window.makeKeyAndOrderFront(nil)
+}
+
+/// The gallery opens at its smallest size every time, on any Mac and any
+/// display, centred on the screen the pointer is on (owner, 2026-09-30). It
+/// can be made bigger while it is open; the next time it opens, it is this
+/// size again, never the size it was left at and never full screen.
+enum GallerySize {
+    /// The content, under the title bar. The window around it is 1180 by 788.
+    static let opening = CGSize(width: 1180, height: 760)
+
+    @MainActor
+    static func openAtOpeningSize(_ window: NSWindow) {
+        guard !window.styleMask.contains(.fullScreen) else { return }
+        // The smallest AppKit lets a person drag it to, which is the size
+        // asked for, and the opening size when that is not known yet.
+        let minimum = window.contentMinSize
+        let size = minimum.width >= opening.width * 0.5 && minimum.height >= opening.height * 0.5
+            ? minimum : NSSize(width: opening.width, height: opening.height)
+        window.setContentSize(size)
+        window.layoutIfNeeded()
+        let pointer = NSEvent.mouseLocation
+        guard let screen = NSScreen.screens.first(where: { NSMouseInRect(pointer, $0.frame, false) })
+                ?? window.screen ?? NSScreen.main
+        else { return }
+        let visible = screen.visibleFrame
+        let frame = window.frame
+        window.setFrameOrigin(NSPoint(
+            x: max(visible.minX, visible.midX - frame.width / 2),
+            y: max(visible.minY, visible.midY - frame.height / 2)
+        ))
+    }
 }
 
 /// Make a window's yellow button put it away rather than minimise it.
