@@ -349,10 +349,14 @@ extension AppStore {
         return (added, already)
     }
 
-    /// Reads the person's own screen savers again.
+    /// Reads the person's own screen savers again, and has a picture taken
+    /// of any that carries none (`SaverPictures`).
     func refreshImportedScreenSavers() {
         AppleScreenSavers.refresh()
         importedScreenSavers = AppleScreenSavers.cachedInstalled()
+        SaverPictures.shared.take(importedScreenSavers) { [weak self] in
+            self?.objectWillChange.send()
+        }
     }
 
     /// Whether this is one of the person's own screen savers that Muro may
@@ -385,6 +389,9 @@ extension AppStore {
                     try await macOSWallpapers.remove(id: id, surface: .screenSaver, targetKey: "all")
                 }
                 try FileManager.default.trashItem(at: saver.videoURL, resultingItemURL: nil)
+                for file in SaverPictures.files(saver.assetID) {
+                    try? FileManager.default.removeItem(at: file)
+                }
                 gone.insert(id)
             } catch {
                 applyError = "\(saver.name) could not be deleted. \(error.localizedDescription)"
@@ -394,6 +401,9 @@ extension AppStore {
             recentIDs.removeAll { gone.contains($0) }
             UserDefaults.standard.set(recentIDs, forKey: "recents")
         }
+        // Its pictures are kept in memory by file name, and one imported
+        // again gets the same names.
+        if !gone.isEmpty { ImageCache.removeAll() }
         refreshImportedScreenSavers()
     }
 

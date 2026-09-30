@@ -39,6 +39,11 @@ let package = Package(
             dependencies: ["MuroKit"],
             path: "Sources/MuroPrepare"
         ),
+        // Ships inside Muro.app: a picture of a screen saver that has none.
+        .executableTarget(
+            name: "muro-saver-picture",
+            path: "Sources/MuroSaverPicture"
+        ),
         .testTarget(
             name: "MuroKitTests",
             dependencies: ["MuroKit"],

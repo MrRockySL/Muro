@@ -43,6 +43,13 @@ rm -rf "$DIR/dist"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$BIN_PATH/muro-app" "$APP/Contents/MacOS/Muro"
+# Takes a picture of an imported screen saver that carries none of its own,
+# in a process of its own so a broken screen saver cannot crash Muro.
+if [[ ! -f "$BIN_PATH/muro-saver-picture" ]]; then
+    echo "ERROR: no muro-saver-picture in $BIN_PATH" >&2
+    exit 1
+fi
+cp "$BIN_PATH/muro-saver-picture" "$APP/Contents/MacOS/muro-saver-picture"
 
 # macOS 26+ lock-screen renderer. Build it as a real ExtensionKit target so
 # ExtensionFoundation installs the correct entry point and actor isolation.
@@ -125,6 +132,7 @@ echo "==> ad-hoc codesign"
 codesign --force --sign - \
     --entitlements "$DIR/Sources/MuroWallpaperExtension/MuroWallpaperExtension.entitlements" \
     "$EXT"
+codesign --force --sign - "$APP/Contents/MacOS/muro-saver-picture"
 codesign --force --sign - "$APP"
 
 for arg in "$@"; do
