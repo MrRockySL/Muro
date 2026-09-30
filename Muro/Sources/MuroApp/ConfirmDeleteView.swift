@@ -218,7 +218,13 @@ struct ConfirmDeleteView: View {
     /// A label with no verb in it cannot disagree with itself.
     private var playingNotice: String? {
         let applied = items.filter { !store.appliedDisplays(for: $0.id).isEmpty }
-        guard let first = applied.first else { return nil }
+        guard let first = applied.first else {
+            // Apple's pictures are shown by macOS rather than played by Muro.
+            let shown = items.contains {
+                AppleAerials.isMacOSOnly($0.id) && !store.appliedPlaces(for: $0.id).isEmpty
+            }
+            return shown ? "SHOWING NOW" : nil
+        }
         let displays = store.appliedDisplays(for: first.id)
         if applied.count == 1, displays.count == 1, let display = displays.first {
             return "PLAYING ON \(friendly(display).uppercased())"

@@ -1085,17 +1085,14 @@ struct WallpaperCard: View {
     /// download again, so "Remove Download" would be a lie. It gets the Delete
     /// wording wherever it is shown outside the Library.
     private var menuOptions: [MenuOption] {
-        // One side of Apple's still picture, downloaded but not showing.
+        // One side of Apple's still picture, downloaded but not showing. Its
+        // size is that side's file, the same size the detail view shows.
         if item.id.hasPrefix(AppleAerials.picturePrefix) {
-            guard store.canRemoveApplePicture(item),
-                  let file = store.applePictureFile(item),
-                  let size = (try? FileManager.default.attributesOfItem(atPath: file.path)[.size])
-                    as? NSNumber
-            else { return [] }
+            guard store.canRemoveApplePicture(item), !showsDelete else { return [] }
             return [MenuOption(
-                title: "Remove Download (\(formatSize(size.int64Value)))",
+                title: "Remove Download (\(formatSize(item.sizeBytes)))",
                 destructive: true
-            ) { store.removeApplePictureDownload(item) }]
+            ) { store.removeDownload(item) }]
         }
         guard item.isDownloaded, !showsDelete else { return [] }
         if item.remote == nil {
@@ -1111,6 +1108,13 @@ struct WallpaperCard: View {
             ) { store.removeDownload(item) }]
         }
         return []
+    }
+
+    /// From the Apple section only Muro's own downloads can be deleted. An
+    /// aerial macOS keeps for itself is liked like any other, but a trash can
+    /// on it would do nothing.
+    private var deletable: Bool {
+        !AppleAerials.isAppleID(item.id) || store.appleDownloadedIDs.contains(item.id)
     }
 
     /// Manual space control (owner decision 2026-07-18): outside the Library
@@ -1169,10 +1173,6 @@ struct WallpaperCard: View {
     @ViewBuilder private var topTrailingControls: some View {
         if selecting {
             SelectionTick(isSelected: isSelected).padding(12)
-        } else if AppleAerials.isAppleID(item.id) {
-            // Apple's aerials have no place in Liked, which lists Muro's own
-            // wallpapers, so a heart on one would fill and lead nowhere.
-            EmptyView()
         } else if item.liked {
             HeartButton(item: item).padding(12)
         } else if hovering {
@@ -1189,18 +1189,20 @@ struct WallpaperCard: View {
         } else if let progress = store.downloads[item.id] {
             DownloadRing(progress: progress)
                 .padding(12)
-        } else if AppleAerials.isMacOSOnly(item.id) {
-            // Apple's pictures and the ones macOS draws are shown by macOS,
-            // not downloaded by Muro, so an arrow would promise the wrong thing.
+        } else if item.id.hasPrefix(AppleAerials.drawnPrefix)
+                    || item.id.hasPrefix(AppleScreenSavers.idPrefix) {
+            // Drawn live by macOS: nothing to download and no file of Muro's
+            // to delete. Apple's still pictures do download, and get the
+            // arrow like everything else.
             EmptyView()
-        } else if !item.isDownloaded {
+        } else if !store.isOnThisMac(item) {
             Image(systemName: "arrow.down.circle")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(.white.opacity(0.85))
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(Color.black.opacity(0.4)))
                 .padding(12)
-        } else if showsDelete && hovering {
+        } else if showsDelete && hovering && deletable {
             DeleteButton { store.requestDelete([item]) }
                 .padding(12)
                 .transition(Self.popIn)

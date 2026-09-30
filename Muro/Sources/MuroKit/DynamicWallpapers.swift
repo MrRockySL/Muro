@@ -296,7 +296,11 @@ public enum DynamicWallpapers {
                 id: AppleAerials.muroID(assetID: assetID), assetID: assetID, name: name,
                 category: category, categoryOrder: categoryOrder, order: order,
                 thumbnailPath: thumbnail, previewImageURL: nil, videoURL: source,
-                applePath: "", cachePath: "",
+                // Where its side of the picture goes once downloaded, so it
+                // counts as downloaded the way an aerial does.
+                applePath: "",
+                cachePath: cacheDir.appendingPathComponent(
+                    AppleAerials.pictureFileName(assetID: assetID)).path,
                 stillMatchesVideo: false, kind: .picture,
                 knownWidth: width, knownHeight: height, knownBytes: bytes
             )

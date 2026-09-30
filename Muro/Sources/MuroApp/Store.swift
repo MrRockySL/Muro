@@ -267,6 +267,11 @@ final class AppStore: ObservableObject {
     /// The part of the library that came from the Apple section: aerials and
     /// Apple's still pictures. Shown on its own line in Settings.
     @Published var appleDownloadBytes: Int64 = 0
+    /// What was downloaded in the Apple section, by id: Muro's own copies of
+    /// aerials and the sides of Apple's still pictures. Read off the disk with
+    /// the size, so the Library can list them without looking at every file
+    /// each time it draws.
+    @Published private(set) var appleDownloadedIDs: Set<String> = []
     /// What the last Clear actually did. Shown in Settings, because a Clear
     /// that frees nothing otherwise looks identical to one that never ran.
     @Published var clearStatus: String?
@@ -635,11 +640,11 @@ final class AppStore: ObservableObject {
     /// itself changes, and this is a lookup in the result.
     func appleItem(id: String) -> WallpaperItem? {
         if id.hasPrefix(AppleScreenSavers.idPrefix) {
-            return AppleScreenSavers.cached().first { $0.id == id }?.wallpaperItem
+            return AppleScreenSavers.cached().first { $0.id == id }.map(appleWallpaperItem)
         }
         return AppleAerials.cachedAerials(libraryRoot: root)?
-            .first { $0.id == id }?
-            .wallpaperItem
+            .first { $0.id == id }
+            .map(appleWallpaperItem)
     }
 
     /// The hero only ever plays LOCAL files (owner, 2026-07-19): a fresh
@@ -776,9 +781,14 @@ final class AppStore: ObservableObject {
             }
             let sum = directorySize(root) + linked
             let apple = AppleAerials.cacheSize(libraryRoot: root)
+            let appleIDs = Set(AppleAerials.downloadedFiles(libraryRoot: root)
+                .map { $0.deletingPathExtension().lastPathComponent })
             await MainActor.run {
                 AppStore.shared.libraryBytes = sum
                 AppStore.shared.appleDownloadBytes = apple
+                if AppStore.shared.appleDownloadedIDs != appleIDs {
+                    AppStore.shared.appleDownloadedIDs = appleIDs
+                }
             }
         }
     }
@@ -1613,7 +1623,16 @@ final class AppStore: ObservableObject {
         // catalog path below would write them into `library.json` and copy
         // them into `Masters/`, which is exactly what this feature promised
         // not to do.
-        if AppleAerials.isAppleID(item.id) { downloadAppleAerial(item); return }
+        if AppleAerials.isAppleID(item.id) {
+            // A still picture comes as a zip to be cut in two. The ones macOS
+            // draws have nothing to download.
+            if item.id.hasPrefix(AppleAerials.picturePrefix) {
+                downloadApplePictureNow(item)
+            } else if !AppleAerials.isMacOSOnly(item.id) {
+                downloadAppleAerial(item)
+            }
+            return
+        }
         var remoteEntry = item.remote
         // The bundled wallpaper's master is already inside the app — "download"
         // it from there (file:// URL) instead of pulling 40 MB it already has.
@@ -1884,18 +1903,21 @@ final class AppStore: ObservableObject {
     /// only then does the file go. That is also why an applied wallpaper no
     /// longer has to be protected from deletion: this un-applies it first.
     func deleteWallpapers(_ items: [WallpaperItem]) {
-        let entries = items.compactMap(\.local)
-        guard !entries.isEmpty else { return }
-        Task { await performDelete(entries) }
+        let entries = items.filter { !AppleAerials.isAppleID($0.id) }.compactMap(\.local)
+        let apple = items.map(\.id).filter { appleDownloadFile(id: $0) != nil }
+        guard !entries.isEmpty || !apple.isEmpty else { return }
+        Task { await performDelete(entries, apple: apple) }
     }
 
     /// What the interface calls. Nothing deletes without an answer, so the
     /// button, the menu item and the batch bar all end up in the same sheet.
     func requestDelete(_ items: [WallpaperItem]) {
-        // An Apple aerial has no Muro files to delete and macOS's copy is not
-        // Muro's to touch. Removing Muro's own cached copy is a different
-        // action, `removeAppleAerialDownload`, and it is the only one offered.
-        let deletable = items.filter { $0.local != nil && !AppleAerials.isAppleID($0.id) }
+        // From the Apple section, only what Muro downloaded can go: macOS's
+        // own aerials are not Muro's to touch, and the ones macOS draws have
+        // no file at all.
+        let deletable = items.filter { item in
+            AppleAerials.isAppleID(item.id) ? appleDownloadFile(id: item.id) != nil : item.local != nil
+        }
         guard !deletable.isEmpty else { return }
         pendingDelete = DeleteRequest(items: deletable)
     }
@@ -1904,8 +1926,11 @@ final class AppStore: ObservableObject {
         deleteWallpapers([item])
     }
 
-    private func performDelete(_ entries: [WallpaperEntry]) async {
-        let ids = Set(entries.map(\.id))
+    private func performDelete(_ entries: [WallpaperEntry], apple: [String] = []) async {
+        // Downloads from the Apple section go the same way. An aerial macOS
+        // keeps a copy of goes on playing from that copy, so it stays where
+        // it is and only Muro's file goes.
+        let ids = Set(entries.map(\.id)).union(apple.filter { !macOSKeepsAerial($0) })
 
         // 1. Off the desktop. A deleted all-displays wallpaper clears every
         //    display, which is what deleting the thing on screen means.
@@ -1936,15 +1961,35 @@ final class AppStore: ObservableObject {
                 }
             }
         }
+        //    Apple's pictures are shown by macOS itself, which reads them from
+        //    the very file about to go, so macOS gets its own wallpaper back.
+        for id in apple where macOSWallpapers.shownIDs.contains(id) {
+            do {
+                try await macOSWallpapers.remove(id: id, surface: .desktop, targetKey: "all")
+            } catch {
+                applyError = error.localizedDescription
+            }
+        }
 
         // 3. The manifest and the files, through the writer so a download
         //    finishing in the same moment cannot lose its own entry. Off the
         //    main actor: a batch delete can be dozens of large files.
         let root = self.root
-        if let updated = try? await Task.detached(priority: .utility, operation: {
-            try LibraryWriter.delete(ids: ids, root: root)
-        }).value {
+        let muroIDs = Set(entries.map(\.id))
+        if !muroIDs.isEmpty,
+           let updated = try? await Task.detached(priority: .utility, operation: {
+               try LibraryWriter.delete(ids: muroIDs, root: root)
+           }).value {
             manifest = updated
+        }
+        //    Apple's files are not in the manifest. Each is only Muro's own
+        //    download, so macOS's copies are never touched.
+        let appleFiles = apple.compactMap { appleDownloadFile(id: $0) }
+        if !appleFiles.isEmpty {
+            await Task.detached(priority: .utility) {
+                for file in appleFiles { try? FileManager.default.removeItem(at: file) }
+            }.value
+            finishedAppleAerialChange()
         }
 
         // 4. Every list that points at it by id. Left alone, these are the
@@ -2162,7 +2207,8 @@ final class AppStore: ObservableObject {
     /// That includes the confirmation: this was the last way to destroy a
     /// wallpaper without being asked first.
     func removeDownload(_ item: WallpaperItem) {
-        if AppleAerials.isAppleID(item.id) { removeAppleAerialDownload(item); return }
+        // Apple's go through the same sheet and the same delete as the rest.
+        if AppleAerials.isAppleID(item.id) { requestDelete([item]); return }
         guard item.remote != nil, item.local != nil else { return }
         requestDelete([item])
     }

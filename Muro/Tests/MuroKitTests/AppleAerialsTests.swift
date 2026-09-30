@@ -404,6 +404,32 @@ final class AppleAerialsTests: XCTestCase {
             "a file's name without its extension is its card's id")
     }
 
+    /// A still picture counts as downloaded once its side is on disk, the
+    /// way an aerial does, so the Library can list it and delete it. It is
+    /// still never a video Muro plays, and the ones macOS draws have no file.
+    func testDownloadedPictureIsMuroCopy() throws {
+        let masters = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("muro-masters-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: masters, withIntermediateDirectories: true)
+        let maker = DynamicWallpapers.Maker(category: "D", categoryOrder: 0, cacheDir: masters)
+        let dark = maker.picture(
+            slug: "catalina-dark", name: "Catalina Dark", order: 0, thumbnail: nil,
+            source: URL(fileURLWithPath: "/tmp/x.zip"), width: 6016, height: 6016, bytes: 190_000_000)
+        let drawn = maker.drawn(
+            slug: "sequoia", name: "Sequoia", order: 0, thumbnail: nil,
+            source: URL(fileURLWithPath: NSTemporaryDirectory()))
+        XCTAssertEqual(
+            dark.cachePath,
+            masters.appendingPathComponent("apple-picture-catalina-dark.heic").path,
+            "the file macOS is given is where the download is looked for")
+        XCTAssertFalse(dark.hasMuroCopy)
+        try Data(repeating: 0, count: 10).write(to: URL(fileURLWithPath: dark.cachePath))
+        XCTAssertTrue(dark.hasMuroCopy)
+        XCTAssertNil(dark.playablePath, "a picture is shown by macOS, never played by Muro")
+        XCTAssertFalse(dark.isDownloaded)
+        XCTAssertFalse(drawn.hasMuroCopy, "nothing to download, nothing to delete")
+    }
+
     /// library.json never lists them, so without the guard every Clear would
     /// delete the aerials Muro downloaded along with the real leftovers.
     func testOrphanSweepLeavesAerialsAlone() throws {

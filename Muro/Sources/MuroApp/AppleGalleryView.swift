@@ -196,8 +196,9 @@ struct AppleGalleryView: View {
         return "\(count) \(noun) in \(category)"
     }
 
+    /// Videos ready to play, and still pictures downloaded.
     private var downloadedCount: Int {
-        (model.aerials ?? []).filter(\.isDownloaded).count
+        (model.aerials ?? []).filter { $0.isDownloaded || $0.hasMuroCopy }.count
     }
 
     /// Says how many are ready to play without a download, because on a fresh
@@ -225,7 +226,7 @@ struct AppleGalleryView: View {
         let _ = fetcher.revision
         return LazyVGrid(columns: gridColumns, spacing: 24) {
             ForEach(shown) { aerial in
-                WallpaperCard(item: aerial.wallpaperItem, persistentTitle: true)
+                WallpaperCard(item: store.appleWallpaperItem(aerial), persistentTitle: true)
                     .onAppear { fetcher.requestFrame(for: aerial) }
                     .onDisappear { fetcher.cancelFrame(for: aerial) }
             }
@@ -269,7 +270,7 @@ struct AppleGalleryView: View {
             SectionLabel(title, trailing: items.isEmpty ? nil : "\(items.count)")
             LazyVGrid(columns: gridColumns, spacing: 24) {
                 ForEach(items) { saver in
-                    WallpaperCard(item: saver.wallpaperItem, persistentTitle: true)
+                    WallpaperCard(item: store.appleWallpaperItem(saver), persistentTitle: true)
                         .onAppear { fetcher.requestFrame(for: saver) }
                 }
                 if adding { AddScreenSaverCard { addScreenSaver() } }

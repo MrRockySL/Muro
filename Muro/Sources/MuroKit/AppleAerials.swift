@@ -108,6 +108,12 @@ public enum AppleAerials {
         "\(idPrefix)\(assetID).mov"
     }
 
+    /// The name of one side of Apple's still picture inside `cacheDir`, the
+    /// picture macOS is given for that card. See `ApplePictures`.
+    public static func pictureFileName(assetID: String) -> String {
+        "\(idPrefix)\(assetID).heic"
+    }
+
     /// Everything Muro downloaded from Apple, and nothing else in the
     /// folder: aerials (`.mov`) and the light and dark cuts of Apple's still
     /// pictures (`.heic`). Each file is named after the card it belongs to,
@@ -271,8 +277,11 @@ public struct AppleAerial: Identifiable, Equatable, Sendable {
 
     /// True when the copy on disk is Muro's own, which is the only case where
     /// anything may be deleted. Apple's copy belongs to macOS.
+    ///
+    /// For a still picture that is its side of the picture, downloaded. The
+    /// ones macOS draws have no file at all, so never.
     public var hasMuroCopy: Bool {
-        FileManager.default.fileExists(atPath: cachePath)
+        !cachePath.isEmpty && FileManager.default.fileExists(atPath: cachePath)
     }
 
     public init(

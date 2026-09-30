@@ -59,6 +59,13 @@ struct LibraryView: View {
         store.localItems.filter(matchesSearch)
     }
 
+    /// What was downloaded in the Apple section. Listed like the rest, under
+    /// a label of its own below Muro's wallpapers, so it is always clear
+    /// which ones are Apple's (owner, 2026-09-30).
+    private var appleSearched: [WallpaperItem] {
+        store.appleLibraryItems.filter(matchesSearch)
+    }
+
     /// Liked is the one tab that is not about what is on this Mac. A heart can
     /// be put on any wallpaper in the catalog, so it lists downloads and
     /// catalog entries together, or a wallpaper liked in Explore would
@@ -68,7 +75,11 @@ struct LibraryView: View {
     /// there is nothing to delete on a wallpaper that was never downloaded, so
     /// while it is on the tab shows what it can act on.
     private var likedGridItems: [WallpaperItem] {
-        selecting ? visibleItems : store.likedItems.filter(matchesSearch)
+        selecting ? searched.filter(\.liked) : store.likedItems.filter(matchesSearch)
+    }
+
+    private var likedAppleGridItems: [WallpaperItem] {
+        selecting ? appleSearched.filter(\.liked) : store.likedAppleItems.filter(matchesSearch)
     }
 
     /// The top of a tab's content, for scrolling back to it.
@@ -94,8 +105,10 @@ struct LibraryView: View {
                                     case .all:
                                         if !selecting { dropZone }
                                         grid(items: searched)
+                                        appleGroup(appleSearched)
                                     case .liked:
                                         grid(items: likedGridItems)
+                                        appleGroup(likedAppleGridItems)
                                     case .schedules:
                                         schedulesTab
                                     }
@@ -136,9 +149,9 @@ struct LibraryView: View {
         }
         // After a batch delete the ids are gone but the set is not, which
         // would leave the bar counting wallpapers that no longer exist.
-        .onChange(of: store.localItems.count) { _, _ in
+        .onChange(of: store.localItems.count + store.appleDownloadedIDs.count) { _, _ in
             guard selecting else { return }
-            let alive = Set(store.localItems.map(\.id))
+            let alive = Set(store.localItems.map(\.id)).union(store.appleDownloadedIDs)
             selected.formIntersection(alive)
         }
         .sheet(item: $editorTarget) { target in
@@ -160,8 +173,14 @@ struct LibraryView: View {
         ZStack {
             PillSegments(
                 options: [
-                    PillOption(LibTab.all.rawValue, "Downloaded", count: store.localItems.count),
-                    PillOption(LibTab.liked.rawValue, "Liked", count: store.likedItems.count),
+                    PillOption(
+                        LibTab.all.rawValue, "Downloaded",
+                        count: store.localItems.count + store.appleLibraryItems.count
+                    ),
+                    PillOption(
+                        LibTab.liked.rawValue, "Liked",
+                        count: store.likedItems.count + store.likedAppleItems.count
+                    ),
                     PillOption(
                         LibTab.schedules.rawValue, "Playlists & Automations",
                         count: store.playlists.count + store.automations.count
@@ -198,7 +217,8 @@ struct LibraryView: View {
     // MARK: - Select mode
 
     private var visibleItems: [WallpaperItem] {
-        tab == .liked ? searched.filter(\.liked) : searched
+        let all = searched + appleSearched
+        return tab == .liked ? all.filter(\.liked) : all
     }
 
     private var selectedItems: [WallpaperItem] {
@@ -402,6 +422,19 @@ struct LibraryView: View {
                     selection: selecting ? $selected : nil
                 )
             }
+        }
+    }
+
+    /// Apple's, under their own label. Nothing at all when there are none,
+    /// so the Library looks exactly as it did for anyone who never opened
+    /// the Apple section.
+    @ViewBuilder private func appleGroup(_ items: [WallpaperItem]) -> some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                SectionLabel("FROM APPLE", trailing: "\(items.count)")
+                grid(items: items)
+            }
+            .padding(.top, 6)
         }
     }
 

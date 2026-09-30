@@ -21,7 +21,7 @@ public enum ApplePictures {
     /// The picture macOS is given for this card.
     public static func file(for aerial: AppleAerial, libraryRoot: URL) -> URL {
         AppleAerials.cacheDir(libraryRoot: libraryRoot)
-            .appendingPathComponent("\(AppleAerials.idPrefix)\(aerial.assetID).heic")
+            .appendingPathComponent(AppleAerials.pictureFileName(assetID: aerial.assetID))
     }
 
     public static func isReady(_ aerial: AppleAerial, libraryRoot: URL) -> Bool {
@@ -100,7 +100,7 @@ public enum ApplePictures {
         }
         let indexes = appearanceIndexes(of: source)
         for (assetID, index) in [(sides.light, indexes.light), (sides.dark, indexes.dark)] {
-            let target = directory.appendingPathComponent("\(AppleAerials.idPrefix)\(assetID).heic")
+            let target = directory.appendingPathComponent(AppleAerials.pictureFileName(assetID: assetID))
             try cut(source, index: index, to: target)
         }
     }

@@ -499,13 +499,6 @@ extension AppStore {
         applePictureFile(item) != nil && !macOSWallpapers.shownIDs.contains(item.id)
     }
 
-    func removeApplePictureDownload(_ item: WallpaperItem) {
-        guard canRemoveApplePicture(item), let file = applePictureFile(item) else { return }
-        try? FileManager.default.removeItem(at: file)
-        objectWillChange.send()
-        recomputeSize()
-    }
-
     /// Whether the full picture from Apple is on this Mac.
     func isApplePictureDownloaded(_ item: WallpaperItem) -> Bool {
         guard let aerial = macOSOnlyAerial(id: item.id) else { return false }

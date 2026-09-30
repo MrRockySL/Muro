@@ -48,9 +48,10 @@ struct PreviewView: View {
     /// Live item — refreshes as downloads/likes/manifest change.
     private var item: WallpaperItem? { store.item(id: itemID) }
 
-    /// One of Apple's aerials rather than a Muro wallpaper. Those have no
-    /// 30 fps copy, no per-wallpaper pause, nothing to share and no place in
-    /// Liked, so the bar leaves those controls out for them.
+    /// One of Apple's rather than a Muro wallpaper. Those have no 30 fps copy,
+    /// no per-wallpaper pause and nothing to share, so the bar leaves those
+    /// controls out for them. The heart stays: they go to Liked like any
+    /// other (owner, 2026-09-30).
     private var isAerial: Bool { AppleAerials.isAppleID(itemID) }
 
     var body: some View {
@@ -183,7 +184,7 @@ struct PreviewView: View {
 
             if item.isDownloaded, !isAerial { pauseAfterPill(item) }
 
-            if !isAerial { HeartButton(item: item, size: 40) }
+            HeartButton(item: item, size: 40)
 
             setButton(item)
                 // Drawn in the window like every other menu, not in a popover.
@@ -219,7 +220,13 @@ struct PreviewView: View {
         if item.id.hasPrefix(AppleAerials.drawnPrefix) { return "Drawn by macOS · moves when you unlock" }
         if item.id.hasPrefix(AppleScreenSavers.idPrefix) { return "Screen saver · drawn live by macOS" }
         if item.id.hasPrefix(AppleAerials.picturePrefix) {
-            return "Still picture · \(item.width)×\(item.height) · \(formatSize(item.sizeBytes))"
+            // Apple sends every picture of the day in one download, and Muro
+            // keeps only the one this card stands for, so the two sizes are
+            // far apart. Each is said for what it is.
+            let size = store.isApplePictureDownloaded(item)
+                ? formatSize(item.sizeBytes)
+                : "\(formatSize(item.sizeBytes)) download"
+            return "Still picture · \(item.width)×\(item.height) · \(size)"
         }
         return "\(item.width)×\(item.height) · \(formatSize(item.sizeBytes)) · \(formatDuration(item.duration))"
     }

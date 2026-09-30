@@ -98,6 +98,13 @@ extension AppleAerial {
             : nil
         // A picture or one macOS draws has no frame rate and no length.
         let isVideo = kind == .video
+        // A downloaded picture is one side of what Apple sent: Apple's
+        // download holds every picture of the day, Muro keeps the one this
+        // card stands for. From then on that file is its size, everywhere.
+        let kept = kind == .picture
+            ? (try? FileManager.default.attributesOfItem(atPath: cachePath)[.size] as? NSNumber)?
+                .int64Value
+            : nil
         return CatalogEntry(
             id: id,
             title: name,
@@ -106,7 +113,8 @@ extension AppleAerial {
             height: facts?.height ?? knownHeight ?? AppleAerials.Format.height,
             fps: isVideo ? (facts?.fps ?? AppleAerials.Format.fps) : 0,
             duration: isVideo ? (facts?.duration ?? AppleAerials.Format.duration) : 0,
-            sizeBytes: facts?.bytes ?? knownBytes ?? (isVideo ? AppleAerials.Format.approximateBytes : 0),
+            sizeBytes: kept ?? facts?.bytes ?? knownBytes
+                ?? (isVideo ? AppleAerials.Format.approximateBytes : 0),
             video: videoURL,
             thumbnail: sharp ?? previewImageURL
                 ?? thumbnailPath.map { URL(fileURLWithPath: $0) } ?? videoURL,
@@ -175,7 +183,67 @@ extension AppStore {
     var downloadedAppleItems: [WallpaperItem] {
         (AppleAerials.cachedAerials(libraryRoot: root) ?? [])
             .filter(\.isDownloaded)
-            .map(\.wallpaperItem)
+            .map(appleWallpaperItem)
+    }
+
+    /// One of Apple's, as a wallpaper, with its heart. A like is kept by id
+    /// like every other (`likedIDs`), so it works before anything is
+    /// downloaded, the same as in Explore.
+    func appleWallpaperItem(_ aerial: AppleAerial) -> WallpaperItem {
+        var item = aerial.wallpaperItem
+        item.liked = likedIDs.contains(aerial.id)
+        return item
+    }
+
+    /// What was downloaded in the Apple section, in Apple's order, for the
+    /// Library's Downloaded tab (owner, 2026-09-30). Only Muro's own
+    /// downloads: an aerial macOS keeps for itself is not Muro's to delete,
+    /// and a tab of downloads is where things get deleted.
+    var appleLibraryItems: [WallpaperItem] {
+        let ids = appleDownloadedIDs
+        guard !ids.isEmpty else { return [] }
+        return (AppleAerials.cachedAerials(libraryRoot: root) ?? [])
+            .filter { ids.contains($0.id) }
+            .map(appleWallpaperItem)
+    }
+
+    /// Everything liked in the Apple section, screen savers too, for the
+    /// Library's Liked tab.
+    var likedAppleItems: [WallpaperItem] {
+        let ids = likedIDs.filter(AppleAerials.isAppleID)
+        guard !ids.isEmpty else { return [] }
+        let aerials = (AppleAerials.cachedAerials(libraryRoot: root) ?? []).filter { ids.contains($0.id) }
+        let savers = AppleScreenSavers.cached().filter { ids.contains($0.id) }
+        return (aerials + savers).map(appleWallpaperItem)
+    }
+
+    /// Whether this wallpaper is ready on this Mac, for the download arrow.
+    /// A still picture of Apple's is ready once its side has been
+    /// downloaded, though it is never a video Muro plays.
+    func isOnThisMac(_ item: WallpaperItem) -> Bool {
+        if item.id.hasPrefix(AppleAerials.picturePrefix) { return appleDownloadFile(id: item.id) != nil }
+        return item.isDownloaded
+    }
+
+    /// Muro's own file for something downloaded in the Apple section: an
+    /// aerial's video or one side of a still picture. Nil for everything
+    /// else, macOS's own copies above all, so nothing of Apple's is ever
+    /// deleted through it.
+    func appleDownloadFile(id: String) -> URL? {
+        guard AppleAerials.isAppleID(id),
+              let aerial = AppleAerials.cachedAerials(libraryRoot: root)?.first(where: { $0.id == id }),
+              aerial.hasMuroCopy
+        else { return nil }
+        return URL(fileURLWithPath: aerial.cachePath)
+    }
+
+    /// An aerial macOS keeps a copy of plays from that copy, so deleting
+    /// Muro's leaves it on screen.
+    func macOSKeepsAerial(_ id: String) -> Bool {
+        guard let aerial = AppleAerials.cachedAerials(libraryRoot: root)?.first(where: { $0.id == id }),
+              aerial.kind == .video, !aerial.applePath.isEmpty
+        else { return false }
+        return FileManager.default.fileExists(atPath: aerial.applePath)
     }
 
     /// What a playlist or an automation can be made of: everything
@@ -199,6 +267,7 @@ extension AppStore {
     func downloadAppleAerial(_ item: WallpaperItem) {
         guard let aerial = AppleAerials.cachedAerials(libraryRoot: root)?
             .first(where: { $0.id == item.id }),
+            aerial.kind == .video,
             !aerial.isDownloaded,
             downloads[item.id] == nil
         else { return }
@@ -244,30 +313,6 @@ extension AppStore {
                 }
             }
         }
-    }
-
-    /// Gives back the space Muro's own copy takes.
-    ///
-    /// **Only Muro's copy.** If macOS has its own, the aerial stays playable
-    /// afterwards and the button is not offered in the first place, because
-    /// there is nothing of Muro's to reclaim.
-    func removeAppleAerialDownload(_ item: WallpaperItem) {
-        guard let aerial = AppleAerials.cachedAerials(libraryRoot: root)?
-            .first(where: { $0.id == item.id }),
-            aerial.hasMuroCopy
-        else { return }
-
-        // Off the screen first, the same order `performDelete` uses: a
-        // wallpaper whose file disappears underneath a playing window is how
-        // the desktop ends up showing nothing.
-        if config.allDisplays?.wallpaperID == item.id { config.allDisplays = nil }
-        let kept = config.perDisplay.filter { $0.value.wallpaperID != item.id }
-        let changed = kept.count != config.perDisplay.count
-        if changed { config.perDisplay = kept }
-        if changed || config.allDisplays == nil { saveConfig() }
-
-        try? FileManager.default.removeItem(atPath: aerial.cachePath)
-        finishedAppleAerialChange()
     }
 
     /// What every write to Muro's aerial downloads ends with.
