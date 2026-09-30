@@ -1667,7 +1667,7 @@ final class AppStore: ObservableObject {
             // Dropping a folder, an image or an unsupported video used to do
             // nothing whatsoever, with no hint as to why.
             if !urls.isEmpty {
-                importError = "Muro imports MP4, MOV and M4V videos. Nothing was added."
+                importError = "Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added."
             }
             return
         }

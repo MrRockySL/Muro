@@ -1,6 +1,5 @@
 import SwiftUI
 import MuroKit
-import UniformTypeIdentifiers
 
 /// The Apple section: Apple's own aerial wallpapers, and next the screen
 /// savers. Issue #7 for the aerials; the screen savers were asked for on
@@ -242,10 +241,11 @@ struct AppleGalleryView: View {
         ZStack {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 30) {
-                    saverSection(
-                        "APPLE", items: savers(in: AppleScreenSavers.appleGroup), adding: false)
-                    saverSection(
-                        "YOURS", items: savers(in: AppleScreenSavers.installedGroup), adding: true)
+                    saverSection("APPLE", items: savers(in: AppleScreenSavers.appleGroup))
+                    // Added from the Library's import bar, which takes .saver
+                    // files beside videos (owner, 2026-09-30). No button here.
+                    let yours = savers(in: AppleScreenSavers.installedGroup)
+                    if !yours.isEmpty { saverSection("YOURS", items: yours) }
                 }
                 .padding(.horizontal, 40)
                 .padding(.top, 20)
@@ -264,7 +264,7 @@ struct AppleGalleryView: View {
         }
     }
 
-    private func saverSection(_ title: String, items: [AppleAerial], adding: Bool) -> some View {
+    private func saverSection(_ title: String, items: [AppleAerial]) -> some View {
         let _ = fetcher.revision
         return VStack(alignment: .leading, spacing: 14) {
             SectionLabel(title, trailing: items.isEmpty ? nil : "\(items.count)")
@@ -273,34 +273,8 @@ struct AppleGalleryView: View {
                     WallpaperCard(item: store.appleWallpaperItem(saver), persistentTitle: true)
                         .onAppear { fetcher.requestFrame(for: saver) }
                 }
-                if adding { AddScreenSaverCard { addScreenSaver() } }
             }
         }
-    }
-
-    /// Copies a `.saver` into `~/Library/Screen Savers`, where macOS itself
-    /// looks for them, so it works from System Settings too.
-    private func addScreenSaver() {
-        let panel = NSOpenPanel()
-        panel.title = "Add a Screen Saver"
-        panel.prompt = "Add"
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [UTType("com.apple.screen-saver") ?? .bundle]
-        guard panel.runModal() == .OK else { return }
-        let folder = AppleScreenSavers.installedFolders[0]
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        for url in panel.urls where url.pathExtension == "saver" {
-            let target = folder.appendingPathComponent(url.lastPathComponent, isDirectory: true)
-            guard !FileManager.default.fileExists(atPath: target.path) else { continue }
-            do {
-                try FileManager.default.copyItem(at: url, to: target)
-            } catch {
-                store.importError = "\(url.lastPathComponent) could not be added. \(error.localizedDescription)"
-            }
-        }
-        screenSavers = AppleScreenSavers.refresh()
     }
 
     // MARK: - Empty states
@@ -388,40 +362,5 @@ struct AppleGalleryView: View {
             .frame(width: 54, height: 54)
             .background(Circle().fill(.glassSheen(0.14, 0.05)))
             .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
-    }
-}
-
-/// The last card under Yours: a `.saver` file becomes a screen saver here.
-/// The same shape as a wallpaper card, so the grid stays even.
-private struct AddScreenSaverCard: View {
-    var action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Color.clear
-            .aspectRatio(16 / 9, contentMode: .fit)
-            .overlay {
-                VStack(spacing: 10) {
-                    PlusBubble(size: 46, hovering: hovering)
-                    Text("Add Screen Saver")
-                        .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Text("A .saver file, like XScreenSaver")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.muroSecondary)
-                }
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.glassSheen(hovering ? 0.08 : 0.05, hovering ? 0.035 : 0.02))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.white.opacity(hovering ? 0.16 : 0.1), lineWidth: 1)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 16))
-            .onHover { hovering = $0 }
-            .animation(.easeOut(duration: 0.18), value: hovering)
-            .onTapGesture(perform: action)
     }
 }

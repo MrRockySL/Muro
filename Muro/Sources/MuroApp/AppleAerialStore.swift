@@ -315,6 +315,38 @@ extension AppStore {
         }
     }
 
+    /// Copies `.saver` files into `~/Library/Screen Savers`, where macOS
+    /// itself looks for them, so they work from System Settings too. They
+    /// then show in the Apple section under Yours. Dropped on the Library's
+    /// import bar or picked from it, beside videos (owner, 2026-09-30).
+    ///
+    /// Only ever copies: the file the person chose stays where it was, and a
+    /// screen saver already there is left alone rather than replaced.
+    @discardableResult
+    func addScreenSavers(_ urls: [URL]) -> (added: [String], already: [String]) {
+        let folder = AppleScreenSavers.installedFolders[0]
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        var added: [String] = []
+        var already: [String] = []
+        for url in urls where url.pathExtension.lowercased() == "saver" {
+            let name = Bundle(url: url)?.infoDictionary?["CFBundleName"] as? String
+                ?? url.deletingPathExtension().lastPathComponent
+            let target = folder.appendingPathComponent(url.lastPathComponent, isDirectory: true)
+            if FileManager.default.fileExists(atPath: target.path) {
+                already.append(name)
+                continue
+            }
+            do {
+                try FileManager.default.copyItem(at: url, to: target)
+                added.append(name)
+            } catch {
+                importError = "\(url.lastPathComponent) could not be added. \(error.localizedDescription)"
+            }
+        }
+        if !added.isEmpty { AppleScreenSavers.refresh() }
+        return (added, already)
+    }
+
     /// What every write to Muro's aerial downloads ends with.
     ///
     /// `isDownloaded` is read off the file system rather than remembered, so

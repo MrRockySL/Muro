@@ -29,6 +29,9 @@ struct LibraryView: View {
     /// background with it. These are panels inside one, clipped by the tray.
     @State private var tabShift: CGFloat = 1
     @State private var dropTargeted = false
+    /// A few words after screen savers are added, in the import bar itself,
+    /// since they go to the Apple section rather than into this grid.
+    @State private var addedNote: String?
     @State private var hoveringDrop = false
     @State private var pressingDrop = false
     @State private var editorTarget: PlaylistEditorTarget?
@@ -323,6 +326,9 @@ struct LibraryView: View {
     /// The dashed rectangle is gone. A glass bubble with accent light behind
     /// the "+" says "put something here" without drawing a border that looks
     /// like a placeholder someone forgot to style.
+    ///
+    /// The one way to add anything: videos, and `.saver` screen savers like
+    /// XScreenSaver, which go to the Apple section (owner, 2026-09-30).
     private var dropZone: some View {
         // Lit when a file is over it OR when the pointer is on it, because
         // the two mean the same thing to the person doing it.
@@ -330,16 +336,20 @@ struct LibraryView: View {
         return HStack(spacing: 20) {
             PlusBubble(size: 56, hovering: lit, pressed: pressingDrop)
             VStack(alignment: .leading, spacing: 4) {
-                Text(store.importStatus ?? "Drop videos here, or click to import")
+                Text(store.importStatus ?? addedNote ?? "Drop videos or screen savers here, or click to import")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
-                Text("MP4, MOV and M4V supported")
+                Text("MP4, MOV and M4V videos, and .saver screen savers")
                     .font(.system(size: 11.5))
                     .foregroundStyle(Color.muroSecondary)
             }
             Spacer(minLength: 12)
             if store.importStatus != nil {
                 ProgressView().controlSize(.small).tint(.white)
+            } else if addedNote != nil {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.muroGreen)
             }
         }
         .padding(.horizontal, 24)
@@ -380,10 +390,45 @@ struct LibraryView: View {
 
     private func pickFiles() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie]
+        // A `.saver` is a bundle macOS 27 types as
+        // `com.apple.systempreference.screen-saver`; `.bundle` still lets one
+        // be picked on a Mac where that type is missing.
+        let saver = UTType("com.apple.systempreference.screen-saver") ?? .bundle
+        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie, saver]
         panel.allowsMultipleSelection = true
         if panel.runModal() == .OK {
-            store.importFiles(panel.urls)
+            take(panel.urls)
+        }
+    }
+
+    /// Screen savers go where macOS keeps them; everything else is imported
+    /// as before.
+    private func take(_ urls: [URL]) {
+        let savers = urls.filter { $0.pathExtension.lowercased() == "saver" }
+        let rest = urls.filter { $0.pathExtension.lowercased() != "saver" }
+        if !savers.isEmpty { note(store.addScreenSavers(savers)) }
+        if !rest.isEmpty { store.importFiles(rest) }
+    }
+
+    private func note(_ result: (added: [String], already: [String])) {
+        let text: String
+        if result.added.count == 1 {
+            text = "\(result.added[0]) added. Find it in Apple → Screen Savers."
+        } else if result.added.count > 1 {
+            text = "\(result.added.count) screen savers added. Find them in Apple → Screen Savers."
+        } else if result.already.count == 1 {
+            text = "\(result.already[0]) is already added."
+        } else if !result.already.isEmpty {
+            text = "Those screen savers are already added."
+        } else {
+            return
+        }
+        withAnimation(.easeOut(duration: 0.2)) { addedNote = text }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(5))
+            if addedNote == text {
+                withAnimation(.easeOut(duration: 0.2)) { addedNote = nil }
+            }
         }
     }
 
@@ -403,9 +448,8 @@ struct LibraryView: View {
                 }
             }
         }
-        let storeRef = store
         group.notify(queue: .main) {
-            Task { @MainActor in storeRef.importFiles(urls) }
+            Task { @MainActor in take(urls) }
         }
         return found
     }
