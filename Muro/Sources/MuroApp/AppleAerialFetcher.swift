@@ -83,6 +83,10 @@ final class AppleAerialFetcher: ObservableObject {
         }
     }
 
+    /// Something about the pictures changed outside the fetcher, like a
+    /// still picture being downloaded. Redraw the same way.
+    func noteChanged() { landed() }
+
     private func landed() {
         guard !redrawScheduled else { return }
         redrawScheduled = true

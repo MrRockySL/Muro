@@ -23,12 +23,12 @@ public enum MacOSWallpaperChoice {
         ]
         return [
             "Provider": imageProvider,
-            // macOS writes this empty itself, and then logs "Failed
-            // transformation of image choice. No files include in the
-            // descriptor" for the screen saver role (seen 2026-09-30). Naming
-            // the file here too, the way Muro's own lock screen does, is what
-            // it asks for, and costs nothing where it is not needed.
-            "Files": [["relative": file.absoluteString]],
+            // Empty, exactly as macOS writes it itself (read back from a
+            // picture set through NSWorkspace on macOS 27, 2026-09-30). With
+            // the file named here as well, macOS's picture reader failed with
+            // NSCocoaErrorDomain 4865, a value missing, and showed its default
+            // wallpaper instead.
+            "Files": [],
             "Configuration": (try? PropertyListSerialization.data(
                 fromPropertyList: configuration, format: .binary, options: 0)) ?? Data(),
         ]
@@ -53,14 +53,35 @@ public enum MacOSWallpaperChoice {
         return "com.apple.wallpaper.choice.\(name)"
     }
 
-    /// Whether a store surface is showing exactly this choice: the same
-    /// provider and the same configuration, so a desktop still Muro wrote
-    /// through the same image provider never counts as one of these.
+    /// Whether a store surface is showing this choice.
+    ///
+    /// Compared by what the record means, not by its bytes: macOS rewrites
+    /// the store in its own encoding once it has read it, and Macintosh came
+    /// back with a configuration of its own, so a byte compare decided Muro's
+    /// choice was gone and the desktop still was written over it (seen
+    /// 2026-09-30). The same provider is enough for one macOS draws; a
+    /// picture or a screen saver also has to name the same file, so a desktop
+    /// still Muro wrote through the same image provider never counts.
     public static func surface(_ surface: [String: Any], shows choice: [String: Any]) -> Bool {
         guard let content = surface["Content"] as? [String: Any],
-              let first = (content["Choices"] as? [[String: Any]])?.first
+              let first = (content["Choices"] as? [[String: Any]])?.first,
+              let provider = choice["Provider"] as? String,
+              first["Provider"] as? String == provider
         else { return false }
-        return first["Provider"] as? String == choice["Provider"] as? String
-            && (first["Configuration"] as? Data ?? Data()) == (choice["Configuration"] as? Data ?? Data())
+        guard let wanted = address(in: choice) else { return true }
+        return address(in: first) == wanted
+    }
+
+    /// The file a picture or a screen saver record names, or nil for a record
+    /// that names none.
+    static func address(in choice: [String: Any]) -> String? {
+        guard let data = choice["Configuration"] as? Data, !data.isEmpty,
+              let configuration = (try? PropertyListSerialization.propertyList(from: data, format: nil))
+                as? [String: Any]
+        else { return nil }
+        let entry = configuration["url"] as? [String: Any] ?? configuration["module"] as? [String: Any]
+        guard let relative = entry?["relative"] as? String else { return nil }
+        // "file:///a/b" and "file:///a/b/" name the same module.
+        return URL(string: relative)?.standardizedFileURL.path ?? relative
     }
 }

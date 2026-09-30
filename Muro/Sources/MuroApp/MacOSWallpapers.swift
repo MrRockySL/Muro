@@ -79,8 +79,7 @@ final class MacOSWallpaperService {
     /// The record, with anything macOS no longer shows dropped. Re-checked
     /// only when the store file has changed since the last check.
     private var current: Record {
-        let modified = (try? Self.storeURLs[0].resourceValues(forKeys: [.contentModificationDateKey]))?
-            .contentModificationDate
+        let modified = Self.storeModified
         guard modified != checkedAgainst else { return record }
         checkedAgainst = modified
         guard let store = Self.load(Self.storeURLs[0]) else { return record }
@@ -101,18 +100,20 @@ final class MacOSWallpaperService {
 
     // MARK: - Writing
 
-    /// Writes `choice` into one role for one target and restarts
-    /// WallpaperAgent so macOS shows it at once.
+    /// Writes `choice` into one role for one target. Nothing is shown until
+    /// WallpaperAgent reads the store again: the caller restarts it once,
+    /// after every write it has to make (`restartWallpaperAgent`), because
+    /// each restart blanks the screens for a moment.
+    ///
+    /// The record is written first, so anything that asks while the store is
+    /// being written, the desktop still above all, already knows this place
+    /// is taken.
     func show(
         _ choice: [String: Any],
         id: String,
         surface: AppleWallpaperStore.Surface,
         targetKey: String
     ) async throws {
-        try await Task.detached(priority: .userInitiated) {
-            try Self.write(choice, targetKey: targetKey, surface: surface)
-            Self.restartWallpaperAgent()
-        }.value
         let placement = Placement(
             id: id,
             provider: choice["Provider"] as? String ?? "",
@@ -125,8 +126,55 @@ final class MacOSWallpaperService {
         case .screenSaver:
             record.screenSaver = placement
         }
-        checkedAgainst = nil
         save()
+        try await Task.detached(priority: .userInitiated) {
+            try Self.write(choice, targetKey: targetKey, surface: surface)
+        }.value
+        checkedAgainst = Self.storeModified
+    }
+
+    /// Makes macOS read the store again, so what was written shows.
+    func restartWallpaperAgent() async {
+        await Task.detached(priority: .userInitiated) { Self.restartWallpaperAgent() }.value
+    }
+
+    /// Waits for `Index.plist`, the store macOS reads, to hold `choice` in
+    /// this place, and says whether it did. WallpaperAgent writes the store
+    /// from its own memory when it starts and when anything changes, and a
+    /// write of Muro's that lands in between is simply lost; the lock screen
+    /// has the same check for the same reason.
+    func confirm(
+        _ choice: [String: Any], surface: AppleWallpaperStore.Surface, targetKey: String
+    ) async -> Bool {
+        let placement = Placement(
+            id: "", provider: choice["Provider"] as? String ?? "",
+            configuration: choice["Configuration"] as? Data ?? Data())
+        for _ in 0..<12 {
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            let held = await Task.detached(priority: .userInitiated) {
+                Self.load(Self.storeURLs[0]).map {
+                    Self.store($0, shows: placement, targetKey: targetKey, surface: surface)
+                } ?? false
+            }.value
+            if held { return true }
+        }
+        return false
+    }
+
+    /// Writes again, after `confirm` found the first write lost.
+    func rewrite(
+        _ choice: [String: Any], surface: AppleWallpaperStore.Surface, targetKey: String
+    ) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            try Self.write(choice, targetKey: targetKey, surface: surface)
+            Self.restartWallpaperAgent()
+        }.value
+        checkedAgainst = nil
+    }
+
+    private nonisolated static var storeModified: Date? {
+        (try? storeURLs[0].resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate
     }
 
     /// Takes one back off, leaving macOS's own default wallpaper in its place.
@@ -263,21 +311,47 @@ extension AppStore {
                 defer { applyingLockScreen = false }
                 let targetKey = Self.macOSTargetKey(target)
                 let desktopRole = surface.coversDesktop || surface.coversLockScreen
+                // macOS cannot show a still picture as the screen saver: it
+                // refuses the record ("No files include in the descriptor").
+                let saverRole = surface.coversScreenSaver && aerial.kind != .picture
 
-                if surface.coversDesktop { vacateDesktop(target) }
-                if desktopRole, lockScreenHoldsDesktopRole(target) {
-                    try await removeLockScreenForMacOS(target: target, surface: .desktop)
-                }
-                if surface.coversScreenSaver, screenSaverWallpaperID != nil {
-                    try await removeLockScreenForMacOS(target: .all, surface: .screenSaver)
+                // 1. Every write first. What Muro held in these places is
+                //    replaced here, so handing them back below restores
+                //    nothing over them. Taking Muro's video off the desktop
+                //    puts the user's own picture back through macOS, which
+                //    then writes the store itself, so that goes first and is
+                //    given a moment to land before Muro writes over it.
+                if surface.coversDesktop, vacateDesktop(target) {
+                    try? await Task.sleep(nanoseconds: 700_000_000)
                 }
                 if desktopRole {
                     try await macOSWallpapers.show(
                         choice, id: aerial.id, surface: .desktop, targetKey: targetKey)
                 }
-                if surface.coversScreenSaver {
+                if saverRole {
                     try await macOSWallpapers.show(
                         choice, id: aerial.id, surface: .screenSaver, targetKey: "all")
+                }
+
+                // 2. One restart. Handing Muro's own lock screen or screen
+                //    saver back ends with one, otherwise it is made here.
+                var handBack: [AppleWallpaperStore.Surface] = []
+                if desktopRole, lockScreenHoldsDesktopRole(target) { handBack.append(.desktop) }
+                if saverRole, screenSaverWallpaperID != nil { handBack.append(.screenSaver) }
+                if handBack.isEmpty {
+                    await macOSWallpapers.restartWallpaperAgent()
+                } else {
+                    try await removeLockScreenForMacOS(target: target, surfaces: handBack)
+                }
+
+                // 3. Make sure macOS kept it; once more if it did not.
+                if desktopRole,
+                   !(await macOSWallpapers.confirm(choice, surface: .desktop, targetKey: targetKey)) {
+                    try await macOSWallpapers.rewrite(choice, surface: .desktop, targetKey: targetKey)
+                }
+                if saverRole,
+                   !(await macOSWallpapers.confirm(choice, surface: .screenSaver, targetKey: "all")) {
+                    try await macOSWallpapers.rewrite(choice, surface: .screenSaver, targetKey: "all")
                 }
                 pushRecentMacOS(aerial.id)
                 objectWillChange.send()
@@ -365,23 +439,30 @@ extension AppStore {
 
     /// Takes Muro's own video off these displays, so macOS's wallpaper is
     /// what the desktop shows. The same edit as a desktop Remove.
-    private func vacateDesktop(_ target: ApplyTarget) {
+    @discardableResult
+    private func vacateDesktop(_ target: ApplyTarget) -> Bool {
         switch target {
         case .all:
-            guard config.allDisplays != nil || !config.perDisplay.isEmpty else { return }
+            guard config.allDisplays != nil || !config.perDisplay.isEmpty else { return false }
             config.allDisplays = nil
             config.perDisplay = [:]
         case .display(let uuid):
+            var changed = false
             if let fallback = config.allDisplays {
                 for display in displays where display.id != uuid && config.perDisplay[display.id] == nil {
                     config.perDisplay[display.id] = fallback
                 }
                 config.allDisplays = nil
+                changed = true
             }
-            guard config.perDisplay[uuid] != nil else { saveConfig(); return }
-            config.perDisplay[uuid] = nil
+            if config.perDisplay[uuid] != nil {
+                config.perDisplay[uuid] = nil
+                changed = true
+            }
+            guard changed else { return false }
         }
         saveConfig()
+        return true
     }
 
     private func lockScreenHoldsDesktopRole(_ target: ApplyTarget) -> Bool {
@@ -397,6 +478,23 @@ extension AppStore {
         ids.insert(id, at: 0)
         recentIDs = Array(ids.prefix(10))
         UserDefaults.standard.set(recentIDs, forKey: "recents")
+    }
+
+    /// The Preview button: fetches the picture so it can be seen sharp,
+    /// without setting it.
+    func previewApplePicture(_ item: WallpaperItem) {
+        guard let aerial = macOSOnlyAerial(id: item.id), aerial.kind == .picture else { return }
+        Task {
+            do {
+                if !ApplePictures.isReady(aerial, libraryRoot: root) {
+                    try await downloadApplePicture(aerial)
+                } else {
+                    await makeSharpPictures(for: aerial)
+                }
+            } catch {
+                applyError = error.localizedDescription
+            }
+        }
     }
 
     /// Fetches the picture from Apple's servers and cuts out the light and
@@ -421,6 +519,28 @@ extension AppStore {
         try await Task.detached(priority: .userInitiated) {
             try ApplePictures.finish(zip: zip, for: aerial, libraryRoot: root)
         }.value
+        await makeSharpPictures(for: aerial)
         recomputeSize()
+    }
+
+    /// The cards and the detail view show Apple's small pictures until the
+    /// real one is here. Then each side gets a sharp picture of its own, cut
+    /// from it the way the desktop shows it.
+    private func makeSharpPictures(for aerial: AppleAerial) async {
+        let root = self.root
+        let assetIDs = ApplePictures.sides(of: aerial).map { [$0.light, $0.dark] } ?? [aerial.assetID]
+        await Task.detached(priority: .userInitiated) {
+            for assetID in assetIDs {
+                let source = AppleAerials.cacheDir(libraryRoot: root)
+                    .appendingPathComponent("\(AppleAerials.idPrefix)\(assetID).heic")
+                let destination = URL(fileURLWithPath: AppleAerialInfo.framePath(assetID: assetID))
+                guard FileManager.default.fileExists(atPath: source.path),
+                      !FileManager.default.fileExists(atPath: destination.path)
+                else { continue }
+                try? ApplePictures.makeCardPicture(from: source, to: destination)
+            }
+        }.value
+        AppleAerialFetcher.shared.noteChanged()
+        objectWillChange.send()
     }
 }

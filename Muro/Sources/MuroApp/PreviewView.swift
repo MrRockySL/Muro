@@ -113,6 +113,48 @@ struct PreviewView: View {
     }
 
     @ViewBuilder private func remotePreview(_ item: WallpaperItem) -> some View {
+        if AppleAerials.isMacOSOnly(item.id), !hasSharpPicture(item) {
+            smallPicturePoster(item)
+        } else {
+            fullRemotePreview(item)
+        }
+    }
+
+    /// Apple keeps only small pictures of its screen savers, its drawn
+    /// wallpapers and its still pictures before one is downloaded, 214 to 356
+    /// pixels across. Stretched over the whole window they fell apart (owner,
+    /// 2026-09-30), so they are shown at a size they can hold, over a soft
+    /// wash of themselves.
+    private func smallPicturePoster(_ item: WallpaperItem) -> some View {
+        GeometryReader { proxy in
+            ZStack {
+                ThumbImage(item: item, maxPixels: ImageCache.gridPixels)
+                    .blur(radius: 40, opaque: true)
+                    .overlay(Color.black.opacity(0.35))
+                ThumbImage(item: item, maxPixels: ImageCache.gridPixels)
+                    .frame(
+                        width: min(proxy.size.width * 0.5, 640),
+                        height: min(proxy.size.width * 0.5, 640) * 9 / 16
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.45), radius: 30, y: 12)
+                    .offset(y: -40)
+            }
+        }
+    }
+
+    /// A still picture that has been downloaded has a sharp picture of its
+    /// own, cut from the real one.
+    private func hasSharpPicture(_ item: WallpaperItem) -> Bool {
+        guard let path = store.thumbnailPath(for: item) else { return false }
+        return path.hasPrefix(AppleAerialInfo.directory.path) && !item.id.hasPrefix(AppleScreenSavers.idPrefix)
+    }
+
+    @ViewBuilder private func fullRemotePreview(_ item: WallpaperItem) -> some View {
         ZStack {
             // Fills the whole window behind the loading p720, so it needs the
             // full-size decode rather than the grid-card one.
@@ -204,7 +246,9 @@ struct PreviewView: View {
     /// Size, dimensions and length, or for Apple's pictures and the ones
     /// macOS draws, what they are, since those have no length to give.
     private func metaLine(_ item: WallpaperItem) -> String {
-        if item.id.hasPrefix(AppleAerials.drawnPrefix) { return "Drawn live by macOS" }
+        // macOS animates these when they appear and when the Mac is
+        // unlocked, then holds them still, as it does in System Settings.
+        if item.id.hasPrefix(AppleAerials.drawnPrefix) { return "Drawn by macOS · moves when you unlock" }
         if item.id.hasPrefix(AppleScreenSavers.idPrefix) { return "Screen saver · drawn live by macOS" }
         if item.id.hasPrefix(AppleAerials.picturePrefix) {
             return "Still picture · \(item.width)×\(item.height) · \(formatSize(item.sizeBytes))"
@@ -447,6 +491,17 @@ struct PreviewView: View {
                 .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.4), lineWidth: 1))
             }
             .buttonStyle(.plain)
+        } else if item.id.hasPrefix(AppleAerials.picturePrefix), !hasSharpPicture(item) {
+            // The same pair as a video that is not downloaded: Preview fetches
+            // the real picture from Apple and shows it sharp.
+            HStack(spacing: 10) {
+                glassButton("Preview", systemName: "eye") {
+                    store.previewApplePicture(item)
+                }
+                capsuleButton("Set Wallpaper", systemName: nil) {
+                    showDisplayPopover.toggle()
+                }
+            }
         } else {
             capsuleButton("Set Wallpaper", systemName: nil) {
                 showDisplayPopover.toggle()
@@ -677,7 +732,24 @@ struct ChooseDisplayPopover: View {
     /// apply to "all", so a card per display was offering a choice that does
     /// not exist: one click lit every card green and gave each its own Remove
     /// button, for a single setting (owner, 2026-09-10).
-    private var screenSaverCard: some View {
+    @ViewBuilder private var screenSaverCard: some View {
+        if item.id.hasPrefix(AppleAerials.picturePrefix) {
+            // macOS refuses a still picture as the screen saver (it asks for
+            // files a picture record does not have), so there is nothing to
+            // apply. Said here rather than offering a card that fails.
+            Text("macOS can't use a still picture as the screen saver.")
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(Color.muroSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: Self.cardWidth * 2 + Self.cardGap, height: Self.cardHeight)
+                .frame(maxWidth: .infinity)
+        } else {
+            screenSaverApplyCard
+        }
+    }
+
+    private var screenSaverApplyCard: some View {
         let applied = store.isApplied(item, surface: .screensaver, target: .all)
         return Group {
             Button {

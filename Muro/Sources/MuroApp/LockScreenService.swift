@@ -760,6 +760,54 @@ final class LockScreenService {
         state = nextState
     }
 
+    /// `remove` for several roles at once, with one WallpaperAgent restart
+    /// instead of one per role.
+    ///
+    /// For handing a place over to one of Apple's wallpapers that only macOS
+    /// shows (`MacOSWallpaperService`). That choice is written into Apple's
+    /// store first, so the surfaces it replaced are no longer Muro's and the
+    /// restore below leaves them alone; what is left to do is Muro's own
+    /// record, its staged files and the one restart that makes macOS read
+    /// the store again. Every restart blanks the screens for a moment, and
+    /// the owner saw each one as a black flash (2026-09-30).
+    func remove(target: ApplyTarget, surfaces: [AppleWallpaperStore.Surface]) async throws {
+        var nextState = state
+        var keys: [(key: String, surface: AppleWallpaperStore.Surface)] = []
+        for surface in surfaces {
+            let targetKey = Self.storeTargetKey(Self.targetKey(target), for: surface)
+            var selections = Self.selections(nextState, for: surface)
+            if targetKey == "all" {
+                selections.removeAll()
+            } else if selections["all"] != nil {
+                selections[targetKey] = Self.removedSelection
+            } else {
+                selections[targetKey] = nil
+            }
+            Self.setSelections(selections, for: surface, in: &nextState)
+            keys.append((targetKey, surface))
+        }
+        let root = root
+        let extensionURL = extensionBundleURL
+        let stateAfter = nextState
+        try await Task.detached(priority: .userInitiated) {
+            for entry in keys {
+                try await Self.restoreWallpaperStores(
+                    targetKey: entry.key, surface: entry.surface, root: root
+                )
+            }
+            try Self.saveState(stateAfter, root: root)
+            _ = try? Self.purgeDeadMuroSurfaces(root: root)
+            Self.restartWallpaperAgent()
+            try Self.pruneStagedLibrary(keeping: Self.heldIDs(stateAfter))
+            if Self.heldIDs(stateAfter).isEmpty {
+                Self.unregisterExtension(at: extensionURL)
+                try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
+                try? FileManager.default.removeItem(at: Self.legacyBackupURL(root: root))
+            }
+        }.value
+        state = nextState
+    }
+
     /// Cache clearing is deliberately stronger than ordinary selection removal:
     /// no Apple record, extension library entry, preference, or copied video is
     /// allowed to survive it.

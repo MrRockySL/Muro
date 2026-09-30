@@ -534,19 +534,42 @@ final class AppleAerialsTests: XCTestCase {
 
     // MARK: - Shown by macOS
 
-    /// A picture's record names its file twice, in the configuration and in
-    /// Files, because macOS refuses the screen saver role without the second.
-    func testPictureChoiceNamesItsFile() throws {
+    /// A picture's record is the one macOS writes itself: the file named in
+    /// the configuration and Files left empty. With Files filled in, macOS's
+    /// picture reader failed and showed its default wallpaper instead.
+    func testPictureChoiceIsTheOneMacOSWrites() throws {
         let file = URL(fileURLWithPath: "/tmp/Muro Wallpapers/apple-picture-the-beach-light.heic")
         let choice = MacOSWallpaperChoice.picture(file: file)
         XCTAssertEqual(choice["Provider"] as? String, "com.apple.wallpaper.choice.image")
-        let files = try XCTUnwrap(choice["Files"] as? [[String: String]])
-        XCTAssertEqual(files.first?["relative"], file.absoluteString)
+        XCTAssertEqual((choice["Files"] as? [Any])?.count, 0)
         let data = try XCTUnwrap(choice["Configuration"] as? Data)
         let configuration = try XCTUnwrap(
             PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
         XCTAssertEqual(configuration["type"] as? String, "imageFile")
         XCTAssertEqual((configuration["url"] as? [String: String])?["relative"], file.absoluteString)
+    }
+
+    /// macOS rewrites the store in its own encoding once it has read it. A
+    /// choice must still be recognised afterwards, or the desktop still is
+    /// written over it.
+    func testAChoiceIsRecognisedAfterMacOSRewritesIt() throws {
+        let drawn = MacOSWallpaperChoice.drawn(provider: "com.apple.wallpaper.choice.macintosh")
+        let rewritten: [String: Any] = [
+            "Provider": "com.apple.wallpaper.choice.macintosh",
+            "Configuration": try PropertyListSerialization.data(
+                fromPropertyList: ["appearance": "automatic"], format: .binary, options: 0),
+        ]
+        XCTAssertTrue(MacOSWallpaperChoice.surface(["Content": ["Choices": [rewritten]]], shows: drawn))
+
+        let module = URL(fileURLWithPath: "/System/Library/ExtensionKit/Extensions/Hello.appex")
+        let saver = AppleScreenSavers.choice(module: module)
+        let withSlash: [String: Any] = [
+            "Provider": AppleScreenSavers.provider,
+            "Configuration": try PropertyListSerialization.data(
+                fromPropertyList: ["module": ["relative": module.absoluteString + "/"]],
+                format: .xml, options: 0),
+        ]
+        XCTAssertTrue(MacOSWallpaperChoice.surface(["Content": ["Choices": [withSlash]]], shows: saver))
     }
 
     func testDrawnProviderComesFromTheCardsID() {

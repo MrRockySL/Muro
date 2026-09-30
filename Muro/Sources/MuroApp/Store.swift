@@ -1409,9 +1409,9 @@ final class AppStore: ObservableObject {
     /// Takes Muro's own lock screen or screen saver off before macOS is given
     /// one of Apple's wallpapers for the same place.
     func removeLockScreenForMacOS(
-        target: ApplyTarget, surface: AppleWallpaperStore.Surface
+        target: ApplyTarget, surfaces: [AppleWallpaperStore.Surface]
     ) async throws {
-        try await lockScreen.remove(target: target, surface: surface)
+        try await lockScreen.remove(target: target, surfaces: surfaces)
     }
 
     private func pushRecent(_ id: String) {

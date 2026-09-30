@@ -133,6 +133,32 @@ public enum ApplePictures {
         return fallback
     }
 
+    /// The picture a card and the detail view show once the real one is here:
+    /// 1920 pixels wide, cut to the 16 by 9 the cards are, from the middle,
+    /// which is the part a desktop shows of a square picture.
+    public static func makeCardPicture(from source: URL, to destination: URL) throws {
+        guard let reader = CGImageSourceCreateWithURL(source as CFURL, nil),
+              let image = CGImageSourceCreateThumbnailAtIndex(reader, 0, [
+                  kCGImageSourceCreateThumbnailFromImageAlways: true,
+                  kCGImageSourceCreateThumbnailWithTransform: true,
+                  kCGImageSourceThumbnailMaxPixelSize: 1920,
+              ] as CFDictionary)
+        else { throw PrepareError.cutFailed }
+        let width = image.width
+        let height = min(image.height, width * 9 / 16)
+        let crop = CGRect(x: 0, y: (image.height - height) / 2, width: width, height: height)
+        guard let card = image.cropping(to: crop) else { throw PrepareError.cutFailed }
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        guard let writer = CGImageDestinationCreateWithURL(
+            destination as CFURL, UTType.jpeg.identifier as CFString, 1, nil
+        ) else { throw PrepareError.cutFailed }
+        CGImageDestinationAddImage(writer, card, [
+            kCGImageDestinationLossyCompressionQuality: 0.85
+        ] as CFDictionary)
+        guard CGImageDestinationFinalize(writer) else { throw PrepareError.cutFailed }
+    }
+
     /// One image of the picture, written as a picture of its own. HEIC, at
     /// full size and near full quality: this is what the desktop shows.
     static func cut(_ source: CGImageSource, index: Int, to target: URL) throws {

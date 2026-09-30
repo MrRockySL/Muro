@@ -113,7 +113,13 @@ struct ThumbImage: View {
         // picture inside it keeps the whole thing the size it was offered.
         Color.clear
             .overlay {
-                if let ready {
+                if let ready, AppleAerials.isAppleID(item.id) {
+                    // Apple's own small pictures are enlarged a long way on a
+                    // card; the best filter keeps their edges smooth instead
+                    // of blocky. Muro's own thumbnails are only ever made
+                    // smaller, so they are drawn exactly as before.
+                    Image(nsImage: ready).resizable().interpolation(.high).scaledToFill()
+                } else if let ready {
                     Image(nsImage: ready).resizable().scaledToFill()
                 } else {
                     Color.white.opacity(0.04)
