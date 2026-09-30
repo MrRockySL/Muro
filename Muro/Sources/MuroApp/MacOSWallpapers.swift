@@ -63,6 +63,12 @@ final class MacOSWallpaperService {
 
     func isScreenSaver(_ id: String) -> Bool { current.screenSaver?.id == id }
 
+    /// Every one of these macOS is showing now. Their files must stay.
+    var shownIDs: Set<String> {
+        let record = current
+        return Set(record.desktop.values.map(\.id) + [record.screenSaver?.id].compactMap { $0 })
+    }
+
     /// Whether this display's desktop role holds one of these. The desktop
     /// still must leave such a display alone, or it would write Muro's still
     /// over the picture.
@@ -478,6 +484,26 @@ extension AppStore {
         ids.insert(id, at: 0)
         recentIDs = Array(ids.prefix(10))
         UserDefaults.standard.set(recentIDs, forKey: "recents")
+    }
+
+    /// The downloaded file of one side of a still picture, when it is here.
+    func applePictureFile(_ item: WallpaperItem) -> URL? {
+        guard let aerial = macOSOnlyAerial(id: item.id), aerial.kind == .picture else { return nil }
+        let file = ApplePictures.file(for: aerial, libraryRoot: root)
+        return FileManager.default.fileExists(atPath: file.path) ? file : nil
+    }
+
+    /// Remove Download on a still picture's card: its side of the picture
+    /// goes, unless macOS is showing it, which reads it from that file.
+    func canRemoveApplePicture(_ item: WallpaperItem) -> Bool {
+        applePictureFile(item) != nil && !macOSWallpapers.shownIDs.contains(item.id)
+    }
+
+    func removeApplePictureDownload(_ item: WallpaperItem) {
+        guard canRemoveApplePicture(item), let file = applePictureFile(item) else { return }
+        try? FileManager.default.removeItem(at: file)
+        objectWillChange.send()
+        recomputeSize()
     }
 
     /// Whether the full picture from Apple is on this Mac.

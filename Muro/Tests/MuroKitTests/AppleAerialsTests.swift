@@ -383,6 +383,27 @@ final class AppleAerialsTests: XCTestCase {
         XCTAssertEqual(AppleAerials.cacheSize(libraryRoot: library), 0)
     }
 
+    /// Apple's still pictures are Muro's downloads too, so they are counted
+    /// and cleared with the aerials, and nothing else in the folder is.
+    func testStillPicturesCountAsAppleDownloads() throws {
+        let library = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("muro-lib-\(UUID().uuidString)", isDirectory: true)
+        let masters = AppleAerials.cacheDir(libraryRoot: library)
+        try FileManager.default.createDirectory(at: masters, withIntermediateDirectories: true)
+        try Data(repeating: 0, count: 300).write(
+            to: masters.appendingPathComponent("apple-picture-the-beach-light.heic"))
+        try Data(repeating: 0, count: 200).write(
+            to: masters.appendingPathComponent("apple-dynamic-tahoe-dark.mov"))
+        try Data(repeating: 0, count: 999).write(
+            to: masters.appendingPathComponent("\(UUID().uuidString).mov"))
+        XCTAssertEqual(AppleAerials.cacheSize(libraryRoot: library), 500)
+        XCTAssertEqual(
+            Set(AppleAerials.downloadedFiles(libraryRoot: library)
+                .map { $0.deletingPathExtension().lastPathComponent }),
+            ["apple-picture-the-beach-light", "apple-dynamic-tahoe-dark"],
+            "a file's name without its extension is its card's id")
+    }
+
     /// library.json never lists them, so without the guard every Clear would
     /// delete the aerials Muro downloaded along with the real leftovers.
     func testOrphanSweepLeavesAerialsAlone() throws {

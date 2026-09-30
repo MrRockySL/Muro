@@ -64,6 +64,15 @@ enum ApplePreviews {
         }.value
     }
 
+    /// The full-screen pictures fetched so far. Fetched again when opened, so
+    /// Clear can take them.
+    static func fullPictures() -> [URL] {
+        let names = (try? FileManager.default.contentsOfDirectory(
+            atPath: AppleAerialInfo.directory.path)) ?? []
+        return names.filter { $0.hasSuffix("-full.jpg") }
+            .map { AppleAerialInfo.directory.appendingPathComponent($0) }
+    }
+
     private static func fetch(_ url: URL, to destination: URL) async -> Bool {
         var request = URLRequest(url: url, timeoutInterval: 30)
         request.cachePolicy = .reloadIgnoringLocalCacheData

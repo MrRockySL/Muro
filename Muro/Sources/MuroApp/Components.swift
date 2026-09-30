@@ -1085,6 +1085,18 @@ struct WallpaperCard: View {
     /// download again, so "Remove Download" would be a lie. It gets the Delete
     /// wording wherever it is shown outside the Library.
     private var menuOptions: [MenuOption] {
+        // One side of Apple's still picture, downloaded but not showing.
+        if item.id.hasPrefix(AppleAerials.picturePrefix) {
+            guard store.canRemoveApplePicture(item),
+                  let file = store.applePictureFile(item),
+                  let size = (try? FileManager.default.attributesOfItem(atPath: file.path)[.size])
+                    as? NSNumber
+            else { return [] }
+            return [MenuOption(
+                title: "Remove Download (\(formatSize(size.int64Value)))",
+                destructive: true
+            ) { store.removeApplePictureDownload(item) }]
+        }
         guard item.isDownloaded, !showsDelete else { return [] }
         if item.remote == nil {
             return [MenuOption(

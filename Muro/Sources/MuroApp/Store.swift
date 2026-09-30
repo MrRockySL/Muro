@@ -264,6 +264,9 @@ final class AppStore: ObservableObject {
     @Published var applySurface: ApplySurface = .all
     @Published var heroID: String?
     @Published var libraryBytes: Int64 = 0
+    /// The part of the library that came from the Apple section: aerials and
+    /// Apple's still pictures. Shown on its own line in Settings.
+    @Published var appleDownloadBytes: Int64 = 0
     /// What the last Clear actually did. Shown in Settings, because a Clear
     /// that frees nothing otherwise looks identical to one that never ran.
     @Published var clearStatus: String?
@@ -772,7 +775,11 @@ final class AppStore: ObservableObject {
                 linked = directorySize(folder)
             }
             let sum = directorySize(root) + linked
-            await MainActor.run { AppStore.shared.libraryBytes = sum }
+            let apple = AppleAerials.cacheSize(libraryRoot: root)
+            await MainActor.run {
+                AppStore.shared.libraryBytes = sum
+                AppStore.shared.appleDownloadBytes = apple
+            }
         }
     }
 
@@ -2037,8 +2044,12 @@ final class AppStore: ObservableObject {
         var kept: Int
         var personal: Int
         var bytes: Int64
+        /// Downloads from the Apple section that nothing is showing. Apple
+        /// keeps every one, so each can be downloaded again.
+        var apple: [URL] = []
+        var appleBytes: Int64 = 0
 
-        var isEmpty: Bool { removed.isEmpty }
+        var isEmpty: Bool { removed.isEmpty && apple.isEmpty }
     }
 
     var clearPlan: ClearPlan {
@@ -2050,14 +2061,39 @@ final class AppStore: ObservableObject {
             kept: manifest.wallpapers.count - removed.count,
             personal: removed.filter { !remote.contains($0.id) }.count,
             bytes: removed.reduce(0) { $0 + $1.sizeBytes } + PreviewCache.sizeOnDisk()
-                + ThumbnailCache.sizeOnDisk()
+                + ThumbnailCache.sizeOnDisk(),
+            apple: appleClearable,
+            appleBytes: appleClearable.reduce(Int64(0)) { $0 + fileSize($1) }
+                + ApplePreviews.fullPictures().reduce(Int64(0)) { $0 + fileSize($1) }
         )
+    }
+
+    /// Apple downloads nothing is showing: not on a desktop, the lock screen
+    /// or the screen saver, whether Muro plays it or macOS does.
+    private var appleClearable: [URL] {
+        let inUse = protectedWallpaperIDs.union(macOSWallpapers.shownIDs)
+        return AppleAerials.downloadedFiles(libraryRoot: root).filter {
+            !inUse.contains($0.deletingPathExtension().lastPathComponent)
+        }
+    }
+
+    private func fileSize(_ url: URL) -> Int64 {
+        ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber)?
+            .int64Value ?? 0
     }
 
     func clearDownloadedCache() {
         let plan = clearPlan
+        // Apple downloads are named after their card, so a name is an id.
         let doomed = plan.removed.map(\.id)
+            + plan.apple.map { $0.deletingPathExtension().lastPathComponent }
         Task {
+            // The Apple section's downloads and its full-screen pictures.
+            // Apple keeps every one of them, and the cards stay.
+            for file in plan.apple + ApplePreviews.fullPictures() {
+                try? FileManager.default.removeItem(at: file)
+            }
+            if !plan.apple.isEmpty { finishedAppleAerialChange() }
             // Clear keeps whatever is playing, and the lock-screen wallpaper
             // is in that set. Tearing the lock screen down here contradicted
             // that: the file was spared and the wallpaper disappeared anyway,
@@ -2109,10 +2145,10 @@ final class AppStore: ObservableObject {
     /// the only way that part is ever visible.
     private static func clearSummary(plan: ClearPlan, swept: Int64) -> String {
         var parts: [String] = []
-        if !plan.removed.isEmpty {
-            let count = plan.removed.count
+        let count = plan.removed.count + plan.apple.count
+        if count > 0 {
             parts.append("\(count) \(count == 1 ? "wallpaper" : "wallpapers") removed")
-            parts.append("about \(formatSize(plan.bytes + swept)) freed")
+            parts.append("about \(formatSize(plan.bytes + plan.appleBytes + swept)) freed")
         } else if swept > 0 {
             parts.append("\(formatSize(swept)) of leftovers swept")
         }

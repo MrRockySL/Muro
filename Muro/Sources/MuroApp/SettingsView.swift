@@ -255,6 +255,14 @@ struct SettingsView: View {
                                 .glassCapsule(fill: 0.09, stroke: 0.15)
                         }
                     }
+                    // The share of it that came from the Apple section, which
+                    // can be most of it: one aerial alone can be 1.5 GB.
+                    subRow(title: "Apple Downloads",
+                           subtitle: "Aerials and pictures from the Apple section") {
+                        Text(formatSize(store.appleDownloadBytes))
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.muroSecondary)
+                    }
                     divider
                     row(icon: .downloadFolder, title: "Download Folder",
                         subtitle: downloadFolder.subtitle) {
@@ -394,9 +402,15 @@ struct SettingsView: View {
         guard !plan.isEmpty else {
             return "Nothing to clear. The only wallpapers here are the ones in use."
         }
-        var text = "This removes \(plan.removed.count) "
-            + (plan.removed.count == 1 ? "wallpaper" : "wallpapers")
-            + " and frees about \(formatSize(plan.bytes))."
+        let count = plan.removed.count + plan.apple.count
+        var text = "This removes \(count) "
+            + (count == 1 ? "wallpaper" : "wallpapers")
+            + " and frees about \(formatSize(plan.bytes + plan.appleBytes))."
+        if !plan.apple.isEmpty {
+            text += plan.apple.count == 1
+                ? " 1 of them is from the Apple section and can be downloaded again."
+                : " \(plan.apple.count) of them are from the Apple section and can be downloaded again."
+        }
         if plan.kept > 0 {
             text += plan.kept == 1
                 ? " The one that is playing stays."

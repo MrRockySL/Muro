@@ -108,12 +108,15 @@ public enum AppleAerials {
         "\(idPrefix)\(assetID).mov"
     }
 
-    /// Every aerial Muro downloaded, and nothing else in the folder.
-    private static func downloadedFiles(libraryRoot: URL) -> [URL] {
+    /// Everything Muro downloaded from Apple, and nothing else in the
+    /// folder: aerials (`.mov`) and the light and dark cuts of Apple's still
+    /// pictures (`.heic`). Each file is named after the card it belongs to,
+    /// so its name without the extension is that card's id.
+    public static func downloadedFiles(libraryRoot: URL) -> [URL] {
         let dir = cacheDir(libraryRoot: libraryRoot)
         let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
         return names
-            .filter { $0.hasPrefix(idPrefix) && $0.hasSuffix(".mov") }
+            .filter { $0.hasPrefix(idPrefix) && ($0.hasSuffix(".mov") || $0.hasSuffix(".heic")) }
             .map { dir.appendingPathComponent($0) }
     }
 
