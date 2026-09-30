@@ -40,7 +40,8 @@ public enum AppleScreenSavers {
         "Arabesque", "Drift", "Flurry", "Hello", "Monterey", "Shell", "Ventura", "Word of the Day",
     ]
 
-    /// The two groups on the page, in this order.
+    /// The two groups: Apple's, shown in the Apple section, and the person's
+    /// own, shown in the Library.
     public static let appleGroup = "Apple"
     public static let installedGroup = "Yours"
 
@@ -85,6 +86,18 @@ public enum AppleScreenSavers {
         cache = nil
         cacheLock.unlock()
         return cached()
+    }
+
+    /// Apple's own, for the Apple section.
+    public static func cachedApple() -> [AppleAerial] {
+        cached().filter { $0.category == appleGroup }
+    }
+
+    /// The ones the person added, like XScreenSaver. They show in the Library
+    /// with the rest of what they import, never in the Apple section (owner,
+    /// 2026-09-30).
+    public static func cachedInstalled() -> [AppleAerial] {
+        cached().filter { $0.category == installedGroup }
     }
 
     // MARK: - Apple's

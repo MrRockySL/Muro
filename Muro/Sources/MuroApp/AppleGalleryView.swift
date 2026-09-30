@@ -90,7 +90,7 @@ struct AppleGalleryView: View {
                 options: [
                     PillOption(Kind.aerials.rawValue, "Aerials", count: model.aerials?.count),
                     PillOption(Kind.screenSavers.rawValue, "Screen Savers",
-                               count: AppleScreenSavers.cached().count)
+                               count: AppleScreenSavers.cachedApple().count)
                 ],
                 selection: Binding(
                     get: { kind.rawValue },
@@ -237,45 +237,39 @@ struct AppleGalleryView: View {
 
     // MARK: - Screen savers
 
-    /// Apple's own screen savers, then the ones installed on this Mac, with a
-    /// card for adding one. Only macOS runs these, so each is set the same
-    /// way as Apple's pictures: see `AppleScreenSavers`.
+    /// Apple's own screen savers, and nothing else: the ones a person adds
+    /// from the Library's import bar stay in the Library with the rest of
+    /// what they import (owner, 2026-09-30). Only macOS runs these, so each
+    /// is set the same way as Apple's pictures: see `AppleScreenSavers`.
     private var screenSaversPage: some View {
         ZStack {
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 30) {
-                    saverSection("APPLE", items: savers(in: AppleScreenSavers.appleGroup))
-                    // Added from the Library's import bar, which takes .saver
-                    // files beside videos (owner, 2026-09-30). No button here.
-                    let yours = savers(in: AppleScreenSavers.installedGroup)
-                    if !yours.isEmpty { saverSection("YOURS", items: yours) }
-                }
-                .padding(.horizontal, 40)
-                .padding(.top, 20)
-                .padding(.bottom, 40)
+                saverGrid(savers)
+                    .padding(.horizontal, 40)
+                    .padding(.top, 20)
+                    .padding(.bottom, 40)
             }
             .scrollFade(top: 20, bottom: 46)
         }
         .padding(.top, 18)
-        .onAppear { screenSavers = AppleScreenSavers.refresh() }
-    }
-
-    private func savers(in group: String) -> [AppleAerial] {
-        screenSavers.filter { saver in
-            saver.category == group
-                && (store.searchText.isEmpty || saver.name.localizedCaseInsensitiveContains(store.searchText))
+        .onAppear {
+            AppleScreenSavers.refresh()
+            screenSavers = AppleScreenSavers.cachedApple()
         }
     }
 
-    private func saverSection(_ title: String, items: [AppleAerial]) -> some View {
+    private var savers: [AppleAerial] {
+        screenSavers.filter { saver in
+            store.searchText.isEmpty || saver.name.localizedCaseInsensitiveContains(store.searchText)
+        }
+    }
+
+    private func saverGrid(_ items: [AppleAerial]) -> some View {
         let _ = fetcher.revision
-        return VStack(alignment: .leading, spacing: 14) {
-            SectionLabel(title, trailing: items.isEmpty ? nil : "\(items.count)")
-            LazyVGrid(columns: gridColumns, spacing: 24) {
-                ForEach(items) { saver in
-                    WallpaperCard(item: store.appleWallpaperItem(saver), persistentTitle: true)
-                        .onAppear { fetcher.requestFrame(for: saver) }
-                }
+        return LazyVGrid(columns: gridColumns, spacing: 24) {
+            ForEach(items) { saver in
+                WallpaperCard(item: store.appleWallpaperItem(saver), persistentTitle: true)
+                    .onAppear { fetcher.requestFrame(for: saver) }
             }
         }
     }

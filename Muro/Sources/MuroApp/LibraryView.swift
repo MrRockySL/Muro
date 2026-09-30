@@ -29,9 +29,12 @@ struct LibraryView: View {
     /// background with it. These are panels inside one, clipped by the tray.
     @State private var tabShift: CGFloat = 1
     @State private var dropTargeted = false
-    /// A few words after screen savers are added, in the import bar itself,
-    /// since they go to the Apple section rather than into this grid.
+    /// A few words after screen savers are added, in the import bar itself.
     @State private var addedNote: String?
+    /// Screen savers the person added, like XScreenSaver. Read when the
+    /// Library opens and after an import, since they live in macOS's own
+    /// folders rather than in Muro's library.
+    @State private var importedSavers: [AppleAerial] = []
     @State private var hoveringDrop = false
     @State private var pressingDrop = false
     @State private var editorTarget: PlaylistEditorTarget?
@@ -85,6 +88,17 @@ struct LibraryView: View {
         selecting ? appleSearched.filter(\.liked) : store.likedAppleItems.filter(matchesSearch)
     }
 
+    /// The screen savers the person imported. They show here with their own
+    /// imports and nowhere else, not in Explore or the Apple section (owner,
+    /// 2026-09-30).
+    private var saverItems: [WallpaperItem] {
+        importedSavers.map(store.appleWallpaperItem)
+    }
+
+    private var saversSearched: [WallpaperItem] {
+        saverItems.filter(matchesSearch)
+    }
+
     /// The top of a tab's content, for scrolling back to it.
     private static let scrollTop = "library-scroll-top"
 
@@ -108,9 +122,11 @@ struct LibraryView: View {
                                     case .all:
                                         if !selecting { dropZone }
                                         grid(items: searched)
+                                        if !selecting { saverGroup(saversSearched) }
                                         appleGroup(appleSearched)
                                     case .liked:
                                         grid(items: likedGridItems)
+                                        if !selecting { saverGroup(saversSearched.filter(\.liked)) }
                                         appleGroup(likedAppleGridItems)
                                     case .schedules:
                                         schedulesTab
@@ -147,6 +163,11 @@ struct LibraryView: View {
         // Esc is the way out of every other mode in the app, so it is the way
         // out of this one.
         .onExitCommand { endSelecting() }
+        // A screen saver may have been added in System Settings since.
+        .onAppear {
+            AppleScreenSavers.refresh()
+            importedSavers = AppleScreenSavers.cachedInstalled()
+        }
         .onChange(of: tab) { _, new in
             if new != .all && new != .liked { endSelecting() }
         }
@@ -178,11 +199,12 @@ struct LibraryView: View {
                 options: [
                     PillOption(
                         LibTab.all.rawValue, "Downloaded",
-                        count: store.localItems.count + store.appleLibraryItems.count
+                        count: store.localItems.count + store.appleLibraryItems.count + saverItems.count
                     ),
                     PillOption(
                         LibTab.liked.rawValue, "Liked",
                         count: store.likedItems.count + store.likedAppleItems.count
+                            + saverItems.filter(\.liked).count
                     ),
                     PillOption(
                         LibTab.schedules.rawValue, "Playlists & Automations",
@@ -406,16 +428,19 @@ struct LibraryView: View {
     private func take(_ urls: [URL]) {
         let savers = urls.filter { $0.pathExtension.lowercased() == "saver" }
         let rest = urls.filter { $0.pathExtension.lowercased() != "saver" }
-        if !savers.isEmpty { note(store.addScreenSavers(savers)) }
+        if !savers.isEmpty {
+            note(store.addScreenSavers(savers))
+            importedSavers = AppleScreenSavers.cachedInstalled()
+        }
         if !rest.isEmpty { store.importFiles(rest) }
     }
 
     private func note(_ result: (added: [String], already: [String])) {
         let text: String
         if result.added.count == 1 {
-            text = "\(result.added[0]) added. Find it in Apple → Screen Savers."
+            text = "\(result.added[0]) added."
         } else if result.added.count > 1 {
-            text = "\(result.added.count) screen savers added. Find them in Apple → Screen Savers."
+            text = "\(result.added.count) screen savers added."
         } else if result.already.count == 1 {
             text = "\(result.already[0]) is already added."
         } else if !result.already.isEmpty {
@@ -466,6 +491,19 @@ struct LibraryView: View {
                     selection: selecting ? $selected : nil
                 )
             }
+        }
+    }
+
+    /// The screen savers the person imported, under their own label, since
+    /// macOS draws them rather than Muro playing them like the videos above.
+    /// Nothing at all when there are none.
+    @ViewBuilder private func saverGroup(_ items: [WallpaperItem]) -> some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 14) {
+                SectionLabel("YOUR SCREEN SAVERS", trailing: "\(items.count)")
+                grid(items: items)
+            }
+            .padding(.top, 6)
         }
     }
 

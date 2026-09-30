@@ -207,13 +207,14 @@ extension AppStore {
             .map(appleWallpaperItem)
     }
 
-    /// Everything liked in the Apple section, screen savers too, for the
-    /// Library's Liked tab.
+    /// Everything liked in the Apple section, Apple's screen savers too, for
+    /// the Library's Liked tab. The person's own screen savers have their own
+    /// group there.
     var likedAppleItems: [WallpaperItem] {
         let ids = likedIDs.filter(AppleAerials.isAppleID)
         guard !ids.isEmpty else { return [] }
         let aerials = (AppleAerials.cachedAerials(libraryRoot: root) ?? []).filter { ids.contains($0.id) }
-        let savers = AppleScreenSavers.cached().filter { ids.contains($0.id) }
+        let savers = AppleScreenSavers.cachedApple().filter { ids.contains($0.id) }
         return (aerials + savers).map(appleWallpaperItem)
     }
 
@@ -317,8 +318,9 @@ extension AppStore {
 
     /// Copies `.saver` files into `~/Library/Screen Savers`, where macOS
     /// itself looks for them, so they work from System Settings too. They
-    /// then show in the Apple section under Yours. Dropped on the Library's
-    /// import bar or picked from it, beside videos (owner, 2026-09-30).
+    /// then show in the Library under Your Screen Savers. Dropped on the
+    /// Library's import bar or picked from it, beside videos (owner,
+    /// 2026-09-30).
     ///
     /// Only ever copies: the file the person chose stays where it was, and a
     /// screen saver already there is left alone rather than replaced.
