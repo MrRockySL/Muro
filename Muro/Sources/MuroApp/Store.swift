@@ -238,7 +238,7 @@ final class AppStore: ObservableObject {
     let statsSampler = StatsSampler()
 
     enum Tab: String, CaseIterable, Identifiable {
-        case home = "Home", explore = "Explore", library = "Library"
+        case home = "Home", explore = "Explore", apple = "Apple", library = "Library"
         var id: String { rawValue }
     }
 
@@ -353,7 +353,7 @@ final class AppStore: ObservableObject {
         // a still written, and a display plugged in while Muro was closed has
         // no still either.
         desktopStill.reconcile(
-            config: config, manifest: manifest, lockScreenDisplays: lockScreenOwnedDisplays
+            config: config, manifest: stillManifest, lockScreenDisplays: lockScreenOwnedDisplays
         )
         if !lockScreen.isAvailable { applySurface = .desktop }
         // Seed the default so the Settings field shows the real URL instead
@@ -400,7 +400,7 @@ final class AppStore: ObservableObject {
                 guard let self else { return }
                 self.desktopStill.reconcile(
                     config: self.config,
-                    manifest: self.manifest,
+                    manifest: self.stillManifest,
                     lockScreenDisplays: self.lockScreenOwnedDisplays
                 )
             }
@@ -611,10 +611,26 @@ final class AppStore: ObservableObject {
     /// A dictionary lookup. This is called from view bodies far more often
     /// than anything else here, so it must not walk the library.
     func item(id: String) -> WallpaperItem? {
+        // Apple's aerials are not in `items`, and must not be: Explore and the
+        // Library list what Muro publishes and what the user owns, and Apple's
+        // library has a page of its own. Everything that resolves an id rather
+        // than browsing a list still has to find them, though, or the menu bar
+        // and the Home header go blank the moment one is applied.
+        if AppleAerials.isAppleID(id) { return appleItem(id: id) }
         if let cachedItemsByID { return cachedItemsByID[id] }
         let byID = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         cachedItemsByID = byID
         return byID[id]
+    }
+
+    /// One of Apple's aerials, read straight from Apple's manifest.
+    ///
+    /// Cheap: `AppleAerials.cachedAerials` re-reads only when Apple's manifest
+    /// itself changes, and this is a lookup in the result.
+    func appleItem(id: String) -> WallpaperItem? {
+        AppleAerials.cachedAerials(libraryRoot: root)?
+            .first { $0.id == id }?
+            .wallpaperItem
     }
 
     /// The hero only ever plays LOCAL files (owner, 2026-07-19): a fresh
@@ -691,7 +707,7 @@ final class AppStore: ObservableObject {
         // already on disk is set in this same turn, and a screen already
         // showing it is left alone.
         desktopStill.reconcile(
-            config: config, manifest: manifest, lockScreenDisplays: lockScreenOwnedDisplays
+            config: config, manifest: stillManifest, lockScreenDisplays: lockScreenOwnedDisplays
         )
     }
 
@@ -1002,11 +1018,13 @@ final class AppStore: ObservableObject {
 
     func openPreview(_ item: WallpaperItem) {
         previewItem = item
-        let def = defaults.string(forKey: "defaultMode") ?? "smooth"
-        previewMode = (def == "efficient" && item.fps > 40) ? "efficient" : "smooth"
+        previewMode = defaultMode(for: item)
     }
 
     func defaultMode(for item: WallpaperItem) -> String {
+        // See `applyWallpaper`: an Apple aerial has no Efficient variant and
+        // must never be offered one.
+        if AppleAerials.isAppleID(item.id) { return "smooth" }
         let def = defaults.string(forKey: "defaultMode") ?? "smooth"
         return (def == "efficient" && item.fps > 40) ? "efficient" : "smooth"
     }
@@ -1041,7 +1059,12 @@ final class AppStore: ObservableObject {
     ) async {
         guard var entry = item.local else { return }
         let surface = explicitSurface ?? .desktop
-        let resolvedMode = entry.fps > 40 ? mode : "smooth"
+        // Apple ships these at 240 fps, so the Efficient rule below would fire
+        // on every one of them, transcode 170 MB of somebody else's video and
+        // write the result into `library.json`. Smooth only.
+        let resolvedMode = AppleAerials.isAppleID(entry.id)
+            ? "smooth"
+            : (entry.fps > 40 ? mode : "smooth")
 
         if resolvedMode == "efficient", entry.efficientFile == nil {
             guard await ensureEfficientVariant(entry),
@@ -1063,8 +1086,9 @@ final class AppStore: ObservableObject {
                 applyError = LockScreenServiceError.requiresTahoe.localizedDescription
                 return
             }
+            ensureAerialThumbnail(entry)
             let videoURL = resolveVideoURL(entry: entry, mode: resolvedMode, root: root)
-            let thumbnailURL = root.appendingPathComponent(entry.thumbnail)
+            let thumbnailURL = resolveLibraryFile(entry.thumbnail, root: root)
             guard FileManager.default.fileExists(atPath: videoURL.path),
                   FileManager.default.fileExists(atPath: thumbnailURL.path)
             else {
@@ -1143,8 +1167,9 @@ final class AppStore: ObservableObject {
             else { return }
             entry = refreshed
         }
+        ensureAerialThumbnail(entry)
         let videoURL = resolveVideoURL(entry: entry, mode: resolvedMode, root: root)
-        let thumbnailURL = root.appendingPathComponent(entry.thumbnail)
+        let thumbnailURL = resolveLibraryFile(entry.thumbnail, root: root)
         guard FileManager.default.fileExists(atPath: videoURL.path),
               FileManager.default.fileExists(atPath: thumbnailURL.path)
         else { return }
@@ -1322,14 +1347,27 @@ final class AppStore: ObservableObject {
         saveConfig()
     }
 
-    private func saveConfig() {
+    /// Internal rather than private so removing an Apple aerial can take it
+    /// off the screen the same way a delete does, through the one path that
+    /// also keeps the desktop picture in step.
+    func saveConfig() {
         try? config.save(root: root)
         // Every apply, remove and clear lands here, including every playlist
         // and automation step, so this is the one place the desktop picture
         // has to be kept in step with.
         desktopStill.reconcile(
-            config: config, manifest: manifest, lockScreenDisplays: lockScreenOwnedDisplays
+            config: config, manifest: stillManifest, lockScreenDisplays: lockScreenOwnedDisplays
         )
+    }
+
+    /// The library as the desktop picture sees it: Muro's own wallpapers and
+    /// every aerial on this Mac. Apple's aerials are never written into
+    /// `library.json`, so without them an aerial on the desktop had no picture
+    /// to leave behind when Muro quits, and its still was swept as unknown.
+    private var stillManifest: LibraryManifest {
+        var combined = manifest
+        combined.wallpapers += AppleAerials.libraryEntries(libraryRoot: root)
+        return combined
     }
 
     /// Displays whose macOS wallpaper slot Muro's lock screen is sitting on.
@@ -1527,6 +1565,11 @@ final class AppStore: ObservableObject {
     // MARK: - Download (remote catalog → local library)
 
     func download(_ item: WallpaperItem) {
+        // Apple's aerials are fetched from Apple, into Muro's own cache. The
+        // catalog path below would write them into `library.json` and copy
+        // them into `Masters/`, which is exactly what this feature promised
+        // not to do.
+        if AppleAerials.isAppleID(item.id) { downloadAppleAerial(item); return }
         var remoteEntry = item.remote
         // The bundled wallpaper's master is already inside the app — "download"
         // it from there (file:// URL) instead of pulling 40 MB it already has.
@@ -1805,7 +1848,10 @@ final class AppStore: ObservableObject {
     /// What the interface calls. Nothing deletes without an answer, so the
     /// button, the menu item and the batch bar all end up in the same sheet.
     func requestDelete(_ items: [WallpaperItem]) {
-        let deletable = items.filter { $0.local != nil }
+        // An Apple aerial has no Muro files to delete and macOS's copy is not
+        // Muro's to touch. Removing Muro's own cached copy is a different
+        // action, `removeAppleAerialDownload`, and it is the only one offered.
+        let deletable = items.filter { $0.local != nil && !AppleAerials.isAppleID($0.id) }
         guard !deletable.isEmpty else { return }
         pendingDelete = DeleteRequest(items: deletable)
     }
@@ -2043,6 +2089,7 @@ final class AppStore: ObservableObject {
     /// That includes the confirmation: this was the last way to destroy a
     /// wallpaper without being asked first.
     func removeDownload(_ item: WallpaperItem) {
+        if AppleAerials.isAppleID(item.id) { removeAppleAerialDownload(item); return }
         guard item.remote != nil, item.local != nil else { return }
         requestDelete([item])
     }
@@ -2056,8 +2103,15 @@ final class AppStore: ObservableObject {
     }
 
     func thumbnailPath(for item: WallpaperItem) -> String? {
+        // Apple leaves one still per aerial on the Mac, about 40 KB, whether or
+        // not the video was ever downloaded. That is what makes a gallery of
+        // 162 aerials free to show, so it is checked before anything else.
+        if AppleAerials.isAppleID(item.id) {
+            if let path = appleAerialThumbnailPath(id: item.id) { return path }
+            return nil
+        }
         if let entry = item.local {
-            let path = root.appendingPathComponent(entry.thumbnail).path
+            let path = resolveLibraryFile(entry.thumbnail, root: root).path
             return FileManager.default.fileExists(atPath: path) ? path : nil
         }
         // Not downloaded, but the bundled wallpaper's thumb ships in the app —
@@ -2208,7 +2262,10 @@ private final class MasterDownload: NSObject, URLSessionDownloadDelegate, @unche
 
 /// Puts the master at `destination`: a copy for the bundled wallpaper's
 /// `file://` URL, a real download with progress for anything else.
-private func fetchMaster(
+/// Internal rather than private so Apple's aerials download the same way
+/// Muro's own wallpapers do, with the same progress reporting and the same
+/// handling of a half-written file.
+func fetchMaster(
     from source: URL,
     to destination: URL,
     progress: @escaping (Double) -> Void

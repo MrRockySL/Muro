@@ -41,9 +41,17 @@ struct PreviewView: View {
     @State private var showDisplayPopover = false
     @State private var customPauseAfter = false
     @StateObject private var loader = PreviewLoader()
+    /// Apple's aerials learn their real size and their sharp picture while
+    /// this is open, and this has to redraw when they do.
+    @ObservedObject private var aerialFetcher = AppleAerialFetcher.shared
 
     /// Live item — refreshes as downloads/likes/manifest change.
     private var item: WallpaperItem? { store.item(id: itemID) }
+
+    /// One of Apple's aerials rather than a Muro wallpaper. Those have no
+    /// 30 fps copy, no per-wallpaper pause, nothing to share and no place in
+    /// Liked, so the bar leaves those controls out for them.
+    private var isAerial: Bool { AppleAerials.isAppleID(itemID) }
 
     var body: some View {
         if let item {
@@ -59,7 +67,20 @@ struct PreviewView: View {
             }
             .ignoresSafeArea()
             .background(Color.muroBG)
+            .onAppear { prepareAerial() }
+            .onChange(of: itemID) { _, _ in prepareAerial() }
         }
+    }
+
+    /// Asks for the aerial's real size and its sharp picture at once, so the
+    /// bar never shows a guess for longer than one small request takes.
+    private func prepareAerial() {
+        guard isAerial,
+              let aerial = AppleAerials.cachedAerials(libraryRoot: store.root)?
+                .first(where: { $0.id == itemID })
+        else { return }
+        aerialFetcher.ensureSize(for: aerial)
+        aerialFetcher.requestFrame(for: aerial)
     }
 
     @ViewBuilder private func media(_ item: WallpaperItem) -> some View {
@@ -125,7 +146,7 @@ struct PreviewView: View {
             .frame(maxWidth: 240, alignment: .leading)
             .fixedSize(horizontal: true, vertical: false)
 
-            if let url = store.videoURL(for: item, mode: "smooth") {
+            if !isAerial, let url = store.videoURL(for: item, mode: "smooth") {
                 ShareLink(item: url) {
                     // The forward arrow, not the box with an arrow out of it.
                     // The box is the system default and reads as generic
@@ -140,13 +161,13 @@ struct PreviewView: View {
                 .buttonStyle(.plain)
             }
 
-            if item.fps > 40 {
+            if item.fps > 40, !isAerial {
                 fpsToggle(item)
             }
 
-            if item.isDownloaded { pauseAfterPill(item) }
+            if item.isDownloaded, !isAerial { pauseAfterPill(item) }
 
-            HeartButton(item: item, size: 40)
+            if !isAerial { HeartButton(item: item, size: 40) }
 
             setButton(item)
                 // Drawn in the window like every other menu, not in a popover.

@@ -100,7 +100,7 @@ public final class EngineController {
         // it as one leaves nothing assigned to any display, and the engine
         // answers that by taking every wallpaper off the screen: a damaged
         // file would blank the desktop as well as stalling the app.
-        let manifest: LibraryManifest
+        var manifest: LibraryManifest
         switch LibraryManifest.state(root: root) {
         case .loaded(let loaded):
             manifest = loaded
@@ -110,6 +110,12 @@ public final class EngineController {
             EngineLog.log("library.json could not be read — leaving the screen as it is")
             return
         }
+
+        // Apple's own aerials, which live in macOS's store and are never
+        // copied into library.json. Built here, from Apple's manifest, so
+        // assigning one resolves like any other wallpaper and Muro's library
+        // file is left exactly as the user's own wallpapers left it.
+        manifest.wallpapers += AppleAerials.libraryEntries(libraryRoot: root)
         let config = EngineConfig.load(root: root)
 
         var desired: [String: (screen: NSScreen, url: URL, frame: String,

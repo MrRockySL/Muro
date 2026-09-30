@@ -968,7 +968,7 @@ struct PlaylistEditorView: View {
             // or the wide grey legacy one. See `GlassScrollView`.
             GlassScrollView(fadeTop: 14, fadeBottom: 24) {
                 LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(store.localItems) { item in
+                    ForEach(store.scheduleItems) { item in
                         PickerTile(
                             item: item,
                             selected: selected.contains(item.id),
@@ -1037,9 +1037,10 @@ struct PlaylistEditorView: View {
     }
 
     private var selectAllButton: some View {
-        let allSelected = selected.count == store.localItems.count && !store.localItems.isEmpty
+        let pickable = store.scheduleItems
+        let allSelected = selected.count == pickable.count && !pickable.isEmpty
         return Button(allSelected ? "Select None" : "Select All") {
-            selected = allSelected ? [] : Set(store.localItems.map(\.id))
+            selected = allSelected ? [] : Set(pickable.map(\.id))
         }
         .buttonStyle(.plain)
         .font(.system(size: 11, weight: .semibold))
@@ -1075,7 +1076,7 @@ struct PlaylistEditorView: View {
 
     private func save() {
         // Keep library order so the cycle order is predictable.
-        let ordered = store.localItems.map(\.id).filter(selected.contains)
+        let ordered = store.scheduleItems.map(\.id).filter(selected.contains)
         switch target {
         case .new:
             store.addPlaylist(Playlist(

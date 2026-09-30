@@ -136,6 +136,11 @@ public enum LibraryWriter {
                 else { continue }
                 for name in names where !name.hasPrefix(".") {
                     guard !referenced.contains("\(folder)/\(name)") else { continue }
+                    // Apple's aerials that Muro downloaded. They sit beside
+                    // the other videos so they follow the Download Folder, and
+                    // library.json never lists them, so without this every
+                    // Clear would take them. See `AppleAerials.cacheDir`.
+                    guard !name.hasPrefix(AppleAerials.idPrefix) else { continue }
                     let url = directory.appendingPathComponent(name)
                     let attributes = try? manager.attributesOfItem(atPath: url.path)
                     if let modified = attributes?[.modificationDate] as? Date, modified > cutoff {

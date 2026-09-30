@@ -1,4 +1,5 @@
 import SwiftUI
+import MuroKit
 import AppKit
 import UniformTypeIdentifiers
 
@@ -1099,7 +1100,14 @@ struct WallpaperCard: View {
     /// this, because it is framed as freeing space rather than losing
     /// anything. Imports are handled by the Delete branch above.
     private var removableDownload: Bool {
-        item.remote != nil && !store.protectedWallpaperIDs.contains(item.id)
+        guard item.remote != nil, !store.protectedWallpaperIDs.contains(item.id) else {
+            return false
+        }
+        // An aerial macOS downloaded for itself is not Muro's to remove, and
+        // offering a menu item that does nothing is worse than offering none.
+        // Only a copy Muro fetched can be given back.
+        if AppleAerials.isAppleID(item.id) { return store.hasMuroCopyOfAerial(id: item.id) }
+        return true
     }
 
     @ViewBuilder private var titleOverlay: some View {
@@ -1143,6 +1151,10 @@ struct WallpaperCard: View {
     @ViewBuilder private var topTrailingControls: some View {
         if selecting {
             SelectionTick(isSelected: isSelected).padding(12)
+        } else if AppleAerials.isAppleID(item.id) {
+            // Apple's aerials have no place in Liked, which lists Muro's own
+            // wallpapers, so a heart on one would fill and lead nowhere.
+            EmptyView()
         } else if item.liked {
             HeartButton(item: item).padding(12)
         } else if hovering {

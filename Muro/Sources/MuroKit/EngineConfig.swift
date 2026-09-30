@@ -78,7 +78,22 @@ public struct EngineConfig: Codable {
 /// requested and available, otherwise the master.
 public func resolveVideoURL(entry: WallpaperEntry, mode: String, root: URL) -> URL {
     if mode == "efficient", let efficient = entry.efficientFile {
-        return root.appendingPathComponent(efficient)
+        return resolveLibraryFile(efficient, root: root)
     }
-    return root.appendingPathComponent(entry.file)
+    return resolveLibraryFile(entry.file, root: root)
+}
+
+/// Where a path in a `WallpaperEntry` actually points.
+///
+/// A manifest path is relative to the library root, which is what lets the
+/// whole library folder be moved without rewriting it. An **absolute** path is
+/// a wallpaper Muro does not own and must not copy: Apple's aerials live in
+/// macOS's own store and are played where they lie.
+///
+/// Written as one function rather than the same check in four places because
+/// getting it wrong is silent. `root.appendingPathComponent("/Users/...")`
+/// produces `<root>/Users/...`, which no file has ever been at, and the only
+/// symptom is a wallpaper that never appears.
+public func resolveLibraryFile(_ path: String, root: URL) -> URL {
+    path.hasPrefix("/") ? URL(fileURLWithPath: path) : root.appendingPathComponent(path)
 }

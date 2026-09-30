@@ -285,7 +285,7 @@ struct AutomationEditorView: View {
     /// used to sit a full page below the grid and you had to scroll past every
     /// wallpaper you own to reach the thing you came to set.
     @ViewBuilder private var picker: some View {
-        if store.localItems.isEmpty {
+        if store.scheduleItems.isEmpty {
             Text("No wallpapers downloaded yet. Download some from Explore, or import your own with the + button in the Library.")
                 .font(.system(size: 12))
                 .foregroundStyle(Color.muroSecondary)
@@ -298,7 +298,7 @@ struct AutomationEditorView: View {
             // is a third. See `GlassScrollView`.
             GlassScrollView {
                 LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(store.localItems) { item in
+                    ForEach(store.scheduleItems) { item in
                         PickerTile(
                             item: item,
                             selected: steps.contains { $0.wallpaperID == item.id },
