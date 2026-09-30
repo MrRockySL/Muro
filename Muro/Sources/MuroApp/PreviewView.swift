@@ -75,6 +75,12 @@ struct PreviewView: View {
     /// Asks for the aerial's real size and its sharp picture at once, so the
     /// bar never shows a guess for longer than one small request takes.
     private func prepareAerial() {
+        // A screen saver opens on the Screen saver place, the one it is for.
+        // Desktop and Lock screen are still one click away in the panel.
+        if itemID.hasPrefix(AppleScreenSavers.idPrefix), store.lockScreenAvailable {
+            store.applySurface = .screensaver
+            return
+        }
         guard isAerial,
               let aerial = AppleAerials.cachedAerials(libraryRoot: store.root)?
                 .first(where: { $0.id == itemID })
@@ -199,6 +205,7 @@ struct PreviewView: View {
     /// macOS draws, what they are, since those have no length to give.
     private func metaLine(_ item: WallpaperItem) -> String {
         if item.id.hasPrefix(AppleAerials.drawnPrefix) { return "Drawn live by macOS" }
+        if item.id.hasPrefix(AppleScreenSavers.idPrefix) { return "Screen saver · drawn live by macOS" }
         if item.id.hasPrefix(AppleAerials.picturePrefix) {
             return "Still picture · \(item.width)×\(item.height) · \(formatSize(item.sizeBytes))"
         }

@@ -174,6 +174,7 @@ public enum AppleAerials {
 
     public static func isMacOSOnly(_ id: String) -> Bool {
         id.hasPrefix(picturePrefix) || id.hasPrefix(drawnPrefix)
+            || id.hasPrefix(AppleScreenSavers.idPrefix)
     }
 
     public static func assetID(fromMuroID id: String) -> String? {
@@ -242,6 +243,9 @@ public struct AppleAerial: Identifiable, Equatable, Sendable {
         /// A still picture that changes between light and dark, some by the
         /// time of day, like Big Sur or The Beach.
         case picture
+        /// A screen saver, Apple's own or an installed `.saver`. Only macOS
+        /// runs it. See `AppleScreenSavers`.
+        case screenSaver
     }
     /// The copy to play, Apple's first.
     ///

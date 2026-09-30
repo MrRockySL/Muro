@@ -239,6 +239,9 @@ extension AppStore {
     /// One of Apple's pictures or drawn wallpapers, by its card's id.
     func macOSOnlyAerial(id: String) -> AppleAerial? {
         guard AppleAerials.isMacOSOnly(id) else { return nil }
+        if id.hasPrefix(AppleScreenSavers.idPrefix) {
+            return AppleScreenSavers.cached().first { $0.id == id }
+        }
         return AppleAerials.cachedAerials(libraryRoot: root)?.first { $0.id == id }
     }
 
@@ -353,6 +356,8 @@ extension AppStore {
         case .drawn:
             return MacOSWallpaperChoice.drawnProvider(forAssetID: aerial.assetID)
                 .map(MacOSWallpaperChoice.drawn(provider:))
+        case .screenSaver:
+            return AppleScreenSavers.choice(module: aerial.videoURL)
         case .video:
             return nil
         }

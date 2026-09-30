@@ -138,6 +138,9 @@ extension AppStore {
     /// downloaded, which is why a gallery of 162 costs nothing to show before
     /// the sharp pictures arrive.
     func appleAerialThumbnailPath(id: String) -> String? {
+        if id.hasPrefix(AppleScreenSavers.idPrefix) {
+            return AppleScreenSavers.cached().first { $0.id == id }?.thumbnailPath
+        }
         guard let aerial = AppleAerials.cachedAerials(libraryRoot: root)?
             .first(where: { $0.id == id })
         else { return nil }

@@ -580,4 +580,33 @@ final class AppleAerialsTests: XCTestCase {
             source: URL(fileURLWithPath: "/tmp/x.zip"), width: nil, height: nil, bytes: nil)
         XCTAssertNil(ApplePictures.sides(of: solar), "kept whole, macOS changes it with the time of day")
     }
+
+    // MARK: - Screen savers
+
+    /// The record System Settings writes for a screen saver: the module's own
+    /// address inside `module`, as a binary property list.
+    func testScreenSaverChoiceNamesItsModule() throws {
+        let module = URL(fileURLWithPath: "/System/Library/ExtensionKit/Extensions/Flurry.appex")
+        let choice = AppleScreenSavers.choice(module: module)
+        XCTAssertEqual(choice["Provider"] as? String, "com.apple.wallpaper.choice.screen-saver")
+        let data = try XCTUnwrap(choice["Configuration"] as? Data)
+        let configuration = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+        XCTAssertEqual((configuration["module"] as? [String: String])?["relative"], module.absoluteString)
+    }
+
+    /// Only macOS runs a screen saver, so a card for one is never downloaded
+    /// or played by Muro.
+    func testScreenSaversAreShownByMacOSOnly() {
+        let saver = AppleScreenSavers.make(
+            title: "Flurry", group: AppleScreenSavers.appleGroup,
+            module: URL(fileURLWithPath: "/System/Library/ExtensionKit/Extensions/Flurry.appex"),
+            bundle: nil,
+            thumbnails: FileManager.default.temporaryDirectory
+                .appendingPathComponent("saver-thumbs-\(UUID().uuidString)"))
+        XCTAssertEqual(saver.id, "apple-saver-flurry")
+        XCTAssertTrue(AppleAerials.isMacOSOnly(saver.id))
+        XCTAssertNil(saver.playablePath)
+        XCTAssertNotNil(saver.thumbnailPath, "one without a picture of its own gets a drawn one")
+    }
 }

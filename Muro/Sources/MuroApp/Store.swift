@@ -631,7 +631,10 @@ final class AppStore: ObservableObject {
     /// Cheap: `AppleAerials.cachedAerials` re-reads only when Apple's manifest
     /// itself changes, and this is a lookup in the result.
     func appleItem(id: String) -> WallpaperItem? {
-        AppleAerials.cachedAerials(libraryRoot: root)?
+        if id.hasPrefix(AppleScreenSavers.idPrefix) {
+            return AppleScreenSavers.cached().first { $0.id == id }?.wallpaperItem
+        }
+        return AppleAerials.cachedAerials(libraryRoot: root)?
             .first { $0.id == id }?
             .wallpaperItem
     }
