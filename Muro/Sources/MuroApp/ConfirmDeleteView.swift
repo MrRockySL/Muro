@@ -172,7 +172,27 @@ struct ConfirmDeleteView: View {
     // MARK: - Words
 
     private var title: String {
-        items.count == 1 ? "Delete this wallpaper?" : "Delete \(items.count) wallpapers?"
+        if onlySavers {
+            return items.count == 1 ? "Delete this screen saver?" : "Delete \(items.count) screen savers?"
+        }
+        return items.count == 1 ? "Delete this wallpaper?" : "Delete \(items.count) wallpapers?"
+    }
+
+    /// The person's own screen savers. They go to the Trash rather than for
+    /// good, and are never downloaded again, so they get words of their own.
+    private var savers: [WallpaperItem] {
+        items.filter { $0.id.hasPrefix(AppleScreenSavers.installedIDPrefix) }
+    }
+
+    private var onlySavers: Bool { !savers.isEmpty && savers.count == items.count }
+
+    /// Said instead of the download line when screen savers are in it.
+    private var saverLine: String? {
+        if onlySavers { return items.count == 1 ? "It goes to the Trash." : "They go to the Trash." }
+        if !savers.isEmpty, personal.isEmpty {
+            return "Screen savers go to the Trash. The others you can download again."
+        }
+        return nil
     }
 
     /// At least one of these cannot be got back.
@@ -185,6 +205,7 @@ struct ConfirmDeleteView: View {
     /// sentence directly under a picture of the same wallpaper, which is the
     /// thumbnail's job and it does it better.
     private var subtitle: String {
+        if let saverLine { return saverLine }
         if personal.isEmpty {
             return items.count == 1
                 ? "You can download it again any time."

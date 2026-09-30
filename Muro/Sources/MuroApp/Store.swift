@@ -276,6 +276,11 @@ final class AppStore: ObservableObject {
     /// the size, so the Library can list them without looking at every file
     /// each time it draws.
     @Published private(set) var appleDownloadedIDs: Set<String> = []
+    /// Screen savers the person added, like XScreenSaver, for the Library.
+    /// They live in macOS's own folders, so `refreshImportedScreenSavers()`
+    /// reads them again when the Library opens and after an import or a
+    /// delete.
+    @Published var importedScreenSavers: [AppleAerial] = []
     /// What the last Clear actually did. Shown in Settings, because a Clear
     /// that frees nothing otherwise looks identical to one that never ran.
     @Published var clearStatus: String?
@@ -1909,6 +1914,9 @@ final class AppStore: ObservableObject {
     func deleteWallpapers(_ items: [WallpaperItem]) {
         let entries = items.filter { !AppleAerials.isAppleID($0.id) }.compactMap(\.local)
         let apple = items.map(\.id).filter { appleDownloadFile(id: $0) != nil }
+        // The person's own screen savers go to the Trash (owner, 2026-09-30).
+        let savers = items.map(\.id).filter(canDeleteScreenSaver)
+        if !savers.isEmpty { Task { await deleteScreenSavers(savers) } }
         guard !entries.isEmpty || !apple.isEmpty else { return }
         Task { await performDelete(entries, apple: apple) }
     }
@@ -1920,7 +1928,8 @@ final class AppStore: ObservableObject {
         // own aerials are not Muro's to touch, and the ones macOS draws have
         // no file at all.
         let deletable = items.filter { item in
-            AppleAerials.isAppleID(item.id) ? appleDownloadFile(id: item.id) != nil : item.local != nil
+            (AppleAerials.isAppleID(item.id) ? appleDownloadFile(id: item.id) != nil : item.local != nil)
+                || canDeleteScreenSaver(item.id)
         }
         guard !deletable.isEmpty else { return }
         pendingDelete = DeleteRequest(items: deletable)

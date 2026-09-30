@@ -31,10 +31,6 @@ struct LibraryView: View {
     @State private var dropTargeted = false
     /// A few words after screen savers are added, in the import bar itself.
     @State private var addedNote: String?
-    /// Screen savers the person added, like XScreenSaver. Read when the
-    /// Library opens and after an import, since they live in macOS's own
-    /// folders rather than in Muro's library.
-    @State private var importedSavers: [AppleAerial] = []
     @State private var hoveringDrop = false
     @State private var pressingDrop = false
     @State private var editorTarget: PlaylistEditorTarget?
@@ -92,7 +88,7 @@ struct LibraryView: View {
     /// imports and nowhere else, not in Explore or the Apple section (owner,
     /// 2026-09-30).
     private var saverItems: [WallpaperItem] {
-        importedSavers.map(store.appleWallpaperItem)
+        store.importedScreenSavers.map(store.appleWallpaperItem)
     }
 
     private var saversSearched: [WallpaperItem] {
@@ -122,11 +118,11 @@ struct LibraryView: View {
                                     case .all:
                                         if !selecting { dropZone }
                                         grid(items: searched)
-                                        if !selecting { saverGroup(saversSearched) }
+                                        saverGroup(saversSearched)
                                         appleGroup(appleSearched)
                                     case .liked:
                                         grid(items: likedGridItems)
-                                        if !selecting { saverGroup(saversSearched.filter(\.liked)) }
+                                        saverGroup(saversSearched.filter(\.liked))
                                         appleGroup(likedAppleGridItems)
                                     case .schedules:
                                         schedulesTab
@@ -164,18 +160,17 @@ struct LibraryView: View {
         // out of this one.
         .onExitCommand { endSelecting() }
         // A screen saver may have been added in System Settings since.
-        .onAppear {
-            AppleScreenSavers.refresh()
-            importedSavers = AppleScreenSavers.cachedInstalled()
-        }
+        .onAppear { store.refreshImportedScreenSavers() }
         .onChange(of: tab) { _, new in
             if new != .all && new != .liked { endSelecting() }
         }
         // After a batch delete the ids are gone but the set is not, which
         // would leave the bar counting wallpapers that no longer exist.
-        .onChange(of: store.localItems.count + store.appleDownloadedIDs.count) { _, _ in
+        .onChange(of: store.localItems.count + store.appleDownloadedIDs.count
+                  + store.importedScreenSavers.count) { _, _ in
             guard selecting else { return }
             let alive = Set(store.localItems.map(\.id)).union(store.appleDownloadedIDs)
+                .union(store.importedScreenSavers.map(\.id))
             selected.formIntersection(alive)
         }
         .sheet(item: $editorTarget) { target in
@@ -242,7 +237,7 @@ struct LibraryView: View {
     // MARK: - Select mode
 
     private var visibleItems: [WallpaperItem] {
-        let all = searched + appleSearched
+        let all = searched + saversSearched + appleSearched
         return tab == .liked ? all.filter(\.liked) : all
     }
 
@@ -428,10 +423,7 @@ struct LibraryView: View {
     private func take(_ urls: [URL]) {
         let savers = urls.filter { $0.pathExtension.lowercased() == "saver" }
         let rest = urls.filter { $0.pathExtension.lowercased() != "saver" }
-        if !savers.isEmpty {
-            note(store.addScreenSavers(savers))
-            importedSavers = AppleScreenSavers.cachedInstalled()
-        }
+        if !savers.isEmpty { note(store.addScreenSavers(savers)) }
         if !rest.isEmpty { store.importFiles(rest) }
     }
 

@@ -19,6 +19,8 @@ import AppKit
 public enum AppleScreenSavers {
 
     public static let idPrefix = AppleAerials.idPrefix + "saver-"
+    /// How the ids of the ones the person added begin (see `make`).
+    public static let installedIDPrefix = idPrefix + "yours-"
     public static let provider = "com.apple.wallpaper.choice.screen-saver"
 
     /// What System Settings writes for a screen saver: the module's own address.

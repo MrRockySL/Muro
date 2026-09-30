@@ -345,8 +345,56 @@ extension AppStore {
                 importError = "\(url.lastPathComponent) could not be added. \(error.localizedDescription)"
             }
         }
-        if !added.isEmpty { AppleScreenSavers.refresh() }
+        if !added.isEmpty { refreshImportedScreenSavers() }
         return (added, already)
+    }
+
+    /// Reads the person's own screen savers again.
+    func refreshImportedScreenSavers() {
+        AppleScreenSavers.refresh()
+        importedScreenSavers = AppleScreenSavers.cachedInstalled()
+    }
+
+    /// Whether this is one of the person's own screen savers that Muro may
+    /// put in the Trash: only from their own `~/Library/Screen Savers`, where
+    /// the import bar puts them. One in `/Library`, for every user of the
+    /// Mac, needs an administrator and stays.
+    func canDeleteScreenSaver(_ id: String) -> Bool {
+        guard id.hasPrefix(AppleScreenSavers.installedIDPrefix),
+              let saver = importedScreenSavers.first(where: { $0.id == id })
+        else { return false }
+        return saver.videoURL.deletingLastPathComponent().standardizedFileURL.path
+            == AppleScreenSavers.installedFolders[0].standardizedFileURL.path
+    }
+
+    /// Puts the person's own screen savers in the Trash, as System Settings
+    /// does, so one can be put back from there (owner, 2026-09-30). Any place
+    /// macOS shows one in gets macOS's own wallpaper back first, so macOS is
+    /// never left looking for a screen saver that is gone.
+    func deleteScreenSavers(_ ids: [String]) async {
+        var gone: Set<String> = []
+        for id in ids {
+            guard canDeleteScreenSaver(id),
+                  let saver = importedScreenSavers.first(where: { $0.id == id })
+            else { continue }
+            do {
+                if !macOSWallpapers.desktopTargets(of: id).isEmpty {
+                    try await macOSWallpapers.remove(id: id, surface: .desktop, targetKey: "all")
+                }
+                if macOSWallpapers.isScreenSaver(id) {
+                    try await macOSWallpapers.remove(id: id, surface: .screenSaver, targetKey: "all")
+                }
+                try FileManager.default.trashItem(at: saver.videoURL, resultingItemURL: nil)
+                gone.insert(id)
+            } catch {
+                applyError = "\(saver.name) could not be deleted. \(error.localizedDescription)"
+            }
+        }
+        if recentIDs.contains(where: { gone.contains($0) }) {
+            recentIDs.removeAll { gone.contains($0) }
+            UserDefaults.standard.set(recentIDs, forKey: "recents")
+        }
+        refreshImportedScreenSavers()
     }
 
     /// What every write to Muro's aerial downloads ends with.

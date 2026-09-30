@@ -694,4 +694,20 @@ final class AppleAerialsTests: XCTestCase {
         XCTAssertFalse(AppleScreenSavers.recorded.contains("Computer Name"))
         XCTAssertFalse(AppleScreenSavers.recorded.contains("iLifeSlideshows"))
     }
+
+    /// The Library and its delete tell the person's own screen savers from
+    /// Apple's by the id alone.
+    func testImportedScreenSaverIDsCarryTheirPrefix() {
+        let thumbnails = FileManager.default.temporaryDirectory
+            .appendingPathComponent("saver-thumbs-\(UUID().uuidString)")
+        let yours = AppleScreenSavers.make(
+            title: "XScreenSaver", group: AppleScreenSavers.installedGroup,
+            module: URL(fileURLWithPath: "/tmp/XScreenSaver.saver"), bundle: nil, thumbnails: thumbnails)
+        let apple = AppleScreenSavers.make(
+            title: "Flurry", group: AppleScreenSavers.appleGroup,
+            module: URL(fileURLWithPath: "/System/Library/ExtensionKit/Extensions/Flurry.appex"),
+            bundle: nil, thumbnails: thumbnails)
+        XCTAssertTrue(yours.id.hasPrefix(AppleScreenSavers.installedIDPrefix))
+        XCTAssertFalse(apple.id.hasPrefix(AppleScreenSavers.installedIDPrefix))
+    }
 }

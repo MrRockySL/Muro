@@ -1112,9 +1112,10 @@ struct WallpaperCard: View {
 
     /// From the Apple section only Muro's own downloads can be deleted. An
     /// aerial macOS keeps for itself is liked like any other, but a trash can
-    /// on it would do nothing.
+    /// on it would do nothing. A screen saver the person added can go too.
     private var deletable: Bool {
         !AppleAerials.isAppleID(item.id) || store.appleDownloadedIDs.contains(item.id)
+            || store.canDeleteScreenSaver(item.id)
     }
 
     /// Manual space control (owner decision 2026-07-18): outside the Library
