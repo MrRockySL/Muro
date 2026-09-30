@@ -32,6 +32,14 @@ public enum AppleScreenSavers {
         ]
     }
 
+    /// Apple's screen savers the section offers, by module name: the eight
+    /// recorded as 4K videos (owner, 2026-09-30). Album Artwork, Message and
+    /// Photos show the person's own music, computer name and photos, so they
+    /// were never recorded and are left out, as is any a later macOS adds.
+    public static let recorded: Set<String> = [
+        "Arabesque", "Drift", "Flurry", "Hello", "Monterey", "Shell", "Ventura", "Word of the Day",
+    ]
+
     /// The two groups on the page, in this order.
     public static let appleGroup = "Apple"
     public static let installedGroup = "Yours"
@@ -86,6 +94,7 @@ public enum AppleScreenSavers {
         var out: [AppleAerial] = []
         for name in names where name.hasSuffix(".appex") {
             let appex = extensions.appendingPathComponent(name, isDirectory: true)
+            guard recorded.contains(appex.deletingPathExtension().lastPathComponent) else { continue }
             guard let bundle = Bundle(url: appex) else { continue }
             let described = bundle.infoDictionary?["NSExtension"] as? [String: Any]
             guard described?["NSExtensionPointIdentifier"] as? String == "com.apple.screensaver"

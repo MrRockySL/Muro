@@ -679,4 +679,19 @@ final class AppleAerialsTests: XCTestCase {
         XCTAssertNil(saver.playablePath)
         XCTAssertNotNil(saver.thumbnailPath, "one without a picture of its own gets a drawn one")
     }
+
+    /// Only the eight recorded as videos are offered. Read from the Mac
+    /// running the tests, so it holds whether it has all of Apple's or none.
+    func testOnlyTheRecordedScreenSaversAreOffered() {
+        let found = AppleScreenSavers.apple(thumbnails: FileManager.default.temporaryDirectory
+            .appendingPathComponent("saver-thumbs-\(UUID().uuidString)"))
+        XCTAssertLessThanOrEqual(found.count, 8)
+        for saver in found {
+            let module = saver.videoURL.deletingPathExtension().lastPathComponent
+            XCTAssertTrue(AppleScreenSavers.recorded.contains(module), "\(module) is not one of the eight")
+        }
+        XCTAssertFalse(AppleScreenSavers.recorded.contains("Album Artwork"))
+        XCTAssertFalse(AppleScreenSavers.recorded.contains("Computer Name"))
+        XCTAssertFalse(AppleScreenSavers.recorded.contains("iLifeSlideshows"))
+    }
 }
