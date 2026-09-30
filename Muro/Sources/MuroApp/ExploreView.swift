@@ -75,24 +75,31 @@ struct ExploreView: View {
                     filterRow
                         .padding(.horizontal, 40)
                         .padding(.top, 14)
-                    ScrollView(.vertical, showsIndicators: false) {
-                        Group {
-                            if filtered.isEmpty {
-                                emptyState
-                            } else {
-                                VStack(spacing: 22) {
-                                    catalogNotice
-                                    grid
+                    // A new scroll view for each category and filter, so a
+                    // new one always starts at its top instead of at the
+                    // depth the last one was scrolled to (owner, 2026-09-30).
+                    // Overlaid in a ZStack, so the two pass through each other
+                    // in place while the transition runs.
+                    ZStack {
+                        ScrollView(.vertical, showsIndicators: false) {
+                            Group {
+                                if filtered.isEmpty {
+                                    emptyState
+                                } else {
+                                    VStack(spacing: 22) {
+                                        catalogNotice
+                                        grid
+                                    }
                                 }
                             }
+                            .padding(.horizontal, 40)
+                            .padding(.top, 22)
+                            .padding(.bottom, 40)
                         }
-                        .padding(.horizontal, 40)
-                        .padding(.top, 22)
-                        .padding(.bottom, 40)
+                        .scrollFade(top: 22, bottom: 46)
                         .id(filterKey)
                         .transition(.muroPage(shift: categoryShift))
                     }
-                    .scrollFade(top: 22, bottom: 46)
                     .animation(.muroPage, value: filterKey)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

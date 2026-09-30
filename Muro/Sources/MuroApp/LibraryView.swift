@@ -71,6 +71,9 @@ struct LibraryView: View {
         selecting ? visibleItems : store.likedItems.filter(matchesSearch)
     }
 
+    /// The top of a tab's content, for scrolling back to it.
+    private static let scrollTop = "library-scroll-top"
+
     var body: some View {
         ZStack {
             MuroPageBackground()
@@ -79,27 +82,39 @@ struct LibraryView: View {
                     tabsRow
                         .padding(.horizontal, 40)
                         .padding(.top, 34)
-                    ScrollView(.vertical, showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 22) {
-                            switch tab {
-                            case .all:
-                                if !selecting { dropZone }
-                                grid(items: searched)
-                            case .liked:
-                                grid(items: likedGridItems)
-                            case .schedules:
-                                schedulesTab
+                    // Each tab is its own scroll view, so SwiftUI replaces it
+                    // instead of swapping the contents of one, and every tab
+                    // starts at its top (owner, 2026-09-30). Overlaid in a
+                    // ZStack, so the two pass through each other in place.
+                    ZStack {
+                        ScrollViewReader { proxy in
+                            ScrollView(.vertical, showsIndicators: false) {
+                                VStack(alignment: .leading, spacing: 22) {
+                                    switch tab {
+                                    case .all:
+                                        if !selecting { dropZone }
+                                        grid(items: searched)
+                                    case .liked:
+                                        grid(items: likedGridItems)
+                                    case .schedules:
+                                        schedulesTab
+                                    }
+                                }
+                                .padding(.horizontal, 40)
+                                .padding(.top, 22)
+                                .padding(.bottom, 40)
+                                .id(Self.scrollTop)
+                            }
+                            // The small Playlists / Automations switch is a
+                            // tab too, and starts at the top the same way.
+                            .onChange(of: scheduleKind) { _, _ in
+                                proxy.scrollTo(Self.scrollTop, anchor: .top)
                             }
                         }
-                        .padding(.horizontal, 40)
-                        .padding(.top, 22)
-                        .padding(.bottom, 40)
-                        // Each tab is its own view, so SwiftUI replaces it
-                        // instead of swapping the contents of one.
+                        .scrollFade(top: 22, bottom: 46)
                         .id(tab)
                         .transition(.muroPage(shift: tabShift))
                     }
-                    .scrollFade(top: 22, bottom: 46)
                     .animation(.muroPage, value: tab)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
