@@ -621,8 +621,18 @@ extension AppleAerials {
         cacheLock.unlock()
         if let remembered { return remembered }
 
-        guard let loaded = load(root: root, cacheDir: cacheDir(libraryRoot: libraryRoot))
+        guard var loaded = load(root: root, cacheDir: cacheDir(libraryRoot: libraryRoot))
         else { return nil }
+        // System Settings shows these under Dynamic Wallpapers beside the
+        // ones in Apple's list, so they join the same category, after them.
+        let dynamic = (try? Data(contentsOf: manifestURL))
+            .flatMap { dynamicCategory(manifest: $0, strings: loadStrings(root: root)) }
+        loaded += DynamicWallpapers.found(
+            category: dynamic?.name ?? "Dynamic Wallpapers",
+            categoryOrder: dynamic?.rank ?? ((loaded.map(\.categoryOrder).max() ?? 0) + 1),
+            cacheDir: cacheDir(libraryRoot: libraryRoot)
+        )
+        loaded.sort(by: appleOrder)
         // Apple's dynamic wallpapers ship a portrait cut for iPad beside the
         // landscape one. On a Mac desktop that is a tall video in a wide
         // window, so it is left out rather than shown and cropped to ruin.

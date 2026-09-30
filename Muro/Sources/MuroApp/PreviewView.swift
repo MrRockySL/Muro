@@ -139,7 +139,7 @@ struct PreviewView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                Text("\(item.width)×\(item.height) · \(formatSize(item.sizeBytes)) · \(formatDuration(item.duration))")
+                Text(metaLine(item))
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(Color.muroSecondary)
             }
@@ -193,6 +193,16 @@ struct PreviewView: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
         )
+    }
+
+    /// Size, dimensions and length, or for Apple's pictures and the ones
+    /// macOS draws, what they are, since those have no length to give.
+    private func metaLine(_ item: WallpaperItem) -> String {
+        if item.id.hasPrefix(AppleAerials.drawnPrefix) { return "Drawn live by macOS" }
+        if item.id.hasPrefix(AppleAerials.picturePrefix) {
+            return "Still picture · \(item.width)×\(item.height) · \(formatSize(item.sizeBytes))"
+        }
+        return "\(item.width)×\(item.height) · \(formatSize(item.sizeBytes)) · \(formatDuration(item.duration))"
     }
 
     private var backButton: some View {
@@ -306,7 +316,18 @@ struct PreviewView: View {
     // MARK: - Download / Set Wallpaper
 
     @ViewBuilder private func setButton(_ item: WallpaperItem) -> some View {
-        if let progress = store.downloads[item.id] {
+        if AppleAerials.isMacOSOnly(item.id) {
+            // Shown through macOS rather than Muro's player. That part is the
+            // next step (owner, 2026-09-30), so this says so rather than
+            // offering a button that does nothing.
+            Text("Set through macOS: next step")
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.7))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Capsule().fill(Color.white.opacity(0.1)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+        } else if let progress = store.downloads[item.id] {
             HStack(spacing: 10) {
                 ProgressView(value: progress)
                     .progressViewStyle(.linear)

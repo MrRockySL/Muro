@@ -505,4 +505,30 @@ final class AppleAerialsTests: XCTestCase {
         XCTAssertEqual(aerials.map(\.name), ["Golden Gate Light", "Golden Gate Dark"],
                        "named after the group, light first")
     }
+
+    /// Only a video is ever played by Muro. A picture or one macOS draws must
+    /// never read as downloaded, even if a file sits where a video would.
+    func testOnlyVideosArePlayable() {
+        let maker = DynamicWallpapers.Maker(
+            category: "Dynamic Wallpapers", categoryOrder: 0,
+            cacheDir: URL(fileURLWithPath: NSTemporaryDirectory()))
+        let picture = maker.picture(
+            slug: "the-beach-light", name: "The Beach Light", order: 0, thumbnail: nil,
+            source: URL(fileURLWithPath: NSTemporaryDirectory()), width: 6016, height: 6016,
+            bytes: 65_395_097)
+        let drawn = maker.drawn(
+            slug: "sequoia-light", name: "Sequoia Light", order: 0, thumbnail: nil,
+            source: URL(fileURLWithPath: NSTemporaryDirectory()))
+        XCTAssertNil(picture.playablePath)
+        XCTAssertNil(drawn.playablePath)
+        XCTAssertTrue(AppleAerials.isMacOSOnly(picture.id))
+        XCTAssertTrue(AppleAerials.isMacOSOnly(drawn.id))
+        XCTAssertFalse(AppleAerials.isMacOSOnly(AppleAerials.muroID(assetID: "dynamic-tahoe-light")))
+    }
+
+    func testSlugsAreSafeInAPath() {
+        XCTAssertEqual(DynamicWallpapers.slugged("Big Sur Graphic"), "big-sur-graphic")
+        XCTAssertEqual(DynamicWallpapers.slugged("hello Orange"), "hello-orange")
+        XCTAssertFalse(DynamicWallpapers.slugged("Utah’s Monument / Valley").contains("/"))
+    }
 }

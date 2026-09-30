@@ -1171,6 +1171,10 @@ struct WallpaperCard: View {
         } else if let progress = store.downloads[item.id] {
             DownloadRing(progress: progress)
                 .padding(12)
+        } else if AppleAerials.isMacOSOnly(item.id) {
+            // Apple's pictures and the ones macOS draws are shown by macOS,
+            // not downloaded by Muro, so an arrow would promise the wrong thing.
+            EmptyView()
         } else if !item.isDownloaded {
             Image(systemName: "arrow.down.circle")
                 .font(.system(size: 15, weight: .medium))
