@@ -136,7 +136,8 @@ extension AppleAerial {
             video: videoURL,
             thumbnail: sharp ?? previewImageURL
                 ?? thumbnailPath.map { URL(fileURLWithPath: $0) } ?? videoURL,
-            preview720: nil,
+            // Only Muro's recordings of Apple's screen savers have one.
+            preview720: previewVideoURL,
             // Never new. These are Apple's and have been on every Mac for
             // years; a NEW badge on them would be a lie.
             publishedAt: nil

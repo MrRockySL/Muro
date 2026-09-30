@@ -727,6 +727,8 @@ final class AppleAerialsTests: XCTestCase {
             XCTAssertFalse(AppleAerials.isMacOSOnly(saver.id))
             XCTAssertEqual(saver.videoURL.host, "cdn.murowallpaper.com")
             XCTAssertEqual(saver.videoURL.pathExtension, "mov")
+            XCTAssertEqual(saver.previewVideoURL?.host, "cdn.murowallpaper.com")
+            XCTAssertEqual(saver.previewVideoURL?.lastPathComponent, "\(saver.assetID).mov")
             XCTAssertTrue(saver.cachePath.hasPrefix(cache.path))
             XCTAssertNotNil(saver.knownBytes)
             XCTAssertNotNil(saver.knownDuration)

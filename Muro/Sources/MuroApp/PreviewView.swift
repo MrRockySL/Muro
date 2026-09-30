@@ -119,7 +119,7 @@ struct PreviewView: View {
     }
 
     @ViewBuilder private func remotePreview(_ item: WallpaperItem) -> some View {
-        if AppleAerials.isMacOSOnly(item.id) || item.id.hasPrefix(AppleScreenSaverVideos.idPrefix) {
+        if AppleAerials.isMacOSOnly(item.id) {
             // The full-screen picture Muro keeps for each of these, which is
             // sharp; Apple's own are 214 to 356 pixels across.
             ApplePreviewPicture(item: item)
@@ -132,7 +132,13 @@ struct PreviewView: View {
         ZStack {
             // Fills the whole window behind the loading p720, so it needs the
             // full-size decode rather than the grid-card one.
-            ThumbImage(item: item, maxPixels: ImageCache.fullPixels)
+            if item.id.hasPrefix(AppleScreenSaverVideos.idPrefix) {
+                // Muro's recordings of Apple's screen savers have a sharp
+                // full-screen picture of their own on Muro's server.
+                ApplePreviewPicture(item: item)
+            } else {
+                ThumbImage(item: item, maxPixels: ImageCache.fullPixels)
+            }
             if case .ready(let url) = loader.state {
                 LoopingPlayerView(url: url)
                     .transition(.opacity)

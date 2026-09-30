@@ -30,8 +30,11 @@ public enum AppleScreenSaverVideos {
     public static let assetPrefix = "screensaver-"
     public static let idPrefix = AppleAerials.idPrefix + assetPrefix
 
-    /// Muro's own server. The videos are in `savers/`, and the pictures beside
-    /// Muro's other pictures of Apple's wallpapers, `thumbs/<asset id>.jpg`.
+    /// Muro's own server. The videos are in `savers/`, their six-second 720p
+    /// previews in `p720/<asset id>.mov` (made with `generatePreview`, like
+    /// Explore's, from a moment that shows what the card promises), and the
+    /// pictures beside Muro's other pictures of Apple's wallpapers,
+    /// `thumbs/<asset id>.jpg`.
     static let base = URL(string: "https://cdn.murowallpaper.com/apple/")!
 
     struct Recording {
@@ -68,7 +71,8 @@ public enum AppleScreenSaverVideos {
                     AppleAerials.downloadFileName(assetID: assetID)).path,
                 stillMatchesVideo: false,
                 knownWidth: 3840, knownHeight: 2160, knownBytes: recording.bytes,
-                knownDuration: recording.seconds, knownFPS: 60
+                knownDuration: recording.seconds, knownFPS: 60,
+                previewVideoURL: base.appendingPathComponent("p720/\(assetID).mov")
             )
         }
     }

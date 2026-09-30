@@ -245,6 +245,9 @@ public struct AppleAerial: Identifiable, Equatable, Sendable {
     /// server rather than from reading the video.
     public let knownDuration: Double?
     public let knownFPS: Double?
+    /// The short 720p loop the detail view plays before a download, as for
+    /// every wallpaper in Explore. Only Muro's own recordings have one.
+    public let previewVideoURL: URL?
 
     /// Apple's Dynamic Wallpapers come in three kinds, and only the first is
     /// a video Muro can play.
@@ -295,7 +298,7 @@ public struct AppleAerial: Identifiable, Equatable, Sendable {
         previewImageURL: URL?, videoURL: URL, applePath: String, cachePath: String,
         isPortrait: Bool = false, stillMatchesVideo: Bool = true, kind: Kind = .video,
         knownWidth: Int? = nil, knownHeight: Int? = nil, knownBytes: Int64? = nil,
-        knownDuration: Double? = nil, knownFPS: Double? = nil
+        knownDuration: Double? = nil, knownFPS: Double? = nil, previewVideoURL: URL? = nil
     ) {
         self.id = id
         self.assetID = assetID
@@ -316,6 +319,7 @@ public struct AppleAerial: Identifiable, Equatable, Sendable {
         self.knownBytes = knownBytes
         self.knownDuration = knownDuration
         self.knownFPS = knownFPS
+        self.previewVideoURL = previewVideoURL
     }
 }
 
