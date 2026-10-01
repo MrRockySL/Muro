@@ -36,6 +36,18 @@ struct ConfirmDeleteView: View {
                 }
                 .padding(.top, 16)
             }
+            if let scheduleLine {
+                HStack(alignment: .firstTextBaseline, spacing: 7) {
+                    Image(systemName: "list.bullet.rectangle")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.muroWarn)
+                    Text(scheduleLine)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, notices.isEmpty ? 16 : 12)
+            }
             buttons
                 .padding(.top, 24)
         }
@@ -251,6 +263,24 @@ struct ConfirmDeleteView: View {
             return "PLAYING ON \(friendly(display).uppercased())"
         }
         return "PLAYING NOW"
+    }
+
+    /// The playlists and automations a delete takes these out of. The sheet
+    /// said where a wallpaper was playing and not that a playlist would come
+    /// out of it smaller (full check, 2026-10-01); the delete already prunes
+    /// them, so this only says so out loud.
+    private var scheduleLine: String? {
+        let ids = Set(items.map(\.id))
+        let names = store.playlists.filter { !ids.isDisjoint(with: $0.wallpaperIDs) }.map(\.name)
+            + store.automations.filter { $0.steps.contains { ids.contains($0.wallpaperID) } }.map(\.name)
+        guard let last = names.last else { return nil }
+        let list: String
+        switch names.count {
+        case 1: list = last
+        case 2, 3: list = names.dropLast().joined(separator: ", ") + " and " + last
+        default: list = "\(names.count) playlists and automations"
+        }
+        return (items.count == 1 ? "It also comes out of " : "They also come out of ") + list + "."
     }
 
     private var lockScreenAffected: Bool {
