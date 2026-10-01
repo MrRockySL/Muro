@@ -403,7 +403,13 @@ struct PreviewView: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 11)
             .background(Capsule().fill(Color.white.opacity(0.12)))
-        } else if store.isApplied(item, surface: store.applySurface, target: .all) {
+        } else if let appliedLabel = store.appliedFullLabel(for: item.id) {
+            // Applied anywhere at all, the same rule as the pictures macOS
+            // shows below. This asked whether it was applied on every display
+            // of the tab the panel was last left on, so after a lock screen
+            // or All apply on one display it went on saying Set Wallpaper
+            // while the Home chip said Applied (full check, 2026-10-01). Both
+            // buttons open the same panel; only the words differ.
             Button {
                 showDisplayPopover.toggle()   // re-target / change display
             } label: {
@@ -414,7 +420,7 @@ struct PreviewView: View {
                     // fit into and has to abbreviate; this bar has the room,
                     // and with four places a wallpaper can be in, which one it
                     // is in is the answer someone opened this for.
-                    Text(store.appliedFullLabel(for: item.id) ?? "Applied")
+                    Text(appliedLabel)
                         .font(.system(size: 13, weight: .semibold))
                         .lineLimit(1)
                 }
