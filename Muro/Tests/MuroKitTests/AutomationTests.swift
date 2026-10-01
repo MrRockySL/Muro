@@ -174,6 +174,57 @@ final class AutomationTests: XCTestCase {
         XCTAssertEqual(automation.clockStepOrLast(at: 600)?.wallpaperID, "morning", "not a gap")
     }
 
+    // MARK: - Moving an edge with the arrows
+
+    /// The full check's case: Pixelwave's end pushed again and again into
+    /// Mac Purple's window. The shared edge moves both, and stops while Mac
+    /// Purple still has a quarter of an hour.
+    func testAnEdgeSharedWithTheNextWindowMovesBoth() {
+        var steps = Automation.fittedToDay([
+            .init(wallpaperID: "pixelwave"), .init(wallpaperID: "purple"), .init(wallpaperID: "monterey"),
+        ])
+        let id = steps[0].id
+        steps = Automation.movingEdge(.end, of: id, by: 15, in: steps)
+        XCTAssertEqual(steps[0].end, 495)
+        XCTAssertEqual(steps[1].start, 495, "the neighbour's start moves with it")
+        for _ in 0..<60 { steps = Automation.movingEdge(.end, of: id, by: 15, in: steps) }
+        XCTAssertEqual(steps[0].end, 945, "stops 15 minutes short of the neighbour's end")
+        XCTAssertEqual(steps[1].start, 945)
+        XCTAssertEqual(steps[1].end, 960)
+        let day = Automation(name: "", mode: .clock, steps: steps)
+        XCTAssertTrue(day.uncoveredWindows.isEmpty)
+        for minute in stride(from: 0, to: 1440, by: 5) {
+            XCTAssertEqual(steps.filter { $0.covers(minute: minute) }.count, 1, "minute \(minute)")
+        }
+    }
+
+    /// A free edge moves into the gap beside it and stops at the next window.
+    func testAFreeEdgeStopsAtTheNextWindow() {
+        var steps = clock([("a", 480, 600), ("b", 720, 900)]).steps
+        steps = Automation.movingEdge(.end, of: steps[0].id, by: 300, in: steps)
+        XCTAssertEqual(steps[0].end, 720, "up to b and no further")
+        XCTAssertEqual(steps[1].start, 720, "b is untouched")
+        steps = Automation.movingEdge(.start, of: steps[0].id, by: -1000, in: steps)
+        XCTAssertEqual(steps[0].start, 920, "back round midnight, into the free run")
+        steps = Automation.movingEdge(.start, of: steps[0].id, by: -100, in: steps)
+        XCTAssertEqual(steps[0].start, 900, "and no further than b's end")
+    }
+
+    /// A window cannot be squeezed below a quarter of an hour from its own
+    /// side either.
+    func testAWindowKeepsAQuarterOfAnHour() {
+        var steps = clock([("a", 480, 600), ("b", 600, 720)]).steps
+        steps = Automation.movingEdge(.end, of: steps[0].id, by: -500, in: steps)
+        XCTAssertEqual(steps[0].end, 495)
+        XCTAssertEqual(steps[1].start, 495, "the shared edge still moves b")
+    }
+
+    /// One wallpaper all day has no edges.
+    func testAWholeDayWindowDoesNotMove() {
+        let steps = Automation.fittedToDay([.init(wallpaperID: "a")])
+        XCTAssertEqual(Automation.movingEdge(.end, of: steps[0].id, by: 15, in: steps), steps)
+    }
+
     // MARK: - Labels
 
     func testDurationLabels() {

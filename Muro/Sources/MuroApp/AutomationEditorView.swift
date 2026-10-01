@@ -548,19 +548,19 @@ struct AutomationEditorView: View {
 
     private func clockControl(_ step: Automation.Step) -> some View {
         let id = step.id
+        // The arrows move an edge by the timeline's own rules, so they can
+        // never push one window over the next. See `Automation.movingEdge`.
         return HStack(spacing: 8) {
-            TimeChip(
-                minute: stepValue(id, get: { $0.start }, set: { $0.startMinute = $1 }),
-                focused: false
-            )
+            TimeChip(minute: step.start, focused: false) { delta in
+                steps = Automation.movingEdge(.start, of: id, by: delta, in: steps)
+            }
             Text("to")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.muroSecondary)
                 .fixedSize()
-            TimeChip(
-                minute: stepValue(id, get: { $0.end }, set: { $0.endMinute = $1 }),
-                focused: focusedStepID == id
-            )
+            TimeChip(minute: step.end, focused: focusedStepID == id) { delta in
+                steps = Automation.movingEdge(.end, of: id, by: delta, in: steps)
+            }
         }
     }
 
@@ -645,9 +645,10 @@ struct AutomationEditorView: View {
             : "Covers \(durationLabel(covered * 60)) of the day across \(steps.count) wallpaper\(steps.count == 1 ? "" : "s")"
     }
 
-    /// Overlaps and gaps are allowed on purpose, so they are stated rather
-    /// than blocked: an automation that only changes the wallpaper in the
-    /// evening is a perfectly reasonable thing to want.
+    /// Gaps are allowed on purpose, so they are stated rather than blocked:
+    /// an automation that only changes the wallpaper in the evening is a
+    /// perfectly reasonable thing to want. Overlaps cannot be made any more;
+    /// the timeline and the arrows both stop at the next window.
     private var warningLine: String? {
         guard mode == .clock, !steps.isEmpty else { return nil }
         let gaps = draft.uncoveredWindows
@@ -694,8 +695,11 @@ struct AutomationEditorView: View {
 /// A time you can read across the room and nudge without aiming. The old
 /// field was 62pt wide with two 11pt chevrons stacked beside it.
 struct TimeChip: View {
-    @Binding var minute: Int
+    var minute: Int
     var focused: Bool
+    /// Minutes to move by, plus or minus 15. The editor decides how far the
+    /// edge can actually go.
+    var step: (Int) -> Void
 
     var body: some View {
         HStack(spacing: 0) {
@@ -734,7 +738,7 @@ struct TimeChip: View {
 
     private func stepper(_ icon: String, by delta: Int) -> some View {
         Button {
-            minute = normalizedMinute(minute + delta)
+            step(delta)
         } label: {
             Image(systemName: icon)
                 .font(.system(size: 7.5, weight: .bold))

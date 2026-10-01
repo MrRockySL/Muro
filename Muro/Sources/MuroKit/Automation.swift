@@ -338,6 +338,74 @@ public extension Automation {
         return moved
     }
 
+    /// One edge of a clock window, for `movingEdge`.
+    enum ClockEdge { case start, end }
+
+    /// A clock window with one edge moved by `delta` minutes, by the rules the
+    /// day timeline drags it with.
+    ///
+    /// An edge shared with the window next to it takes that window's edge
+    /// along, a free edge moves only through minutes no other window owns,
+    /// and no window gets shorter than `minimumLength`. So the arrows beside
+    /// the times can no longer push one window over the next: pressed 41
+    /// times they took 8:00 AM to 6:15 PM across a window that still said
+    /// 8:00 AM to 4:00 PM, and the overlap saved (full check, 2026-10-01).
+    /// A whole-day window has no edge to move.
+    static func movingEdge(
+        _ edge: ClockEdge,
+        of stepID: String,
+        by delta: Int,
+        in steps: [Step],
+        minimumLength: Int = 15
+    ) -> [Step] {
+        guard let index = steps.firstIndex(where: { $0.id == stepID }) else { return steps }
+        let step = steps[index]
+        guard !isAllDay(step) else { return steps }
+        let length = step.clockLength
+        var busy = [Bool](repeating: false, count: 1440)
+        for other in steps where other.id != stepID {
+            for offset in 0..<other.clockLength { busy[(other.start + offset) % 1440] = true }
+        }
+        func freeRun(from minute: Int, step: Int) -> Int {
+            var count = 0
+            var probe = normalizedMinute(step < 0 ? minute - 1 : minute)
+            while count < 1440 - length, !busy[probe] {
+                count += 1
+                probe = normalizedMinute(probe + step)
+            }
+            return count
+        }
+
+        var joined: Int?
+        var lowest = 0
+        var highest = 0
+        switch edge {
+        case .start:
+            joined = steps.firstIndex { $0.id != stepID && !isAllDay($0) && $0.end == step.start }
+            lowest = joined.map { -(steps[$0].clockLength - minimumLength) }
+                ?? -freeRun(from: step.start, step: -1)
+            highest = length - minimumLength
+        case .end:
+            joined = steps.firstIndex { $0.id != stepID && !isAllDay($0) && $0.start == step.end }
+            highest = joined.map { steps[$0].clockLength - minimumLength }
+                ?? freeRun(from: step.end, step: 1)
+            lowest = -(length - minimumLength)
+        }
+        let applied = min(max(delta, lowest), highest)
+        guard applied != 0 else { return steps }
+
+        var out = steps
+        switch edge {
+        case .start:
+            out[index].startMinute = normalizedMinute(step.start + applied)
+            if let joined { out[joined].endMinute = out[index].startMinute }
+        case .end:
+            out[index].endMinute = normalizedMinute(step.end + applied)
+            if let joined { out[joined].startMinute = out[index].endMinute }
+        }
+        return out
+    }
+
     /// What a clock schedule looks like after one of its wallpapers is taken
     /// out.
     ///
