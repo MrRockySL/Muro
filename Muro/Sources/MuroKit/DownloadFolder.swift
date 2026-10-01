@@ -40,6 +40,8 @@ public enum DownloadFolder {
         case notConnected(String)
         case notEnoughSpace(needed: Int64, available: Int64)
         case copyFailed(String)
+        /// Stopped by the person before anything changed.
+        case cancelled
 
         public var errorDescription: String? {
             switch self {
@@ -58,6 +60,8 @@ public enum DownloadFolder {
                 return "There is not enough space there. Your wallpapers need \(format.string(fromByteCount: needed)) and \(format.string(fromByteCount: available)) is free."
             case .copyFailed(let name):
                 return "\(name) could not be copied. Nothing was moved."
+            case .cancelled:
+                return "The move was cancelled. Your wallpapers stayed where they were."
             }
         }
     }
@@ -91,10 +95,22 @@ public enum DownloadFolder {
     /// what this move made and leaves everything as it was.
     ///
     /// `progress` is called with the number of videos done and the total.
+    ///
+    /// `bytes` and `isCancelled` are for a move a person is watching. A move
+    /// to another drive used to say only "Moving 3 of 5 wallpapers...", with
+    /// no way to stop it, so a 1.4 GB video on a slow USB port sat there for a
+    /// quarter of an hour (full check, 2026-10-01). With them, a copy to
+    /// another drive goes through `copyfile`, which reports every block and
+    /// can stop part way through a file, and the move checks `isCancelled`
+    /// before each video. A cancelled move throws `MoveError.cancelled` before
+    /// the link is switched, so it changes nothing. Called on the moving
+    /// thread.
     public static func move(
         root: URL,
         into picked: URL?,
-        progress: (_ done: Int, _ total: Int) -> Void = { _, _ in }
+        progress: (_ done: Int, _ total: Int) -> Void = { _, _ in },
+        bytes: ((_ copied: Int64, _ total: Int64) -> Void)? = nil,
+        isCancelled: (() -> Bool)? = nil
     ) throws {
         let manager = FileManager.default
         let masters = mastersURL(root: root)
@@ -130,7 +146,8 @@ public enum DownloadFolder {
 
         let videos = files(in: source)
         let total = videos.reduce(Int64(0)) { $0 + $1.size }
-        if !sameVolume(source, destination) {
+        let otherDrive = !sameVolume(source, destination)
+        if otherDrive {
             let free = availableSpace(at: picked ?? root)
             // Room for the videos and a little over, so the move never fills
             // the disk to the last byte.
@@ -151,14 +168,28 @@ public enum DownloadFolder {
                 }
             }
             progress(0, videos.count)
+            bytes?(0, total)
+            var copiedBefore: Int64 = 0
             for (index, video) in videos.enumerated() {
+                if isCancelled?() == true { throw MoveError.cancelled }
                 let target = destination.appendingPathComponent(video.url.lastPathComponent)
                 if size(of: target) != video.size {
-                    try copy(video.url, to: target, size: video.size)
+                    // On the same disk a copy is a clone and instant, so only
+                    // a copy to another drive needs to report and to stop.
+                    let report = otherDrive && (bytes != nil || isCancelled != nil)
+                        ? CopyReport(
+                            onBytes: { [copiedBefore] done in bytes?(copiedBefore + done, total) },
+                            isCancelled: isCancelled ?? { false }
+                        )
+                        : nil
+                    try copy(video.url, to: target, size: video.size, report: report)
                     made.append(target)
                 }
+                copiedBefore += video.size
+                bytes?(copiedBefore, total)
                 progress(index + 1, videos.count)
             }
+            if isCancelled?() == true { throw MoveError.cancelled }
 
             switch (current, picked) {
             case (.builtIn, .some):
@@ -231,13 +262,20 @@ public enum DownloadFolder {
 
     /// Copied under a hidden name and renamed once the size checks out, so a
     /// copy cut short never sits under a video's real name.
-    static func copy(_ file: URL, to target: URL, size expected: Int64) throws {
+    ///
+    /// With a `report`, the copy is `copyfile`'s, which says how far it is and
+    /// stops when asked; without one it is the plain copy it always was.
+    static func copy(_ file: URL, to target: URL, size expected: Int64, report: CopyReport? = nil) throws {
         let manager = FileManager.default
         let partial = target.deletingLastPathComponent()
             .appendingPathComponent(".\(target.lastPathComponent).partial")
         try? manager.removeItem(at: partial)
         do {
-            try manager.copyItem(at: file, to: partial)
+            if let report {
+                try copyReporting(file, to: partial, report: report)
+            } else {
+                try manager.copyItem(at: file, to: partial)
+            }
             guard size(of: partial) == expected else {
                 throw MoveError.copyFailed(file.lastPathComponent)
             }
@@ -247,6 +285,48 @@ public enum DownloadFolder {
             try? manager.removeItem(at: partial)
             throw error
         }
+    }
+
+    /// What a watched copy reports to, and asks before every block.
+    final class CopyReport {
+        let onBytes: (Int64) -> Void
+        let isCancelled: () -> Bool
+        fileprivate var stopped = false
+
+        init(onBytes: @escaping (Int64) -> Void, isCancelled: @escaping () -> Bool) {
+            self.onBytes = onBytes
+            self.isCancelled = isCancelled
+        }
+    }
+
+    /// `copyfile` with its status callback: the bytes copied so far after
+    /// every block, and a stop the moment `isCancelled` says so.
+    static func copyReporting(_ file: URL, to destination: URL, report: CopyReport) throws {
+        guard let state = copyfile_state_alloc() else { throw MoveError.copyFailed(file.lastPathComponent) }
+        defer { copyfile_state_free(state) }
+        let context = Unmanaged.passUnretained(report).toOpaque()
+        let callback: copyfile_callback_t = { what, stage, state, _, _, context in
+            guard let context else { return COPYFILE_CONTINUE }
+            let report = Unmanaged<CopyReport>.fromOpaque(context).takeUnretainedValue()
+            if report.isCancelled() {
+                report.stopped = true
+                return COPYFILE_QUIT
+            }
+            if what == COPYFILE_COPY_DATA, stage == COPYFILE_PROGRESS, let state {
+                var copied: off_t = 0
+                if copyfile_state_get(state, UInt32(COPYFILE_STATE_COPIED), &copied) == 0 {
+                    report.onBytes(Int64(copied))
+                }
+            }
+            return COPYFILE_CONTINUE
+        }
+        copyfile_state_set(state, UInt32(COPYFILE_STATE_STATUS_CB), unsafeBitCast(callback, to: UnsafeRawPointer.self))
+        copyfile_state_set(state, UInt32(COPYFILE_STATE_STATUS_CTX), context)
+        let result = withExtendedLifetime(report) {
+            copyfile(file.path, destination.path, state, copyfile_flags_t(COPYFILE_DATA))
+        }
+        if report.stopped { throw MoveError.cancelled }
+        guard result == 0 else { throw MoveError.copyFailed(file.lastPathComponent) }
     }
 
     /// The videos in a folder: visible regular files, with their sizes.

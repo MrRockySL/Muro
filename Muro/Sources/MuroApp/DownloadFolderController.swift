@@ -1,5 +1,6 @@
 import AppKit
 import MuroKit
+import os
 
 /// The Download Folder row in Settings: where the wallpaper videos live, and
 /// moving them somewhere else or back. The move itself is `DownloadFolder`,
@@ -11,6 +12,11 @@ final class DownloadFolderController: ObservableObject {
     @Published private(set) var location: DownloadFolder.Location
     /// Videos done and in all, while a move runs.
     @Published private(set) var moving: (done: Int, total: Int)?
+    /// How much of the move's bytes are copied, 0 to 1, while it runs.
+    @Published private(set) var movedFraction: Double?
+    /// Set by Cancel, read by the move on its own thread.
+    private let stopRequested = OSAllocatedUnfairLock(initialState: false)
+    @Published private(set) var cancelling = false
     @Published var message: String?
 
     private let root = LibraryManifest.defaultRoot()
@@ -36,10 +42,12 @@ final class DownloadFolderController: ObservableObject {
     var isCustom: Bool { location != .builtIn }
 
     var subtitle: String {
+        if cancelling { return "Cancelling…" }
         if let moving {
+            let percent = movedFraction.map { " \(Int(($0 * 100).rounded()))%" } ?? ""
             return moving.total == 0
-                ? "Moving your wallpapers…"
-                : "Moving \(moving.done) of \(moving.total) wallpapers…"
+                ? "Moving your wallpapers…\(percent)"
+                : "Moving \(min(moving.done + 1, moving.total)) of \(moving.total) wallpapers…\(percent)"
         }
         switch location {
         case .builtIn:
@@ -85,20 +93,51 @@ final class DownloadFolderController: ObservableObject {
         move(into: nil)
     }
 
+    /// Stops a move. Nothing has changed until the last video is copied, so
+    /// the videos simply stay where they were.
+    func cancel() {
+        guard moving != nil, !cancelling else { return }
+        cancelling = true
+        stopRequested.withLock { $0 = true }
+    }
+
     private func move(into picked: URL?) {
         moving = (0, 0)
+        movedFraction = nil
+        cancelling = false
+        stopRequested.withLock { $0 = false }
         let root = self.root
+        let stop = stopRequested
         Task.detached(priority: .userInitiated) {
+            var lastShown = -1.0
             let failure: String? = {
                 do {
-                    try DownloadFolder.move(root: root, into: picked) { done, total in
-                        Task { @MainActor in
-                            // A step that arrives after the move has finished
-                            // must not bring the progress back.
-                            let controller = DownloadFolderController.shared
-                            if controller.moving != nil { controller.moving = (done, total) }
-                        }
-                    }
+                    try DownloadFolder.move(
+                        root: root,
+                        into: picked,
+                        progress: { done, total in
+                            Task { @MainActor in
+                                // A step that arrives after the move has
+                                // finished must not bring the progress back.
+                                let controller = DownloadFolderController.shared
+                                if controller.moving != nil { controller.moving = (done, total) }
+                            }
+                        },
+                        bytes: { copied, total in
+                            guard total > 0 else { return }
+                            let fraction = Double(copied) / Double(total)
+                            guard fraction - lastShown >= 0.01 || fraction >= 1 else { return }
+                            lastShown = fraction
+                            Task { @MainActor in
+                                let controller = DownloadFolderController.shared
+                                if controller.moving != nil { controller.movedFraction = fraction }
+                            }
+                        },
+                        isCancelled: { stop.withLock { $0 } }
+                    )
+                    return nil
+                } catch DownloadFolder.MoveError.cancelled {
+                    // Asked for, so not an alert.
                     return nil
                 } catch {
                     return error.localizedDescription
@@ -107,6 +146,8 @@ final class DownloadFolderController: ObservableObject {
             await MainActor.run {
                 let controller = DownloadFolderController.shared
                 controller.moving = nil
+                controller.movedFraction = nil
+                controller.cancelling = false
                 controller.refresh()
                 controller.message = failure
                 AppStore.shared.recomputeSize()

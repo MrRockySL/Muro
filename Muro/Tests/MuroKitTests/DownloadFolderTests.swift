@@ -49,6 +49,45 @@ final class DownloadFolderTests: XCTestCase {
 
     // MARK: - Moving
 
+    // MARK: - Watching and stopping a move (full check, 2026-10-01)
+
+    func testAReportedCopyIsWholeAndSaysHowFarItGot() throws {
+        let source = base.appendingPathComponent("big.mov")
+        try Data(repeating: 7, count: 24 * 1024 * 1024).write(to: source)
+        let target = base.appendingPathComponent("copy.mov")
+        var seen: [Int64] = []
+        let report = DownloadFolder.CopyReport(onBytes: { seen.append($0) }, isCancelled: { false })
+        try DownloadFolder.copy(source, to: target, size: 24 * 1024 * 1024, report: report)
+        XCTAssertEqual(DownloadFolder.size(of: target), 24 * 1024 * 1024)
+        XCTAssertFalse(seen.isEmpty, "copyfile reported its progress")
+        XCTAssertEqual(seen, seen.sorted(), "only ever forwards")
+    }
+
+    func testAStoppedCopyLeavesNothingBehind() throws {
+        let source = base.appendingPathComponent("big.mov")
+        try Data(repeating: 9, count: 48 * 1024 * 1024).write(to: source)
+        let target = base.appendingPathComponent("copy.mov")
+        var started = false
+        let report = DownloadFolder.CopyReport(onBytes: { _ in started = true }, isCancelled: { started })
+        XCTAssertThrowsError(try DownloadFolder.copy(source, to: target, size: 48 * 1024 * 1024, report: report)) {
+            XCTAssertEqual($0 as? DownloadFolder.MoveError, .cancelled)
+        }
+        XCTAssertNil(DownloadFolder.size(of: target))
+        XCTAssertEqual(names(in: base).filter { $0.contains("copy") }, [], "no partial copy left")
+        XCTAssertEqual(DownloadFolder.size(of: source), 48 * 1024 * 1024, "the original is untouched")
+    }
+
+    func testACancelledMoveChangesNothing() throws {
+        try addVideos(["a.mov", "b.mov"], to: masters)
+        let drive = try place("Drive")
+        XCTAssertThrowsError(try DownloadFolder.move(root: root, into: drive, isCancelled: { true })) {
+            XCTAssertEqual($0 as? DownloadFolder.MoveError, .cancelled)
+        }
+        XCTAssertEqual(DownloadFolder.location(root: root), .builtIn)
+        XCTAssertEqual(names(in: masters), ["a.mov", "b.mov"])
+        XCTAssertFalse(manager.fileExists(atPath: drive.appendingPathComponent(DownloadFolder.folderName).path))
+    }
+
     func testALibraryStartsWithItsOwnFolder() {
         XCTAssertEqual(DownloadFolder.location(root: root), .builtIn)
     }

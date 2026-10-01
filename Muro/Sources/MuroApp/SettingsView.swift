@@ -267,13 +267,19 @@ struct SettingsView: View {
                     row(icon: .downloadFolder, title: "Download Folder",
                         subtitle: downloadFolder.subtitle) {
                         HStack(spacing: 8) {
-                            if downloadFolder.isCustom {
-                                settingsPill("Default") { downloadFolder.reset() }
+                            // A move can take minutes on a slow drive, and it
+                            // could not be stopped (full check, 2026-10-01).
+                            if downloadFolder.moving != nil {
+                                settingsPill("Cancel") { downloadFolder.cancel() }
+                                    .disabled(downloadFolder.cancelling)
+                                    .opacity(downloadFolder.cancelling ? 0.45 : 1)
+                            } else {
+                                if downloadFolder.isCustom {
+                                    settingsPill("Default") { downloadFolder.reset() }
+                                }
+                                settingsPill("Change") { downloadFolder.choose() }
                             }
-                            settingsPill("Change") { downloadFolder.choose() }
                         }
-                        .disabled(downloadFolder.moving != nil)
-                        .opacity(downloadFolder.moving != nil ? 0.45 : 1)
                     }
                     // An "Auto-clear memory: Manual / Daily / Weekly" row used
                     // to sit here. Nothing ever read it, and the RAM it claimed
