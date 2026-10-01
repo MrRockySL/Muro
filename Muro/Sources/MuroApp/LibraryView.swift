@@ -665,7 +665,10 @@ struct PlaylistCard: View {
             // Three facts, three chips. The old single sentence ran them
             // together and none of them could be read at a glance.
             HStack(spacing: 8) {
-                MetaChip(systemImage: "rectangle.stack", text: "\(playlist.wallpaperIDs.count) wallpapers")
+                MetaChip(
+                    systemImage: "rectangle.stack",
+                    text: "\(playlist.wallpaperIDs.count) wallpaper\(playlist.wallpaperIDs.count == 1 ? "" : "s")"
+                )
                 MetaChip(systemImage: "clock", text: intervalText)
                 MetaChip(systemImage: "shuffle", text: playlist.shuffle ? "Shuffle on" : "Shuffle off")
             }
