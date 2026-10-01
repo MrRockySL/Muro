@@ -374,6 +374,7 @@ final class AppStore: ObservableObject {
         syncScheduler()
         watchRoot()
         recomputeSize()
+        rememberDisplays()
         // Installs that applied a wallpaper before this shipped have never had
         // a still written, and a display plugged in while Muro was closed has
         // no still either.
@@ -423,6 +424,7 @@ final class AppStore: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
+                self.rememberDisplays()
                 self.desktopStill.reconcile(
                     config: self.config,
                     manifest: self.stillManifest,
@@ -1356,12 +1358,8 @@ final class AppStore: ObservableObject {
                 if config.allDisplays?.wallpaperID == item.id { config.allDisplays = nil }
                 config.perDisplay = config.perDisplay.filter { $0.value.wallpaperID != item.id }
             case .display(let uuid):
-                if let fallback = config.allDisplays, fallback.wallpaperID == item.id {
-                    for display in displays
-                    where display.id != uuid && config.perDisplay[display.id] == nil {
-                        config.perDisplay[display.id] = fallback
-                    }
-                    config.allDisplays = nil
+                if config.allDisplays?.wallpaperID == item.id {
+                    splitAllDisplays(except: uuid)
                 }
                 if config.perDisplay[uuid]?.wallpaperID == item.id {
                     config.perDisplay[uuid] = nil
@@ -1543,6 +1541,34 @@ final class AppStore: ObservableObject {
                 isBuiltIn: displayIsBuiltIn(screen) ?? (screen == NSScreen.screens.first)
             )
         }
+    }
+
+    /// Every display Muro has seen, by UUID, whether it is plugged in now
+    /// or not.
+    var knownDisplayIDs: Set<String> {
+        Set(defaults.stringArray(forKey: "knownDisplayIDs") ?? []).union(displays.map(\.id))
+    }
+
+    private func rememberDisplays() {
+        let stored = defaults.stringArray(forKey: "knownDisplayIDs") ?? []
+        let known = knownDisplayIDs
+        if known.count != Set(stored).count { defaults.set(known.sorted(), forKey: "knownDisplayIDs") }
+    }
+
+    /// Takes one display out of an all-displays wallpaper: every other display
+    /// keeps it as a wallpaper of its own, and `allDisplays` goes.
+    ///
+    /// Every display Muro has seen keeps it, not only the ones plugged in.
+    /// Only the plugged-in ones used to, so changing the MacBook's wallpaper
+    /// while the DELL was unplugged left the DELL with nothing; plugged back
+    /// in, it showed a frozen still until it was set again (full check,
+    /// 2026-10-01).
+    func splitAllDisplays(except uuid: String) {
+        guard let fallback = config.allDisplays else { return }
+        for id in knownDisplayIDs where id != uuid && config.perDisplay[id] == nil {
+            config.perDisplay[id] = fallback
+        }
+        config.allDisplays = nil
     }
 
     func appliedDisplays(for id: String) -> [DisplayInfo] {

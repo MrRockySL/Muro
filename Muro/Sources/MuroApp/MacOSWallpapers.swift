@@ -457,11 +457,9 @@ extension AppStore {
             config.perDisplay = [:]
         case .display(let uuid):
             var changed = false
-            if let fallback = config.allDisplays {
-                for display in displays where display.id != uuid && config.perDisplay[display.id] == nil {
-                    config.perDisplay[display.id] = fallback
-                }
-                config.allDisplays = nil
+            if config.allDisplays != nil {
+                // Unplugged displays keep theirs too. See `splitAllDisplays`.
+                splitAllDisplays(except: uuid)
                 changed = true
             }
             if config.perDisplay[uuid] != nil {
