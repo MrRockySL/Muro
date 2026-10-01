@@ -1,5 +1,9 @@
 import Foundation
 
+/// The category a video imported into the app is filed under. The app reads
+/// it to keep a person's own videos in the Library and out of Explore.
+public let importedVideoCategory = "My Videos"
+
 /// Brings a video into the library: master, thumbnail, p720 preview,
 /// manifest append. Shared by muro-import and the app's drop-to-import.
 /// Blocking — call off the main thread.
@@ -53,7 +57,7 @@ public func importVideo(
         let entry = WallpaperEntry(
             id: id,
             title: title ?? source.deletingPathExtension().lastPathComponent,
-            category: category ?? "My Videos",
+            category: category ?? importedVideoCategory,
             file: "Masters/\(id).mov",
             previewFile: preview != nil ? "Previews/\(id)-p720.mov" : nil,
             thumbnail: "Thumbnails/\(id).jpg",

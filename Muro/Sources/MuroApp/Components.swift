@@ -1116,10 +1116,11 @@ struct WallpaperCard: View {
     /// a trash button, and a right-click offering the same delete is a second
     /// way to do a thing that is already one click away (owner, 2026-08-24).
     ///
-    /// The exception is a video the user imported themselves. It appears in
-    /// Explore alongside the catalog, but there is no copy of it anywhere to
-    /// download again, so "Remove Download" would be a lie. It gets the Delete
-    /// wording wherever it is shown outside the Library.
+    /// The exception is a video the user imported themselves, or a download
+    /// the catalog no longer lists. There is no copy of either anywhere to
+    /// download again, so "Remove Download" would be a lie, and they get the
+    /// Delete wording wherever they are shown outside the Library. (Imports
+    /// themselves stay out of Explore since 2026-10-01.)
     private var menuOptions: [MenuOption] {
         // One side of Apple's still picture, downloaded but not showing. Its
         // size is that side's file, the same size the detail view shows.

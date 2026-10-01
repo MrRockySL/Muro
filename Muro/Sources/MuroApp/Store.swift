@@ -24,6 +24,11 @@ struct WallpaperItem: Identifiable, Equatable {
     /// carry the flag. See `AppStore.likedIDs`.
     var liked: Bool = false
     var isDownloaded: Bool { local != nil }
+    /// A video the person imported themselves. It has no catalog entry, and
+    /// the importer files it under its own category, which is what tells it
+    /// apart from a download while the catalog cannot be reached (then no
+    /// download has a catalog entry either).
+    var isPersonalImport: Bool { remote == nil && local?.category == importedVideoCategory }
     var resolutionLabel: String {
         width >= 3200 ? "4K" : (width >= 2200 ? "1440p" : "1080p")
     }
@@ -540,6 +545,14 @@ final class AppStore: ObservableObject {
         return out
     }
 
+    /// What Explore browses: `newestFirstItems` without the videos the person
+    /// imported. Those show in the Library only (owner, 2026-09-30); Explore
+    /// is the catalog, and an import there added a "My Videos" pill and
+    /// counted itself into the total (full check, 2026-10-01).
+    var exploreItems: [WallpaperItem] {
+        newestFirstItems.filter { !$0.isPersonalImport }
+    }
+
     /// The most recent drop: every wallpaper sharing the newest publish date
     /// in the catalog.
     ///
@@ -588,7 +601,9 @@ final class AppStore: ObservableObject {
     /// The latest drop is excluded because it has its own row directly above.
     var pickItems: [WallpaperItem] {
         let drop = Set(latestDropItems.map(\.id))
-        let pool = items.filter { !drop.contains($0.id) }
+        // The person's own videos are not Muro's to pick; they stay in the
+        // Library like everywhere else outside it.
+        let pool = items.filter { !drop.contains($0.id) && !$0.isPersonalImport }
         let today = Calendar.current.startOfDay(for: Date())
         let drawnIDs = defaults.stringArray(forKey: "pickIDs") ?? []
         let sawCatalog = !catalog.isEmpty
@@ -623,7 +638,8 @@ final class AppStore: ObservableObject {
     var categories: [String] {
         if let cachedCategories { return cachedCategories }
         var seen = Set<String>()
-        let out = items.map(\.category).filter { seen.insert($0).inserted }
+        let out = items.filter { !$0.isPersonalImport }
+            .map(\.category).filter { seen.insert($0).inserted }
         cachedCategories = out
         return out
     }
@@ -659,12 +675,19 @@ final class AppStore: ObservableObject {
     /// The hero only ever plays LOCAL files (owner, 2026-07-19): a fresh
     /// install always shows exactly one wallpaper — the bundled 4K — and once
     /// the user has downloads, the hero moves among those. It never streams.
+    ///
+    /// The person's own imported videos are never featured here: whatever is
+    /// imported shows only in the Library (owner, 2026-09-30). The full check
+    /// found them in the hero strip as well as in Explore (2026-10-01).
     var heroItem: WallpaperItem? {
-        if let heroID, let item = item(id: heroID), heroPlayable(item) { return item }
-        if let applied = currentAppliedID, let item = item(id: applied), item.isDownloaded {
+        if let heroID, let item = item(id: heroID), heroPlayable(item), !item.isPersonalImport {
             return item
         }
-        if let firstLocal = localItems.first { return firstLocal }
+        if let applied = currentAppliedID, let item = item(id: applied), item.isDownloaded,
+           !item.isPersonalImport {
+            return item
+        }
+        if let firstLocal = localItems.first(where: { !$0.isPersonalImport }) { return firstLocal }
         if let bundled = item(id: BundledWallpaper.id) { return bundled }
         return BundledWallpaper.fallbackEntry.map {
             WallpaperItem(local: nil, remote: $0, liked: likedIDs.contains($0.id))
@@ -678,7 +701,7 @@ final class AppStore: ObservableObject {
 
     /// Selector strip under the hero: everything the hero can actually play.
     var heroSelectorItems: [WallpaperItem] {
-        var out = localItems
+        var out = localItems.filter { !$0.isPersonalImport }
         if BundledWallpaper.videoURL != nil,
            !out.contains(where: { $0.id == BundledWallpaper.id }) {
             if let bundled = item(id: BundledWallpaper.id) {

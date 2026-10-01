@@ -29,12 +29,12 @@ struct ExploreView: View {
     /// Real values present in the catalog/library — the dropdowns only
     /// offer resolutions and frame rates that actually exist.
     private var resolutionOptions: [String] {
-        let present = Set(store.items.map(\.resolutionLabel))
+        let present = Set(store.exploreItems.map(\.resolutionLabel))
         return ["4K", "1440p", "1080p"].filter(present.contains)
     }
 
     private var fpsOptions: [String] {
-        Set(store.items.map { "\(Int($0.fps.rounded()))" })
+        Set(store.exploreItems.map { "\(Int($0.fps.rounded()))" })
             .sorted { (Int($0) ?? 0) > (Int($1) ?? 0) }
     }
 
@@ -43,7 +43,7 @@ struct ExploreView: View {
     /// The category tabs and the two filters narrow this order rather than
     /// replacing it, so a fresh batch is at the top of Cars as well as of All.
     private var filtered: [WallpaperItem] {
-        store.newestFirstItems.filter { item in
+        store.exploreItems.filter { item in
             if category != "All", item.category != category { return false }
             if resolution != "All", item.resolutionLabel != resolution { return false }
             if fps != "All", "\(Int(item.fps.rounded()))" != fps { return false }
