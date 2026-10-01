@@ -389,7 +389,10 @@ struct SettingsView: View {
         // XPC message or public API that makes it look sooner. Apple's own
         // Settings panel writes the same key the same way and behaves
         // identically.
-        if screenSaverDelayJustChanged {
+        // Never needs no explanation of when it takes effect: it already
+        // has. "Saved. macOS uses it after the current wait ends..." read
+        // oddly under Never (full check, 2026-10-01).
+        if screenSaverDelayJustChanged, let seconds = screenSaverDelay, seconds > 0 {
             return "Saved. macOS uses it after the current wait ends, or now if you lock the screen."
         }
         guard let seconds = screenSaverDelay else {
