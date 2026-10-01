@@ -637,11 +637,19 @@ final class AppStore: ObservableObject {
         return out
     }
 
+    /// Explore's category buttons, in the catalog's order.
+    ///
+    /// The order used to be first appearance in `items`, which lists what is
+    /// downloaded first, so downloading an Abstract wallpaper moved Abstract
+    /// to second place and deleting it moved it back: the buttons jumped
+    /// under the pointer (full check, 2026-10-01). The catalog decides now,
+    /// and a category only downloads still have (one the catalog dropped, or
+    /// any while offline) follows it.
     var categories: [String] {
         if let cachedCategories { return cachedCategories }
         var seen = Set<String>()
-        let out = items.filter { !$0.isPersonalImport }
-            .map(\.category).filter { seen.insert($0).inserted }
+        let local = items.filter { !$0.isPersonalImport }.map(\.category)
+        let out = (catalog.map(\.category) + local).filter { seen.insert($0).inserted }
         cachedCategories = out
         return out
     }
