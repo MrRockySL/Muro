@@ -627,7 +627,11 @@ struct AutomationEditorView: View {
                 }
             }
             GhostPill(title: "Cancel") { dismiss() }
-            PrimaryPill(title: isNew ? "Create Automation" : "Save", enabled: canSave) { save() }
+            PrimaryPill(
+                title: isNew ? "Create Automation" : "Save",
+                enabled: canSave,
+                returnKeyEnabled: customFor == nil
+            ) { save() }
         }
     }
 

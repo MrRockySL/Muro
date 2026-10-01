@@ -778,6 +778,10 @@ struct SheetFooter<Info: View, Actions: View>: View {
 struct PrimaryPill: View {
     var title: String
     var enabled: Bool = true
+    /// False while something in front of the sheet owns Return, such as a
+    /// Custom number card: Return there used to save and close the whole
+    /// editor and throw the typed number away (full check, 2026-10-01).
+    var returnKeyEnabled: Bool = true
     var action: () -> Void
 
     var body: some View {
@@ -793,7 +797,7 @@ struct PrimaryPill: View {
         .buttonStyle(.plain)
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.4)
-        .keyboardShortcut(.defaultAction)
+        .keyboardShortcut(returnKeyEnabled ? .defaultAction : nil)
     }
 }
 
@@ -1229,6 +1233,8 @@ struct CustomValueCard<Unit: View>: View {
                         if (Int(text) ?? 0) != value { text = value > 0 ? String(value) : "" }
                     }
                     .onAppear { text = amount.wrappedValue > 0 ? String(amount.wrappedValue) : "" }
+                    // Return sets the number, the same as the button.
+                    .onSubmit { if canApply { apply() } }
                     .textFieldStyle(.plain)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)

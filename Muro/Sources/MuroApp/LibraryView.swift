@@ -1110,7 +1110,11 @@ struct PlaylistEditorView: View {
                     }
                 }
                 GhostPill(title: "Cancel") { dismiss() }
-                PrimaryPill(title: isNew ? "Create Playlist" : "Save", enabled: canSave) { save() }
+                PrimaryPill(
+                    title: isNew ? "Create Playlist" : "Save",
+                    enabled: canSave,
+                    returnKeyEnabled: !showCustomInterval
+                ) { save() }
             }
         }
         .frame(width: 700, height: 600)
