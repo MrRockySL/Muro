@@ -76,6 +76,18 @@ final class LockScreenSelectionsTests: XCTestCase {
         XCTAssertNil(s[old])
     }
 
+    /// The full check, 2026-10-01: the DELL unplugged, the MacBook's lock
+    /// screen set. The app passes every display it has seen, so the DELL's
+    /// own lock screen stays in the record, as it stays in macOS's.
+    func testAnUnpluggedDisplayMuroKnowsKeepsItsLockScreen() {
+        let s = LockScreenSelections.afterApply(
+            current: ["all": "jungle", dell: "watercolor"],
+            targetKey: macBook, wallpaperID: "ghost",
+            connectedDisplays: [macBook, dell]   // what the app knows, not what is plugged in
+        )
+        XCTAssertEqual(s, ["all": "jungle", dell: "watercolor", macBook: "ghost"])
+    }
+
     func testItNeverHoldsMoreThanOnePerConnectedDisplayPlusAll() {
         var s: [String: String] = [:]
         for round in 0..<20 {

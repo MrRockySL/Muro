@@ -18,10 +18,18 @@ import Foundation
 /// leftovers nobody could clear. That was #25, #26 and #27. Replacing
 /// everything fixed it and cost the second display.
 ///
-/// So the rule is one selection per **connected display**, not one for the
-/// whole Mac and not one per apply. Two displays can hold two, which is the
-/// point, and nothing else can accumulate: an entry for a display that is not
-/// plugged in now is dropped, so unplugging a monitor cleans up after itself.
+/// So the rule is one selection per **display**, not one for the whole Mac
+/// and not one per apply. Two displays can hold two, which is the point, and
+/// nothing else can accumulate.
+///
+/// Which displays count is the caller's list. It used to be only the ones
+/// plugged in at that moment, so setting the MacBook's lock screen while the
+/// DELL was unplugged dropped the DELL's entry while macOS kept the DELL's own
+/// record of it: the two disagreed, and the DELL's staged video could be swept
+/// as unreferenced while its lock screen still named it (full check,
+/// 2026-10-01). The app now passes every display it has seen, so a monitor
+/// that is only unplugged keeps its lock screen, and the record is still
+/// bounded by the displays somebody actually owns.
 public enum LockScreenSelections {
     /// The key that stands for every display at once.
     public static let allKey = "all"
@@ -31,8 +39,9 @@ public enum LockScreenSelections {
     /// - Parameters:
     ///   - current: what is held now, keyed by display UUID or `all`.
     ///   - targetKey: a display UUID, or `all`.
-    ///   - connectedDisplays: the UUIDs plugged in right now. An entry for
-    ///     anything else is dropped, which is what keeps this bounded.
+    ///   - connectedDisplays: the UUIDs of every display to keep an entry
+    ///     for: the app passes all it has seen, plugged in or not. An entry
+    ///     for anything else is dropped, which is what keeps this bounded.
     public static func afterApply(
         current: [String: String],
         targetKey: String,

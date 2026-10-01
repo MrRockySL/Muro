@@ -1227,7 +1227,7 @@ final class AppStore: ObservableObject {
                         thumbnailURL: thumbnailURL,
                         target: target,
                         surface: appleSurface,
-                        connectedDisplays: Set(displays.map(\.id))
+                        connectedDisplays: knownDisplayIDs
                     )
                     if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
                 }
@@ -1305,7 +1305,7 @@ final class AppStore: ObservableObject {
                 videoURL: videoURL,
                 thumbnailURL: thumbnailURL,
                 role: role,
-                connectedDisplays: Set(displays.map(\.id))
+                connectedDisplays: knownDisplayIDs
             )
             if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
             objectWillChange.send()
