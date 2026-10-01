@@ -817,7 +817,12 @@ struct CustomDurationPicker: View {
     @State private var amount = 1
     @State private var unit = "60"
 
-    private var resolved: Int { min(max(amount * (Int(unit) ?? 60), 10), 86_400) }
+    /// The amount is clamped before it is multiplied. Multiplying first let a
+    /// long number typed into the box overflow `Int` and crash Muro the moment
+    /// "hr" was pressed, before the clamp to a day could ever run.
+    private var resolved: Int {
+        min(max(min(max(amount, 0), 86_400) * (Int(unit) ?? 60), 10), 86_400)
+    }
 
     var body: some View {
         CustomValueCard(

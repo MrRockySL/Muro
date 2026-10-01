@@ -1212,7 +1212,11 @@ struct CustomIntervalPicker: View {
     @State private var amount = 45
     @State private var unit = "1"     // 1 = minutes, 60 = hours
 
-    private var resolved: Int { min(max(amount * (Int(unit) ?? 1), 1), 24 * 60) }
+    /// Clamped before the multiply, for the same reason as
+    /// `CustomDurationPicker.resolved`: a long number times 60 overflowed.
+    private var resolved: Int {
+        min(max(min(max(amount, 0), 24 * 60) * (Int(unit) ?? 1), 1), 24 * 60)
+    }
 
     var body: some View {
         CustomValueCard(
