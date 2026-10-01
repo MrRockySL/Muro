@@ -39,6 +39,10 @@ struct PreviewView: View {
     let itemID: String
 
     @State private var showDisplayPopover = false
+    /// The Set Wallpaper button's natural width, and the width it is held at
+    /// while its panel is open. See `pillBar`.
+    @State private var setButtonWidth: CGFloat = 0
+    @State private var heldSetButtonWidth: CGFloat?
     @State private var customPauseAfter = false
     @StateObject private var loader = PreviewLoader()
     /// Apple's aerials learn their real size and their sharp picture while
@@ -198,6 +202,21 @@ struct PreviewView: View {
             HeartButton(item: item, size: 40)
 
             setButton(item)
+                .background(GeometryReader { geo in
+                    Color.clear.preference(key: SetButtonWidthKey.self, value: geo.size.width)
+                })
+                .onPreferenceChange(SetButtonWidthKey.self) { setButtonWidth = $0 }
+                // Held at its width while the panel is open. Each apply from
+                // the panel changes these words ("Set Wallpaper", "Applied on
+                // all displays"), the bar is centred, so it grew or shrank
+                // from both ends and slid out from under the panel hanging off
+                // it, and the next click in the same place could land on a
+                // different card or its Remove (full check, 2026-10-01). A
+                // longer label is cut short until the panel closes.
+                .frame(width: heldSetButtonWidth)
+                .onChange(of: showDisplayPopover) { _, open in
+                    heldSetButtonWidth = open && setButtonWidth > 0 ? setButtonWidth : nil
+                }
                 // Drawn in the window like every other menu, not in a popover.
                 // A popover paints its own square grey sheet behind whatever
                 // it is given, which is what made this the one panel in the
@@ -389,6 +408,7 @@ struct PreviewView: View {
         } else if store.generating.contains(item.id) {
             Text("Preparing 30 fps…")
                 .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
                 .foregroundStyle(.white.opacity(0.75))
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -398,6 +418,7 @@ struct PreviewView: View {
                 ProgressView().controlSize(.small).tint(.white)
                 Text("Setting lock screen…")
                     .font(.system(size: 12.5, weight: .semibold))
+                    .lineLimit(1)
             }
             .foregroundStyle(.white.opacity(0.82))
             .padding(.horizontal, 18)
@@ -512,6 +533,7 @@ struct PreviewView: View {
                 }
                 Text(title)
                     .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
             }
             .foregroundStyle(Color.black)
             .padding(.horizontal, 22)
@@ -541,6 +563,11 @@ struct PreviewView: View {
         }
         .buttonStyle(.plain)
     }
+}
+
+private struct SetButtonWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 // MARK: - Choose display popover
