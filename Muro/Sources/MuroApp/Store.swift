@@ -2028,6 +2028,7 @@ final class AppStore: ObservableObject {
             else { return }
             makeRoom(for: place)
             resumeForStart(on: place)
+            rememberBefore(place)
             runner.startPlaylist(playlist)
         case .automation(let id):
             guard let automation = automations.first(where: { $0.id == id }),
@@ -2035,9 +2036,96 @@ final class AppStore: ObservableObject {
             else { return }
             makeRoom(for: place)
             resumeForStart(on: place)
+            rememberBefore(place)
             runner.startAutomation(automation)
         }
         syncScheduler()
+    }
+
+    // MARK: - What a place showed before its schedule
+
+    /// Turning a place's playlist or automation Off left its last step
+    /// showing, not what the person had before it started (full check,
+    /// 2026-10-01). So what a place shows is remembered when a schedule starts
+    /// there, and put back when it is turned off or deleted. A wallpaper set
+    /// there by hand in the meantime wins: the memory is dropped then.
+    private func beforeKey(_ place: SchedulePlace) -> String { "scheduleBefore." + place.rawValue }
+
+    private func rememberBefore(_ place: SchedulePlace) {
+        let runner = placeScheduler(for: place)
+        // Moving from one schedule to another keeps what was there before
+        // the first one.
+        guard runner.activePlaylistID == nil, runner.activeAutomationID == nil else { return }
+        var shown: [String: String] = [:]
+        switch place {
+        case .desktop:
+            if let all = config.allDisplays { shown["all"] = all.wallpaperID + "|" + all.mode }
+            for (uuid, assignment) in config.perDisplay {
+                shown[uuid] = assignment.wallpaperID + "|" + assignment.mode
+            }
+        case .lockScreen:
+            shown = lockScreen.shownSelections(.desktop)
+        case .screenSaver:
+            shown = lockScreen.shownSelections(.screenSaver)
+        }
+        defaults.set(shown, forKey: beforeKey(place))
+    }
+
+    private func forgetBefore(_ places: [SchedulePlace]) {
+        for place in places { defaults.removeObject(forKey: beforeKey(place)) }
+    }
+
+    /// Puts a place back the way it was before its schedule started. Nothing
+    /// remembered (a schedule started by an older build) keeps the last step,
+    /// as before. A wallpaper deleted since is left out.
+    private func restoreBefore(_ place: SchedulePlace) {
+        guard let shown = defaults.dictionary(forKey: beforeKey(place)) as? [String: String] else { return }
+        defaults.removeObject(forKey: beforeKey(place))
+        if place == .desktop {
+            var all: EngineConfig.Assignment?
+            var perDisplay: [String: EngineConfig.Assignment] = [:]
+            for (key, value) in shown {
+                let parts = value.split(separator: "|", maxSplits: 1).map(String.init)
+                guard let id = parts.first, item(id: id) != nil else { continue }
+                let assignment = EngineConfig.Assignment(
+                    wallpaperID: id, mode: parts.count > 1 ? parts[1] : "smooth"
+                )
+                if key == "all" { all = assignment } else { perDisplay[key] = assignment }
+            }
+            config.allDisplays = all
+            config.perDisplay = perDisplay
+            saveConfig()
+            return
+        }
+        let role: AppleWallpaperStore.Surface = place == .lockScreen ? .desktop : .screenSaver
+        let surface: ApplySurface = place == .lockScreen ? .lockscreen : .screensaver
+        // `all` first: it replaces every display, then each display's own goes
+        // on top of it.
+        let keys = shown.keys.sorted { ($0 == "all" ? 0 : 1, $0) < ($1 == "all" ? 0 : 1, $1) }
+        let previous = placeSteps
+        placeSteps = Task { [weak self] in
+            await previous?.value
+            guard let self else { return }
+            if self.lockScreen.isRotating(role) {
+                do {
+                    try await self.lockScreen.removeRotation(role)
+                } catch {
+                    self.applyError = error.localizedDescription
+                    return
+                }
+            }
+            for key in keys {
+                guard let id = shown[key], let item = self.item(id: id), item.local != nil else { continue }
+                await self.applyWallpaper(
+                    item,
+                    mode: self.defaultMode(for: item),
+                    target: key == "all" ? .all : .display(key),
+                    surface: surface,
+                    fromSchedule: true
+                )
+            }
+            self.objectWillChange.send()
+        }
     }
 
     /// Starting a playlist or an automation is a choice made by hand, so it
@@ -2049,11 +2137,15 @@ final class AppStore: ObservableObject {
         try? config.save(root: root)
     }
 
-    /// Stops whatever a place is playing. It keeps showing the last wallpaper,
-    /// the way the desktop always has when a playlist stops.
+    /// Stops whatever a place is playing, and puts back what it showed before
+    /// that started.
     func stopPlaying(on place: SchedulePlace) {
-        placeScheduler(for: place).stopEverything()
+        let runner = placeScheduler(for: place)
+        let wasPlaying = runner.activePlaylistID != nil || runner.activeAutomationID != nil
+        runner.stopEverything()
         syncScheduler()
+        // Back to what was there before it started. See `restoreBefore`.
+        if wasPlaying { restoreBefore(place) }
     }
 
     /// The places a playlist or an automation is playing on, in order.
@@ -2080,6 +2172,8 @@ final class AppStore: ObservableObject {
         guard !playing.isEmpty else { return }
         for place in playing { placeScheduler(for: place).stopEverything() }
         syncScheduler()
+        // A deleted schedule stops the way Off does.
+        for place in playing { restoreBefore(place) }
     }
 
     /// The places a wallpaper chosen by hand takes over. One of the wallpapers
@@ -2105,6 +2199,9 @@ final class AppStore: ObservableObject {
         guard !playing.isEmpty else { return }
         for place in playing { placeScheduler(for: place).stopEverything() }
         syncScheduler()
+        // The wallpaper chosen by hand is what stays, not what was there
+        // before the schedule.
+        forgetBefore(playing)
     }
 
     /// Where macOS keeps the lock screen and the screen saver on one key, the
@@ -2112,7 +2209,9 @@ final class AppStore: ObservableObject {
     /// would take the key back from the other one, with a flash every time.
     private func makeRoom(for place: SchedulePlace) {
         guard place != .desktop, lockScreen.lockAndSaverAreLinked else { return }
-        placeScheduler(for: place == .lockScreen ? .screenSaver : .lockScreen).stopEverything()
+        let other: SchedulePlace = place == .lockScreen ? .screenSaver : .lockScreen
+        placeScheduler(for: other).stopEverything()
+        forgetBefore([other])
     }
 
     // MARK: - Delete

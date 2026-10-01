@@ -334,6 +334,18 @@ final class LockScreenService {
         )
     }
 
+    /// What this role shows now, by `all` or display UUID, with a playlist's
+    /// fixed id read as the wallpaper it was showing and opt-outs left out.
+    /// Remembered when a playlist starts, so turning it off can put the place
+    /// back the way it was.
+    func shownSelections(_ role: AppleWallpaperStore.Surface) -> [String: String] {
+        var out: [String: String] = [:]
+        for (key, value) in Self.selections(state, for: role) where value != Self.removedSelection {
+            if let id = resolved(value, role: role) { out[key] = id }
+        }
+        return out
+    }
+
     /// Whether a playlist or automation holds this role right now, which is
     /// to say whether its fixed id is what every display reads.
     func isRotating(_ role: AppleWallpaperStore.Surface) -> Bool {
