@@ -296,7 +296,7 @@ struct PreviewView: View {
 
     private func fpsToggle(_ item: WallpaperItem) -> some View {
         HStack(spacing: 2) {
-            fpsSegment("\(Int(item.fps))", mode: "smooth", hint: "Higher CPU", item: item)
+            fpsSegment("\(standardFrameRate(item.fps))", mode: "smooth", hint: "Higher CPU", item: item)
             fpsSegment("30", mode: "efficient", hint: "Lower CPU", item: item)
         }
         .padding(3)

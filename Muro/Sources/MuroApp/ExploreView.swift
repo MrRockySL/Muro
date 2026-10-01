@@ -34,7 +34,7 @@ struct ExploreView: View {
     }
 
     private var fpsOptions: [String] {
-        Set(store.exploreItems.map { "\(Int($0.fps.rounded()))" })
+        Set(store.exploreItems.map { "\(standardFrameRate($0.fps))" })
             .sorted { (Int($0) ?? 0) > (Int($1) ?? 0) }
     }
 
@@ -46,7 +46,7 @@ struct ExploreView: View {
         store.exploreItems.filter { item in
             if category != "All", item.category != category { return false }
             if resolution != "All", item.resolutionLabel != resolution { return false }
-            if fps != "All", "\(Int(item.fps.rounded()))" != fps { return false }
+            if fps != "All", "\(standardFrameRate(item.fps))" != fps { return false }
             if !store.searchText.isEmpty,
                !item.title.localizedCaseInsensitiveContains(store.searchText),
                !item.category.localizedCaseInsensitiveContains(store.searchText) {

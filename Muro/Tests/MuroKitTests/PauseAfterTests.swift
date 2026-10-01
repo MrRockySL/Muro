@@ -71,3 +71,28 @@ final class PauseAfterTests: XCTestCase {
         XCTAssertNil(PauseAfter.resolve(wallpaper: nil, global: 0))  // "Off"
     }
 }
+
+
+final class StandardFrameRateTests: XCTestCase {
+    /// The live catalog's own rates on 2026-10-01, odd ones included.
+    func testEveryCatalogRateLandsOnAStandardOne() {
+        XCTAssertEqual(standardFrameRate(59.94), 60)
+        XCTAssertEqual(standardFrameRate(60.16), 60)
+        XCTAssertEqual(standardFrameRate(29.97), 30)
+        XCTAssertEqual(standardFrameRate(28.26), 30)
+        XCTAssertEqual(standardFrameRate(33.35), 30)
+        XCTAssertEqual(standardFrameRate(36.78), 30)
+        XCTAssertEqual(standardFrameRate(44.82), 50)
+        XCTAssertEqual(standardFrameRate(66.86), 72)
+        XCTAssertEqual(standardFrameRate(69.89), 72)
+        XCTAssertEqual(standardFrameRate(23.98), 24)
+        XCTAssertEqual(standardFrameRate(24.71), 25)
+        XCTAssertEqual(standardFrameRate(120), 120)
+    }
+
+    func testNothingIsZeroUnlessItHasNoRate() {
+        XCTAssertEqual(standardFrameRate(0), 0)
+        XCTAssertEqual(standardFrameRate(.nan), 0)
+        XCTAssertEqual(standardFrameRate(240), 240)
+    }
+}

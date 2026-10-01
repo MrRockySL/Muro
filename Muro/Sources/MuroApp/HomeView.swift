@@ -1,4 +1,5 @@
 import SwiftUI
+import MuroKit
 
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
@@ -149,7 +150,7 @@ struct HomeView: View {
                 Text(item.metaLine)
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(Color.muroSecondary)
-                FPSChip(text: item.fps > 40 ? "\(Int(item.fps)) FPS" : "\(item.resolutionLabel) · \(Int(item.fps))")
+                FPSChip(text: item.fps > 40 ? "\(standardFrameRate(item.fps)) FPS" : "\(item.resolutionLabel) · \(standardFrameRate(item.fps))")
                 if let label = store.appliedChipLabel(for: item.id) {
                     AppliedChip(label: "APPLIED · " + label)
                 }

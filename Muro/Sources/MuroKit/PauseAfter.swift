@@ -37,3 +37,18 @@ public enum PauseAfter {
         return seconds
     }
 }
+
+
+/// The frame rate to show and filter by: the nearest standard rate.
+///
+/// Wallpapers report their exact rate, and many are a little off a round
+/// number (59.94, 29.97) or irregular (67, 69, 37, 34, 33). Shown as is, the
+/// detail said "59" for a 60 fps wallpaper and Explore's FPS filter listed odd
+/// rates nobody chooses between, with "60" also holding wallpapers that said
+/// 59 (full check, 2026-10-01). Everything that names a frame rate uses this,
+/// so the label and the filter always agree.
+public func standardFrameRate(_ fps: Double) -> Int {
+    let standard = [24, 25, 30, 50, 60, 72, 90, 120, 144, 240]
+    guard fps.isFinite, fps > 0 else { return 0 }
+    return standard.min { abs(Double($0) - fps) < abs(Double($1) - fps) } ?? Int(fps.rounded())
+}
