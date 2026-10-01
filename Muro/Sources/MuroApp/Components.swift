@@ -692,6 +692,29 @@ func openSettingsWindow() {
     // else.
     NSApp.activate(ignoringOtherApps: true)
     WindowOpener.shared.settings?()
+    // Settings reopened wherever it was last used, so on a Mac with two
+    // screens it could appear on the other screen from the gallery (full
+    // check, 2026-10-01). Once the window exists, it goes to the gallery's
+    // screen, or the pointer's when the gallery is not open. On the right
+    // screen already, it stays where it was put.
+    Task { @MainActor in placeSettingsOnCurrentScreen() }
+}
+
+@MainActor
+private func placeSettingsOnCurrentScreen() {
+    guard let settings = window(titled: MuroWindow.settings) else { return }
+    let pointer = NSEvent.mouseLocation
+    let gallery = window(titled: MuroWindow.gallery)
+    let target = (gallery?.isVisible == true ? gallery?.screen : nil)
+        ?? NSScreen.screens.first { NSMouseInRect(pointer, $0.frame, false) }
+        ?? NSScreen.main
+    guard let target, settings.screen?.frame != target.frame else { return }
+    let visible = target.visibleFrame
+    let frame = settings.frame
+    settings.setFrameOrigin(NSPoint(
+        x: max(visible.minX, visible.midX - frame.width / 2),
+        y: max(visible.minY, visible.midY - frame.height / 2)
+    ))
 }
 
 /// SwiftUI's `openWindow`, kept somewhere AppKit code can reach it.
