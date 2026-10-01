@@ -272,15 +272,15 @@ struct PreviewView: View {
 
     private func fpsToggle(_ item: WallpaperItem) -> some View {
         HStack(spacing: 2) {
-            fpsSegment("\(Int(item.fps))", mode: "smooth", hint: "Higher CPU")
-            fpsSegment("30", mode: "efficient", hint: "Lower CPU")
+            fpsSegment("\(Int(item.fps))", mode: "smooth", hint: "Higher CPU", item: item)
+            fpsSegment("30", mode: "efficient", hint: "Lower CPU", item: item)
         }
         .padding(3)
         .background(Capsule().fill(Color.white.opacity(0.08)))
         .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
     }
 
-    private func fpsSegment(_ label: String, mode: String, hint: String) -> some View {
+    private func fpsSegment(_ label: String, mode: String, hint: String, item: WallpaperItem) -> some View {
         let selected = store.previewMode == mode
         return Text(label)
             .font(.system(size: 11, weight: .semibold))
@@ -289,7 +289,7 @@ struct PreviewView: View {
             .padding(.vertical, 6)
             .background { if selected { Capsule().fill(Color.white) } }
             .contentShape(Capsule())
-            .onTapGesture { store.previewMode = mode }
+            .onTapGesture { store.setPreviewMode(mode, for: item) }
             .help("\(label) fps · \(hint)")
     }
 

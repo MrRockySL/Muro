@@ -1096,6 +1096,35 @@ final class AppStore: ObservableObject {
         previewMode = defaultMode(for: item)
     }
 
+    /// The 59 / 30 switch in the detail bar.
+    ///
+    /// It only chose what the next Set Wallpaper would use, so flipping it on
+    /// a wallpaper already on screen changed nothing: the switch said 30, the
+    /// bar said Applied, and the desktop went on playing 59 until the
+    /// wallpaper was set again (full check, 2026-10-01). Where this wallpaper
+    /// is on a desktop now, the switch takes effect there at once, making the
+    /// 30 fps copy first if it is not made yet. The lock screen and the
+    /// screen saver keep the copy they were given; they play for seconds at a
+    /// time.
+    func setPreviewMode(_ mode: String, for item: WallpaperItem) {
+        previewMode = mode
+        guard let entry = item.local, !AppleAerials.isAppleID(entry.id), entry.fps > 40 else { return }
+        let onScreen = (config.allDisplays.map { $0.wallpaperID == entry.id && $0.mode != mode } ?? false)
+            || config.perDisplay.values.contains { $0.wallpaperID == entry.id && $0.mode != mode }
+        guard onScreen else { return }
+        Task {
+            if mode == "efficient", entry.efficientFile == nil {
+                guard await ensureEfficientVariant(entry) else { return }
+            }
+            // Read again after the copy is made: the desktop may have moved on.
+            if config.allDisplays?.wallpaperID == entry.id { config.allDisplays?.mode = mode }
+            for (key, assignment) in config.perDisplay where assignment.wallpaperID == entry.id {
+                config.perDisplay[key]?.mode = mode
+            }
+            saveConfig()
+        }
+    }
+
     func defaultMode(for item: WallpaperItem) -> String {
         // See `applyWallpaper`: an Apple aerial has no Efficient variant and
         // must never be offered one.
