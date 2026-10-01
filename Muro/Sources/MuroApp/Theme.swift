@@ -102,8 +102,11 @@ func speedLabel(_ speed: Double) -> String {
 }
 
 func formatSize(_ bytes: Int64) -> String {
-    let mb = Double(bytes) / 1_048_576
-    if mb >= 1024 { return String(format: "%.2f GB", mb / 1024) }
+    // Megabytes of a million bytes, the way Finder counts them. These were
+    // 1,048,576-byte units, so a card said 129 MB for a file Finder lists as
+    // 135 MB (full check, 2026-10-01).
+    let mb = Double(bytes) / 1_000_000
+    if mb >= 1000 { return String(format: "%.2f GB", mb / 1000) }
     // Under a megabyte, one decimal. Whole numbers made a real half-second
     // clip read "0 MB" (full check, 2026-10-01), and anything with bytes in
     // it is at least "0.1 MB".
