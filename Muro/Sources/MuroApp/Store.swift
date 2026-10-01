@@ -381,6 +381,7 @@ final class AppStore: ObservableObject {
         syncScheduler()
         watchRoot()
         recomputeSize()
+        ShareFile.clear()
         rememberDisplays()
         // Installs that applied a wallpaper before this shipped have never had
         // a still written, and a display plugged in while Muro was closed has
@@ -2161,6 +2162,8 @@ final class AppStore: ObservableObject {
     }
 
     private func performDelete(_ entries: [WallpaperEntry], apple: [String] = []) async {
+        // A shared copy is a hard link and would keep a deleted video on disk.
+        ShareFile.clear()
         // Downloads from the Apple section go the same way. An aerial macOS
         // keeps a copy of goes on playing from that copy, so it stays where
         // it is and only Muro's file goes.
@@ -2433,6 +2436,7 @@ final class AppStore: ObservableObject {
             // never mentioned anywhere: 20 MB of streamed previews that only
             // Clear can reach.
             PreviewCache.clear()
+            ShareFile.clear()
             // The saved Explore thumbnails, re-downloadable the same way.
             ThumbnailCache.clear()
             if let updated = try? await Task.detached(priority: .utility, operation: {

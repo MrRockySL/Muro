@@ -39,6 +39,8 @@ struct PreviewView: View {
     let itemID: String
 
     @State private var showDisplayPopover = false
+    /// The video under the wallpaper's own name, for Share. See `ShareFile`.
+    @State private var shareFile: URL?
     /// The Set Wallpaper button's natural width, and the width it is held at
     /// while its panel is open. See `pillBar`.
     @State private var setButtonWidth: CGFloat = 0
@@ -179,7 +181,7 @@ struct PreviewView: View {
             .fixedSize(horizontal: true, vertical: false)
 
             if !isAerial, let url = store.videoURL(for: item, mode: "smooth") {
-                ShareLink(item: url) {
+                ShareLink(item: shareFile ?? url) {
                     // The forward arrow, not the box with an arrow out of it.
                     // The box is the system default and reads as generic
                     // chrome; this is the share glyph messaging apps settled
@@ -191,6 +193,9 @@ struct PreviewView: View {
                     barIcon("arrowshape.turn.up.right.fill", opticalYOffset: 0.4)
                 }
                 .buttonStyle(.plain)
+                // Shared under the wallpaper's own name rather than the id the
+                // library keeps it under ("a9193ba6-....mov").
+                .task(id: url) { shareFile = ShareFile.prepare(url, title: item.title) }
             }
 
             if item.fps > 40, !isAerial {
@@ -1005,5 +1010,41 @@ struct ApplePreviewPicture: View {
             guard let assetID = AppleAerials.assetID(fromMuroID: item.id) else { return }
             picture = await ApplePreviews.fullPicture(assetID: assetID)
         }
+    }
+}
+
+
+/// What Share sends: the video under the wallpaper's own name.
+///
+/// The library keeps every video under its id, so Share sent files named like
+/// "a9193ba6-eb4b-4937-9de6-62de88071850.mov" (full check, 2026-10-01). This
+/// makes a hard link called "<Title>.mov" in Muro's cache folder: the same
+/// file on disk, so it costs no space and is made at once. Only the one most
+/// recently shown is kept, and the folder is emptied on launch and whenever
+/// wallpapers are deleted, because a link would otherwise keep a deleted
+/// video's data on disk. Where a link cannot be made, such as a video kept on
+/// another drive, Share sends the original file as before.
+enum ShareFile {
+    static var directory: URL {
+        PreviewCache.directory.deletingLastPathComponent().appendingPathComponent("Share", isDirectory: true)
+    }
+
+    static func prepare(_ video: URL, title: String) -> URL? {
+        clear()
+        let manager = FileManager.default
+        let name = title
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty,
+              (try? manager.createDirectory(at: directory, withIntermediateDirectories: true)) != nil
+        else { return nil }
+        let link = directory.appendingPathComponent(name).appendingPathExtension(video.pathExtension)
+        guard (try? manager.linkItem(at: video.resolvingSymlinksInPath(), to: link)) != nil else { return nil }
+        return link
+    }
+
+    static func clear() {
+        try? FileManager.default.removeItem(at: directory)
     }
 }
