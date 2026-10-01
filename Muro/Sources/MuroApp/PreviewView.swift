@@ -239,7 +239,9 @@ struct PreviewView: View {
                 : "\(formatSize(item.sizeBytes)) download"
             return "Still picture · \(item.width)×\(item.height) · \(size)"
         }
-        return "\(item.width)×\(item.height) · \(formatSize(item.sizeBytes)) · \(formatDuration(item.duration))"
+        let line = "\(item.width)×\(item.height) · \(formatSize(item.sizeBytes)) · \(formatDuration(item.duration))"
+        // Its picture still shows, so say why nothing moves.
+        return store.missingVideo(item) != nil ? "Video file missing · " + line : line
     }
 
     private var backButton: some View {

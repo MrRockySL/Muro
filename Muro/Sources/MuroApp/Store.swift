@@ -1093,6 +1093,19 @@ final class AppStore: ObservableObject {
         surface: ApplySurface? = nil,
         fromSchedule: Bool = false
     ) {
+        // A wallpaper whose video was moved or deleted outside Muro keeps its
+        // entry and its picture, and setting it used to say "Applied" while
+        // nothing played and the desktop fell back to an old still (full
+        // check, 2026-10-01). Checked before anything changes, so a failed
+        // pick does not stop a playlist either. A playlist step just skips.
+        if let missing = missingVideo(item) {
+            if !fromSchedule {
+                applyError = "Muro can't find the video for “\(missing)”. "
+                    + "It was moved or deleted outside Muro. "
+                    + "Delete it in the Library, then download or import it again."
+            }
+            return
+        }
         if !fromSchedule {
             stopSchedules(on: placesCovered(by: item, surface: surface ?? .desktop))
         }
@@ -1107,6 +1120,14 @@ final class AppStore: ObservableObject {
                 item, mode: mode, target: target, surface: surface, fromSchedule: fromSchedule
             )
         }
+    }
+
+    /// The title of a wallpaper Muro has an entry for but no video file, or
+    /// nil when its video is there (or it is one macOS shows itself).
+    func missingVideo(_ item: WallpaperItem) -> String? {
+        guard !AppleAerials.isMacOSOnly(item.id), let entry = item.local else { return nil }
+        let master = resolveLibraryFile(entry.file, root: root)
+        return FileManager.default.fileExists(atPath: master.path) ? nil : entry.title
     }
 
     private func applyWallpaper(
