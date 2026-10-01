@@ -104,6 +104,10 @@ func speedLabel(_ speed: Double) -> String {
 func formatSize(_ bytes: Int64) -> String {
     let mb = Double(bytes) / 1_048_576
     if mb >= 1024 { return String(format: "%.2f GB", mb / 1024) }
+    // Under a megabyte, one decimal. Whole numbers made a real half-second
+    // clip read "0 MB" (full check, 2026-10-01), and anything with bytes in
+    // it is at least "0.1 MB".
+    if bytes > 0, mb < 0.95 { return String(format: "%.1f MB", max(mb, 0.1)) }
     return String(format: "%.0f MB", mb)
 }
 
