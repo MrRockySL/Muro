@@ -242,12 +242,22 @@ struct AppleGalleryView: View {
     /// 2026-09-30). The ones a person adds from the Library's import bar stay
     /// in the Library with the rest of what they import.
     private var screenSaversPage: some View {
-        ZStack {
+        let savers = model.screenSavers(matching: store.searchText)
+        return ZStack {
             ScrollView(.vertical, showsIndicators: false) {
-                saverGrid(model.screenSavers(matching: store.searchText))
-                    .padding(.horizontal, 40)
-                    .padding(.top, 20)
-                    .padding(.bottom, 40)
+                Group {
+                    // A search that matched none of the eight left a blank
+                    // page with the tab still saying 8 (full check,
+                    // 2026-10-01). It answers the way the aerials do.
+                    if savers.isEmpty {
+                        if model.loaded { noMatchesState(noun: "screen saver") } else { loadingState }
+                    } else {
+                        saverGrid(savers)
+                    }
+                }
+                .padding(.horizontal, 40)
+                .padding(.top, 20)
+                .padding(.bottom, 40)
             }
             .scrollFade(top: 20, bottom: 46)
         }
@@ -276,7 +286,7 @@ struct AppleGalleryView: View {
         } else if model.aerials == nil {
             noStoreState
         } else {
-            noMatchesState
+            noMatchesState(noun: "aerial")
         }
     }
 
@@ -324,7 +334,7 @@ struct AppleGalleryView: View {
         .padding(.vertical, 70)
     }
 
-    private var noMatchesState: some View {
+    private func noMatchesState(noun: String) -> some View {
         VStack(spacing: 12) {
             emptyIcon("sparkle.magnifyingglass")
             Text("Nothing matches that")
@@ -332,7 +342,7 @@ struct AppleGalleryView: View {
                 .foregroundStyle(.white)
             Text(store.searchText.isEmpty
                  ? "Try another category."
-                 : "No aerial called \(store.searchText). Try another word.")
+                 : "No \(noun) called \(store.searchText). Try another word.")
                 .font(.system(size: 12.5))
                 .foregroundStyle(Color.muroSecondary)
                 .multilineTextAlignment(.center)
