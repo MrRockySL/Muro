@@ -382,6 +382,9 @@ final class AppStore: ObservableObject {
         watchRoot()
         recomputeSize()
         ShareFile.clear()
+        power.onChange = { [weak self] in Task { @MainActor in self?.updatePowerPaused() } }
+        power.start()
+        updatePowerPaused()
         rememberDisplays()
         // Installs that applied a wallpaper before this shipped have never had
         // a still written, and a display plugged in while Muro was closed has
@@ -1101,6 +1104,23 @@ final class AppStore: ObservableObject {
     /// Playing all through it (full check, 2026-10-01); it says Paused now,
     /// and its play button plays again. Set by the engine.
     @Published var desktopResting = false
+
+    /// The power settings are pausing playback now: Low Power Mode or low
+    /// battery, each with its switch on. Home's banner stops with the
+    /// wallpapers; it went on playing in Low Power Mode (full check,
+    /// 2026-10-01).
+    @Published private(set) var powerPaused = false
+    private let power = PowerMonitor()
+
+    private func updatePowerPaused() {
+        let now = powerPausesPlayback(
+            lowPowerMode: power.isLowPowerMode,
+            lowBattery: power.isLowBattery,
+            autoPauseLowPower: autoPauseLowPower,
+            autoPauseBattery: autoPauseBattery
+        )
+        if now != powerPaused { powerPaused = now }
+    }
     /// Plays the resting wallpapers again. Set by the app delegate, which
     /// owns the engine.
     var replayDesktop: (() -> Void)?
@@ -1510,11 +1530,13 @@ final class AppStore: ObservableObject {
     func setAutoPauseLowPower(_ on: Bool) {
         config.autoPauseLowPower = on
         saveConfig()
+        updatePowerPaused()
     }
 
     func setAutoPauseBattery(_ on: Bool) {
         config.autoPauseBattery = on
         saveConfig()
+        updatePowerPaused()
     }
 
     func reapply() {

@@ -125,7 +125,7 @@ struct HomeView: View {
                 // Home stays mounted underneath and two 4K decoders would
                 // otherwise run at once.
                 if let url = store.heroVideoURL(for: item) {
-                    LoopingPlayerView(url: url, isActive: store.previewItem == nil)
+                    LoopingPlayerView(url: url, isActive: store.previewItem == nil && !store.powerPaused)
                 } else {
                     // Hero-sized, so it gets the full decode.
                     ThumbImage(item: item, maxPixels: ImageCache.fullPixels)

@@ -79,3 +79,13 @@ public final class PowerMonitor {
         return false
     }
 }
+
+
+/// Whether the power settings pause playback right now. The wallpapers obey
+/// it in the engine, and Home's banner video obeys the same rule, so the app
+/// stops spending power the moment the desktop does.
+public func powerPausesPlayback(
+    lowPowerMode: Bool, lowBattery: Bool, autoPauseLowPower: Bool, autoPauseBattery: Bool
+) -> Bool {
+    (autoPauseLowPower && lowPowerMode) || (autoPauseBattery && lowBattery)
+}

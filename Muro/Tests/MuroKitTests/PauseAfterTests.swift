@@ -96,3 +96,14 @@ final class StandardFrameRateTests: XCTestCase {
         XCTAssertEqual(standardFrameRate(240), 240)
     }
 }
+
+
+final class PowerPauseRuleTests: XCTestCase {
+    func testEachSettingOnlyCountsWithItsOwnCondition() {
+        XCTAssertTrue(powerPausesPlayback(lowPowerMode: true, lowBattery: false, autoPauseLowPower: true, autoPauseBattery: false))
+        XCTAssertFalse(powerPausesPlayback(lowPowerMode: true, lowBattery: false, autoPauseLowPower: false, autoPauseBattery: true))
+        XCTAssertTrue(powerPausesPlayback(lowPowerMode: false, lowBattery: true, autoPauseLowPower: false, autoPauseBattery: true))
+        XCTAssertFalse(powerPausesPlayback(lowPowerMode: false, lowBattery: true, autoPauseLowPower: true, autoPauseBattery: false))
+        XCTAssertFalse(powerPausesPlayback(lowPowerMode: false, lowBattery: false, autoPauseLowPower: true, autoPauseBattery: true))
+    }
+}
