@@ -176,6 +176,12 @@ struct PreviewView: View {
                 Text(metaLine(item))
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(Color.muroSecondary)
+                if let fitWarning = fitWarning(item) {
+                    Text(fitWarning)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Color.muroWarn)
+                        .lineLimit(1)
+                }
             }
             .frame(maxWidth: 240, alignment: .leading)
             .fixedSize(horizontal: true, vertical: false)
@@ -266,6 +272,20 @@ struct PreviewView: View {
         let line = "\(item.width)×\(item.height) · \(formatSize(item.sizeBytes)) · \(formatDuration(item.duration))"
         // Its picture still shows, so say why nothing moves.
         return store.missingVideo(item) != nil ? "Video file missing · " + line : line
+    }
+
+    /// A video that will not fill a screen well, said before it is set.
+    ///
+    /// A wallpaper always fills the whole screen, so a vertical video is
+    /// zoomed until its width fits, which crops most of it, and a small one is
+    /// stretched and looks soft. Nothing said so (full check, 2026-10-01).
+    /// Muro's own wallpapers are all wide and at least 1080p, so in practice
+    /// this speaks about the person's own videos.
+    private func fitWarning(_ item: WallpaperItem) -> String? {
+        guard item.width > 0, item.height > 0 else { return nil }
+        if item.height > item.width { return "Vertical video · zoomed in to fill the screen" }
+        if item.width < 1920 { return "Low resolution · may look soft on the screen" }
+        return nil
     }
 
     private var backButton: some View {
