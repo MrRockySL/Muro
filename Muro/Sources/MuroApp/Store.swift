@@ -784,11 +784,18 @@ final class AppStore: ObservableObject {
         Task.detached(priority: .utility) {
             // Videos kept in another folder sit behind a link, which counting
             // the library does not follow. See `DownloadFolder`.
-            var linked: Int64 = 0
+            var folders = [root]
             if case .custom(let folder) = DownloadFolder.location(root: root) {
-                linked = directorySize(folder)
+                folders.append(folder)
             }
-            let sum = directorySize(root) + linked
+            // The copies staged for the lock screen and the screen saver are
+            // Muro's disk use too, and they were in no number anywhere: a
+            // deleted wallpaper could sit there at 135 MB a copy with the
+            // Storage row none the wiser. A playlist's step there is a hard
+            // link to the library's own file, which is why every file is
+            // counted once however many folders link it.
+            folders.append(LockScreenService.stagedVideosURL)
+            let sum = uniqueFileBytes(folders)
             let apple = AppleAerials.cacheSize(libraryRoot: root)
             let appleIDs = Set(AppleAerials.downloadedFiles(libraryRoot: root)
                 .map { $0.deletingPathExtension().lastPathComponent })
@@ -2126,12 +2133,19 @@ final class AppStore: ObservableObject {
             else { continue }
             if place.activePlaylistID != nil || place.activeAutomationID != nil {
                 place.showCurrentAgain()
-            } else {
-                do {
-                    try await lockScreen.remove(target: .all, surface: role)
-                } catch {
-                    applyError = error.localizedDescription
-                }
+                // The step is queued behind any other; wait for it and check
+                // it really replaced the deleted video. When nothing it has
+                // left can play, the deleted wallpaper stayed on the lock
+                // screen behind its hard link, kept its file on disk and came
+                // back on the desktop after Quit (full check, 2026-10-01).
+                await placeSteps?.value
+                guard let still = lockScreen.rotationWallpaperID(role), ids.contains(still)
+                else { continue }
+            }
+            do {
+                try await lockScreen.remove(target: .all, surface: role)
+            } catch {
+                applyError = error.localizedDescription
             }
         }
 
@@ -2374,11 +2388,21 @@ func importFailureReason(_ error: Error) -> String {
     return error.localizedDescription
 }
 
-func directorySize(_ root: URL) -> Int64 {
+/// Bytes on disk across several folders, each file counted once even when it
+/// is hard linked from more than one of them. Links to other files are not
+/// followed; a folder kept elsewhere is passed in on its own.
+func uniqueFileBytes(_ folders: [URL]) -> Int64 {
+    var seen = Set<String>()
     var total: Int64 = 0
-    if let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.fileSizeKey]) {
+    for folder in folders {
+        guard let files = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil)
+        else { continue }
         for case let url as URL in files {
-            total += Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            var info = stat()
+            guard lstat(url.path, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG,
+                  seen.insert("\(info.st_dev):\(info.st_ino)").inserted
+            else { continue }
+            total += Int64(info.st_size)
         }
     }
     return total

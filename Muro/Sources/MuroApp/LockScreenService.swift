@@ -859,6 +859,12 @@ final class LockScreenService {
             .appendingPathComponent("MuroWallpaperExtension.appex", isDirectory: true)
     }
 
+    /// Where the lock screen's and the screen saver's videos are staged, for
+    /// the Storage row.
+    static var stagedVideosURL: URL {
+        extensionDocumentsURL.appendingPathComponent("videos", isDirectory: true)
+    }
+
     private static var extensionDocumentsURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Containers", isDirectory: true)
