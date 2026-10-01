@@ -2248,7 +2248,7 @@ final class AppStore: ObservableObject {
 
     /// What the interface calls. Nothing deletes without an answer, so the
     /// button, the menu item and the batch bar all end up in the same sheet.
-    func requestDelete(_ items: [WallpaperItem]) {
+    func requestDelete(_ items: [WallpaperItem], removingDownload: Bool = false) {
         // From the Apple section, only what Muro downloaded can go: macOS's
         // own aerials are not Muro's to touch, and the ones macOS draws have
         // no file at all.
@@ -2257,7 +2257,7 @@ final class AppStore: ObservableObject {
                 || canDeleteScreenSaver(item.id)
         }
         guard !deletable.isEmpty else { return }
-        pendingDelete = DeleteRequest(items: deletable)
+        pendingDelete = DeleteRequest(items: deletable, removingDownload: removingDownload)
     }
 
     func deleteWallpaper(_ item: WallpaperItem) {
@@ -2595,9 +2595,9 @@ final class AppStore: ObservableObject {
     /// wallpaper without being asked first.
     func removeDownload(_ item: WallpaperItem) {
         // Apple's go through the same sheet and the same delete as the rest.
-        if AppleAerials.isAppleID(item.id) { requestDelete([item]); return }
+        if AppleAerials.isAppleID(item.id) { requestDelete([item], removingDownload: true); return }
         guard item.remote != nil, item.local != nil else { return }
-        requestDelete([item])
+        requestDelete([item], removingDownload: true)
     }
 
     // MARK: - Files

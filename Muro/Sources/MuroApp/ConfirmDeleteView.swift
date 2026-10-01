@@ -7,6 +7,9 @@ import MuroKit
 struct DeleteRequest: Identifiable, Equatable {
     let id = UUID()
     var items: [WallpaperItem]
+    /// Raised by "Remove Download", so the sheet uses the same words as the
+    /// menu item that opened it rather than "Delete".
+    var removingDownload = false
 
     static func == (lhs: DeleteRequest, rhs: DeleteRequest) -> Bool { lhs.id == rhs.id }
 }
@@ -106,7 +109,7 @@ struct ConfirmDeleteView: View {
                 store.deleteWallpapers(items)
                 dismiss()
             } label: {
-                Text(items.count > 1 ? "Delete \(items.count)" : "Delete")
+                Text(actionWord + (items.count > 1 ? " \(items.count)" : ""))
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 20)
@@ -183,7 +186,14 @@ struct ConfirmDeleteView: View {
 
     // MARK: - Words
 
+    /// "Remove Download" opened a sheet asking "Delete this wallpaper?" (full
+    /// check, 2026-10-01). A request from that menu item keeps its words.
+    private var actionWord: String { request.removingDownload ? "Remove" : "Delete" }
+
     private var title: String {
+        if request.removingDownload {
+            return items.count == 1 ? "Remove this download?" : "Remove \(items.count) downloads?"
+        }
         if onlySavers {
             return items.count == 1 ? "Delete this screen saver?" : "Delete \(items.count) screen savers?"
         }
