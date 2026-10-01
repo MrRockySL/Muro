@@ -633,6 +633,7 @@ struct PlaylistCard: View {
     var onEdit: () -> Void = {}
 
     @State private var hovering = false
+    @State private var confirmingDelete = false
 
     /// Where it is playing, if anywhere. A card has no play button of its
     /// own: playlists are played from Now Playing and the menu bar.
@@ -688,6 +689,9 @@ struct PlaylistCard: View {
         // Custom right-click menu in the app's glass style instead of the
         // stock macOS context menu.
         .glassContextMenu(width: 190) { menuOptions }
+        .confirmScheduleDelete($confirmingDelete, kind: "playlist", name: playlist.name) {
+            store.deletePlaylist(playlist)
+        }
     }
 
     private var menuOptions: [MenuOption] {
@@ -700,7 +704,7 @@ struct PlaylistCard: View {
             },
             .divider,
             MenuOption(title: "Delete Playlist", destructive: true) {
-                store.deletePlaylist(playlist)
+                confirmingDelete = true
             }
         ]
     }
@@ -769,6 +773,7 @@ struct AutomationCard: View {
     var onEdit: () -> Void = {}
 
     @State private var hovering = false
+    @State private var confirmingDelete = false
 
     /// Where it is playing, if anywhere. Played from Now Playing, like a
     /// playlist.
@@ -859,6 +864,9 @@ struct AutomationCard: View {
         .onHover { hovering = $0 }
         .onTapGesture { onEdit() }
         .glassContextMenu(width: 200) { menuOptions }
+        .confirmScheduleDelete($confirmingDelete, kind: "automation", name: automation.name) {
+            store.deleteAutomation(automation)
+        }
     }
 
     @ViewBuilder private var schedule: some View {
@@ -920,7 +928,7 @@ struct AutomationCard: View {
             MenuOption(title: "Edit Automation") { onEdit() },
             .divider,
             MenuOption(title: "Delete Automation", destructive: true) {
-                store.deleteAutomation(automation)
+                confirmingDelete = true
             }
         ]
     }
@@ -957,6 +965,7 @@ struct PlaylistEditorView: View {
     /// at that moment the interval is still whatever preset it was.
     @State private var customSelected = false
     @State private var segmentFrames: [String: CGRect] = [:]
+    @State private var confirmingDelete = false
 
     /// The intervals with their own segment. Anything else is "Custom".
     private static let presets = [15, 30, 60, 180]
@@ -1108,10 +1117,7 @@ struct PlaylistEditorView: View {
                     .foregroundStyle(Color.muroSecondary)
             } actions: {
                 if !isNew {
-                    DangerPill(title: "Delete") {
-                        if case .edit(let playlist) = target { store.deletePlaylist(playlist) }
-                        dismiss()
-                    }
+                    DangerPill(title: "Delete") { confirmingDelete = true }
                 }
                 GhostPill(title: "Cancel") { dismiss() }
                 PrimaryPill(
@@ -1125,6 +1131,10 @@ struct PlaylistEditorView: View {
         .sheetSurface()
         .menuHost()
         .onAppear(perform: load)
+        .confirmScheduleDelete($confirmingDelete, kind: "playlist", name: trimmedName) {
+            if case .edit(let playlist) = target { store.deletePlaylist(playlist) }
+            dismiss()
+        }
     }
 
     private var summaryLine: String {
@@ -1253,6 +1263,29 @@ struct CustomIntervalPicker: View {
         .onAppear {
             if minutes % 60 == 0 && minutes >= 60 { amount = minutes / 60; unit = "60" }
             else { amount = minutes; unit = "1" }
+        }
+    }
+}
+
+
+/// "Are you sure?" before a playlist or an automation is deleted.
+///
+/// An automation went at one click, from its card's menu or the editor's
+/// Delete, while deleting a wallpaper always asks (full check, 2026-10-01).
+/// A playlist did the same. Only the schedule goes: its wallpapers stay in the
+/// Library, and the message says so.
+extension View {
+    func confirmScheduleDelete(
+        _ isPresented: Binding<Bool>,
+        kind: String,
+        name: String,
+        delete: @escaping () -> Void
+    ) -> some View {
+        alert("Delete “\(name)”?", isPresented: isPresented) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive, action: delete)
+        } message: {
+            Text("This \(kind) is deleted for good. Its wallpapers stay in your Library.")
         }
     }
 }

@@ -27,6 +27,7 @@ struct AutomationEditorView: View {
     @State private var steps: [Automation.Step] = []
     @State private var loaded = false
     @State private var customFor: String?
+    @State private var confirmingDelete = false
     @State private var focusedStepID: String?
     @State private var reorderID: String?
     @State private var reorderOffset: CGFloat = 0
@@ -129,6 +130,10 @@ struct AutomationEditorView: View {
         .sheetSurface()
         .menuHost()
         .onAppear(perform: load)
+        .confirmScheduleDelete($confirmingDelete, kind: "automation", name: trimmedName) {
+            if case .edit(let automation) = target { store.deleteAutomation(automation) }
+            dismiss()
+        }
     }
 
     /// Everything below the picker, in one slot that is always there.
@@ -621,10 +626,7 @@ struct AutomationEditorView: View {
             .frame(height: 36, alignment: .leading)
         } actions: {
             if !isNew {
-                DangerPill(title: "Delete") {
-                    if case .edit(let automation) = target { store.deleteAutomation(automation) }
-                    dismiss()
-                }
+                DangerPill(title: "Delete") { confirmingDelete = true }
             }
             GhostPill(title: "Cancel") { dismiss() }
             PrimaryPill(
