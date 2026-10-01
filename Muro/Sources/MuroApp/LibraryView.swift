@@ -781,6 +781,13 @@ struct AutomationCard: View {
             systemImage: "rectangle.stack",
             text: "\(count) wallpaper\(count == 1 ? "" : "s")"
         )
+        // With every wallpaper deleted out of it, an automation still said
+        // "Covers the whole day" over an empty timeline (full check,
+        // 2026-10-01). An empty schedule covers nothing and plays nothing.
+        guard count > 0 else {
+            return [wallpapers, MetaChip(systemImage: "exclamationmark.triangle",
+                                         text: "Nothing to play", tint: Color.muroWarn)]
+        }
         switch automation.mode {
         case .timer:
             return [wallpapers, MetaChip(systemImage: "arrow.triangle.2.circlepath",
