@@ -272,9 +272,14 @@ struct TopBar: View {
                 active: store.searchActive,
                 help: "Search wallpapers"
             ) {
-                store.searchActive.toggle()
-                if store.searchActive, store.tab == .home { store.switchTab(.explore) }
-                if !store.searchActive { store.searchText = "" }
+                if store.searchActive {
+                    store.searchActive = false
+                    store.searchText = ""
+                } else {
+                    // Tab first: changing tab closes any search.
+                    if store.tab == .home { store.switchTab(.explore) }
+                    store.searchActive = true
+                }
             }
             whatsNew
             ImportButton()

@@ -462,6 +462,11 @@ final class AppStore: ObservableObject {
     func switchTab(_ new: Tab) {
         guard new != tab else { return }
         tab = new
+        // Each page searches on its own. One word typed in Explore went on
+        // filtering the Library and the Apple section too, which read as
+        // wallpapers gone missing (full check, 2026-10-01).
+        searchText = ""
+        searchActive = false
     }
 
     // MARK: - Items
