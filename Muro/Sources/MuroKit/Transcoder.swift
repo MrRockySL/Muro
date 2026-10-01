@@ -28,10 +28,14 @@ public enum TranscodeError: Error, CustomStringConvertible {
 /// second frame — the cheap, exact way to turn 60 fps into 30 fps for the
 /// "Efficient" playback mode. Decoding and encoding are both hardware
 /// (Media Engine) on Apple Silicon.
+///
+/// `progress`, when given, is told how far through the video the encode is,
+/// 0 to 1, in steps of about a hundredth, on the encoding queue.
 public func transcodeToHEVC(
     source: URL,
     destination: URL,
-    halveFrameRate: Bool = false
+    halveFrameRate: Bool = false,
+    progress: ((Double) -> Void)? = nil
 ) throws -> TranscodeResult {
     let asset = AVURLAsset(url: source)
 
@@ -102,6 +106,8 @@ public func transcodeToHEVC(
     let copyDone = DispatchSemaphore(value: 0)
     var frameIndex = 0
     var sessionStarted = false
+    var firstTime: CMTime?
+    var reported = 0.0
 
     writerInput.requestMediaDataWhenReady(on: queue) {
         while writerInput.isReadyForMoreMediaData {
@@ -118,6 +124,17 @@ public func transcodeToHEVC(
             if !sessionStarted {
                 writer.startSession(atSourceTime: CMSampleBufferGetPresentationTimeStamp(sample))
                 sessionStarted = true
+            }
+            if let progress, duration > 0 {
+                let time = CMSampleBufferGetPresentationTimeStamp(sample)
+                if firstTime == nil { firstTime = time }
+                if let start = firstTime {
+                    let done = min(max(CMTimeGetSeconds(CMTimeSubtract(time, start)) / duration, 0), 1)
+                    if done - reported >= 0.01 {
+                        reported = done
+                        progress(done)
+                    }
+                }
             }
             if !writerInput.append(sample) {
                 reader.cancelReading()

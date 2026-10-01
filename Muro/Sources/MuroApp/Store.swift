@@ -258,6 +258,10 @@ final class AppStore: ObservableObject {
     @Published var downloads: [String: Double] = [:]        // id → 0…1
     @Published var generating: Set<String> = []             // efficient variants in flight
     @Published var importStatus: String?
+    /// How far through the file being imported now, 0 to 1, or nil when no
+    /// import is running. The top bar's import button draws it as a ring, so
+    /// an import started from Home is seen on Home.
+    @Published private(set) var importProgress: Double?
     /// A short line for the import bar after an import, such as a video that
     /// was already there. It clears itself.
     @Published private(set) var importNote: String?
@@ -1833,13 +1837,15 @@ final class AppStore: ObservableObject {
             var already: [String] = []
             var library = known
             for (index, url) in videos.enumerated() {
+                // The file name and the codec are not news to the person who
+                // just dropped the file. One word, a count and a percentage
+                // are the whole of what they need while they wait; a big file
+                // used to sit at "Importing 1 of 4..." for most of a minute
+                // with nothing moving (full check, 2026-10-01).
+                let label = videos.count == 1 ? "Importing" : "Importing \(index + 1) of \(videos.count)"
                 await MainActor.run {
-                    // The file name and the codec are not news to the person
-                    // who just dropped the file. One word plus a count is the
-                    // whole of what they need while they wait.
-                    AppStore.shared.importStatus = videos.count == 1
-                        ? "Importing…"
-                        : "Importing \(index + 1) of \(videos.count)…"
+                    AppStore.shared.importStatus = label + "…"
+                    AppStore.shared.importProgress = 0
                 }
                 // The same file twice used to make two identical wallpapers.
                 // It is turned away like a second `.saver`, including the
@@ -1850,7 +1856,15 @@ final class AppStore: ObservableObject {
                     continue
                 }
                 do {
-                    library.append(try importVideo(source: url, root: root, sourceFingerprint: fingerprint))
+                    library.append(try importVideo(
+                        source: url, root: root, sourceFingerprint: fingerprint
+                    ) { done in
+                        Task { @MainActor in
+                            guard AppStore.shared.importProgress != nil else { return }
+                            AppStore.shared.importProgress = done
+                            AppStore.shared.importStatus = "\(label)… \(Int((done * 100).rounded()))%"
+                        }
+                    })
                 } catch {
                     failures.append("\(url.lastPathComponent): \(importFailureReason(error))")
                 }
@@ -1860,6 +1874,7 @@ final class AppStore: ObservableObject {
             let duplicates = already
             await MainActor.run {
                 AppStore.shared.importStatus = nil
+                AppStore.shared.importProgress = nil
                 AppStore.shared.recomputeSize()
                 if !duplicates.isEmpty {
                     AppStore.shared.showImportNote(duplicates.count == 1

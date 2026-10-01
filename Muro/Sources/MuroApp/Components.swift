@@ -402,8 +402,25 @@ struct ImportButton: View {
                 .shadow(color: Color.white.opacity(0.45), radius: hovering ? 5 : 3)
         }
         .buttonStyle(BubbleButtonStyle(size: size, hovering: hovering, active: false, tint: .white))
+        // An import shows on every tab, not only in the Library where its
+        // words are: a ring round this button fills as the file goes in.
+        .overlay {
+            if let done = store.importProgress {
+                ZStack {
+                    Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 2.5)
+                    Circle()
+                        .inset(by: 1.25)
+                        .trim(from: 0, to: max(done, 0.02))
+                        .stroke(Color.muroAccent, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.easeOut(duration: 0.25), value: done)
+                }
+                .frame(width: size + 6, height: size + 6)
+                .allowsHitTesting(false)
+            }
+        }
         .onHover { hovering = $0 }
-        .help("Import your own video")
+        .help(store.importStatus ?? "Import your own video")
         .fileImporter(
             isPresented: $showImporter,
             allowedContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie],

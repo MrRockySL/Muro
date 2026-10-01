@@ -67,7 +67,8 @@ public func importVideo(
     category: String? = nil,
     root: URL = LibraryManifest.defaultRoot(),
     preserveOriginal: Bool = false,
-    sourceFingerprint: String? = nil
+    sourceFingerprint: String? = nil,
+    progress: ((Double) -> Void)? = nil
 ) throws -> WallpaperEntry {
     let mastersDir = root.appendingPathComponent("Masters", isDirectory: true)
     let thumbsDir = root.appendingPathComponent("Thumbnails", isDirectory: true)
@@ -82,9 +83,11 @@ public func importVideo(
     let previewURL = previewsDir.appendingPathComponent("\(id)-p720.mov")
 
     do {
+        // The encode is nearly all of an import's time, so it is most of the
+        // bar; the picture and the preview after it are the last few percent.
         let result = try preserveOriginal
             ? copyVideoStream(source: source, destination: masterURL)
-            : transcodeToHEVC(source: source, destination: masterURL)
+            : transcodeToHEVC(source: source, destination: masterURL) { progress?($0 * 0.95) }
         // A missing thumbnail costs the card its picture and nothing more, so
         // like the preview below it must not fail an import whose master
         // transcoded perfectly well.
