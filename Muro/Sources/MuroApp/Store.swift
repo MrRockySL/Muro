@@ -2074,14 +2074,30 @@ final class AppStore: ObservableObject {
 
     // MARK: - Storage
 
-    /// The only wallpapers Clear keeps: whatever is on screen right now, on
-    /// any display or on the lock screen.
+    /// The wallpapers Clear keeps: whatever is on screen right now, on any
+    /// display, the lock screen or the screen saver, and every wallpaper a
+    /// playlist or an automation uses.
     ///
-    /// Playlist members used to be protected too, which quietly defeated the
-    /// point: a user with everything in one playlist pressed Clear and freed
-    /// nothing. A playlist that shrinks still works, and F1d strips the dead
-    /// ids out of it.
+    /// Playlist members were left out for a while, so that a library kept
+    /// entirely in one playlist could still be cleared. What that did in
+    /// practice was empty playlists and automations behind the user's back:
+    /// Clear is about freeing space, and nothing on its sheet said a playlist
+    /// would lose half its wallpapers and an automation its steps. They are
+    /// kept again (the rule of 2026-07-18), and the sheet now says so.
     var protectedWallpaperIDs: Set<String> {
+        playingWallpaperIDs.union(scheduledWallpaperIDs)
+    }
+
+    /// Every wallpaper a playlist or an automation uses, playing or not.
+    var scheduledWallpaperIDs: Set<String> {
+        var ids = Set(playlists.flatMap(\.wallpaperIDs))
+        for automation in automations { ids.formUnion(automation.steps.map(\.wallpaperID)) }
+        return ids
+    }
+
+    /// Whatever is on screen right now, on any display, the lock screen or
+    /// the screen saver.
+    var playingWallpaperIDs: Set<String> {
         var ids = Set<String>()
         if let all = config.allDisplays?.wallpaperID { ids.insert(all) }
         for assignment in config.perDisplay.values { ids.insert(assignment.wallpaperID) }
@@ -2100,6 +2116,9 @@ final class AppStore: ObservableObject {
     struct ClearPlan {
         var removed: [WallpaperEntry]
         var kept: Int
+        /// Of `kept`, the ones staying only because a playlist or an
+        /// automation uses them, so the sheet can say why they stay.
+        var keptForSchedules: Int = 0
         var personal: Int
         var bytes: Int64
         /// Downloads from the Apple section that nothing is showing. Apple
@@ -2112,11 +2131,15 @@ final class AppStore: ObservableObject {
 
     var clearPlan: ClearPlan {
         let keep = protectedWallpaperIDs
+        let playing = playingWallpaperIDs
         let remote = Set(catalog.map(\.id))
         let removed = manifest.wallpapers.filter { !keep.contains($0.id) }
         return ClearPlan(
             removed: removed,
             kept: manifest.wallpapers.count - removed.count,
+            keptForSchedules: manifest.wallpapers.filter {
+                keep.contains($0.id) && !playing.contains($0.id)
+            }.count,
             personal: removed.filter { !remote.contains($0.id) }.count,
             bytes: removed.reduce(0) { $0 + $1.sizeBytes } + PreviewCache.sizeOnDisk()
                 + ThumbnailCache.sizeOnDisk(),

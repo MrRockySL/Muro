@@ -400,7 +400,9 @@ struct SettingsView: View {
     private var clearMessage: String {
         let plan = store.clearPlan
         guard !plan.isEmpty else {
-            return "Nothing to clear. The only wallpapers here are the ones in use."
+            return plan.keptForSchedules > 0
+                ? "Nothing to clear. Every wallpaper here is playing, or in a playlist or an automation."
+                : "Nothing to clear. The only wallpapers here are the ones in use."
         }
         let count = plan.removed.count + plan.apple.count
         var text = "This removes \(count) "
@@ -411,10 +413,16 @@ struct SettingsView: View {
                 ? " 1 of them is from the Apple section and can be downloaded again."
                 : " \(plan.apple.count) of them are from the Apple section and can be downloaded again."
         }
-        if plan.kept > 0 {
-            text += plan.kept == 1
+        let keptPlaying = plan.kept - plan.keptForSchedules
+        if keptPlaying > 0 {
+            text += keptPlaying == 1
                 ? " The one that is playing stays."
-                : " The \(plan.kept) in use stay."
+                : " The \(keptPlaying) in use stay."
+        }
+        if plan.keptForSchedules > 0 {
+            text += plan.keptForSchedules == 1
+                ? " The one in your playlists and automations stays."
+                : " The \(plan.keptForSchedules) in your playlists and automations stay."
         }
         if plan.personal > 0 {
             text += plan.personal == 1
