@@ -23,6 +23,8 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.applyActivationPolicy()
+        engine.onRestingChange = { resting in AppStore.shared.desktopResting = resting }
+        AppStore.shared.replayDesktop = { [weak self] in self?.engine.replayAll() }
         engine.start()
         statusBar = StatusBarController(store: AppStore.shared)
         watchForHideKey()

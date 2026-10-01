@@ -264,7 +264,9 @@ public final class WallpaperWindowController {
     private func armSettleTimer() {
         settleTimer?.invalidate()
         settleTimer = nil
+        let wasSettled = holds.contains("settled")
         release("settled")
+        if wasSettled { onSettledChange?(false) }
         guard let seconds = pauseAfterSeconds, holds.isEmpty else { return }
         let timer = Timer(timeInterval: Double(seconds), repeats: false) { [weak self] _ in
             DispatchQueue.main.async { self?.settle() }
@@ -276,6 +278,17 @@ public final class WallpaperWindowController {
     private func settle() {
         settleTimer = nil
         hold("settled")
+        onSettledChange?(true)
+    }
+
+    /// Told when Pause After freezes this screen (true) and when it moves
+    /// again (false), so the menu bar can say Paused rather than Playing.
+    public var onSettledChange: ((Bool) -> Void)?
+
+    /// Plays again after Pause After froze it, and starts its clock again:
+    /// the menu bar's play button while the wallpaper rests.
+    public func replay() {
+        armSettleTimer()
     }
 
     /// Issue #22. "Play only on desktop" is an ordinary hold named

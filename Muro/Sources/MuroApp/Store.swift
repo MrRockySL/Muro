@@ -1092,6 +1092,14 @@ final class AppStore: ObservableObject {
 
     var isPaused: Bool { config.paused ?? false }
 
+    /// Pause After has frozen every screen's wallpaper. The menu bar said
+    /// Playing all through it (full check, 2026-10-01); it says Paused now,
+    /// and its play button plays again. Set by the engine.
+    @Published var desktopResting = false
+    /// Plays the resting wallpapers again. Set by the app delegate, which
+    /// owns the engine.
+    var replayDesktop: (() -> Void)?
+
     func openPreview(_ item: WallpaperItem) {
         previewItem = item
         previewMode = defaultMode(for: item)

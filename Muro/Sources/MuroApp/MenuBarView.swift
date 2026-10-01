@@ -49,7 +49,7 @@ struct MenuBarView: View {
                             .foregroundStyle(.white)
                         HStack(spacing: 5) {
                             Circle()
-                                .fill(store.isPaused ? Color.muroSecondary : Color.muroGreen)
+                                .fill(store.isPaused || store.desktopResting ? Color.muroSecondary : Color.muroGreen)
                                 .frame(width: 5, height: 5)
                             Text(statusLine(item))
                                 .font(.system(size: 8.5, weight: .semibold))
@@ -90,7 +90,7 @@ struct MenuBarView: View {
 
     private func statusLine(_ item: WallpaperItem) -> String {
         let displays = store.appliedDisplays(for: item.id).count
-        let state = store.isPaused ? "PAUSED" : "PLAYING"
+        let state = store.isPaused || store.desktopResting ? "PAUSED" : "PLAYING"
         // Look up the mode on a display actually showing this wallpaper —
         // the bare all-displays entry can be stale after per-display applies.
         let mode = store.displays
@@ -117,9 +117,15 @@ struct MenuBarView: View {
                 store.advancePlaylist(forward: false)
             }
             Button {
-                store.setPaused(!store.isPaused)
+                // Resting under Pause After is not a pause the person made, so
+                // play starts it moving again rather than pausing it harder.
+                if store.desktopResting, !store.isPaused {
+                    store.replayDesktop?()
+                } else {
+                    store.setPaused(!store.isPaused)
+                }
             } label: {
-                Image(systemName: store.isPaused ? "play.fill" : "pause.fill")
+                Image(systemName: store.isPaused || store.desktopResting ? "play.fill" : "pause.fill")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.black)
                     .frame(width: 44, height: 44)

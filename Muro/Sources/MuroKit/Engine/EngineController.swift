@@ -15,6 +15,32 @@ public final class EngineController {
     private var observers: [NSObjectProtocol] = []
     private var diskObservers: [NSObjectProtocol] = []
     private let power = PowerMonitor()
+    /// Displays whose wallpaper Pause After has frozen.
+    private var settled = Set<String>()
+    private var resting = false
+
+    /// True while every playing screen is frozen by Pause After, false as
+    /// soon as one moves. The app shows Paused in the menu bar from it.
+    public var onRestingChange: ((Bool) -> Void)?
+
+    /// The menu bar's play button while the wallpapers rest: every screen
+    /// plays again and its Pause After clock starts over.
+    public func replayAll() {
+        for controller in controllers.values { controller.replay() }
+    }
+
+    private func noteSettled(_ uuid: String, _ isSettled: Bool) {
+        if isSettled { settled.insert(uuid) } else { settled.remove(uuid) }
+        updateResting()
+    }
+
+    private func updateResting() {
+        settled.formIntersection(controllers.keys)
+        let now = !controllers.isEmpty && settled.count == controllers.count
+        guard now != resting else { return }
+        resting = now
+        onRestingChange?(now)
+    }
     private let desktopWindows = DesktopWindowMonitor()
 
     public init() {}
@@ -74,6 +100,7 @@ public final class EngineController {
     public func stopAll() {
         for controller in controllers.values { controller.stop() }
         controllers.removeAll()
+        updateResting()
         frames.removeAll()
         videos.removeAll()
     }
@@ -159,6 +186,7 @@ public final class EngineController {
         // Bring up displays that need a (new) wallpaper.
         for (uuid, want) in desired where controllers[uuid] == nil {
             let controller = WallpaperWindowController(screen: want.screen, videoURL: want.url)
+            controller.onSettledChange = { [weak self] isSettled in self?.noteSettled(uuid, isSettled) }
             controller.start()
             controllers[uuid] = controller
             frames[uuid] = want.frame
@@ -172,6 +200,9 @@ public final class EngineController {
             controller.setVideo(url: want.url)
             videos[uuid] = want.video
         }
+
+        // A screen that went away is no longer resting.
+        updateResting()
 
         // Live-applied state that never needs a window rebuild.
         let paused = config.paused ?? false
