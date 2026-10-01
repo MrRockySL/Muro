@@ -458,6 +458,71 @@ public enum AppleWallpaperStore {
         }
     }
 
+    // MARK: - Automatic and Custom
+
+    /// Turns every `linked` node into an `individual` one, keeping what is on
+    /// screen.
+    ///
+    /// A linked node is what System Settings → Wallpaper → Screen Saver calls
+    /// "Use Screen Saver: Automatic": one wallpaper for the desktop, the lock
+    /// screen and the screen saver, and a new Mac starts that way. Muro offers
+    /// those as separate places, so on a linked node picking a screen saver
+    /// also changed the lock screen, and picking a lock screen changed the
+    /// screen saver, while Muro showed them apart (full check, 2026-10-01).
+    ///
+    /// So before Muro writes one place, a linked node takes the shape macOS
+    /// uses for "Custom": a `Desktop` and an `Idle`, both starting from what
+    /// `Linked` held, so nothing on screen changes until the write that
+    /// follows. Every other node comes back exactly as it was, which is why a
+    /// Mac already on Custom never notices this.
+    ///
+    /// Returns how many nodes were turned.
+    @discardableResult
+    public static func unlinkNodes(in store: inout Any) -> Int {
+        var turned = 0
+        mutateNodes(in: &store) { _, node in
+            guard let individual = unlinked(node) else { return node }
+            turned += 1
+            return individual
+        }
+        return turned
+    }
+
+    /// One linked node as an individual one, or `nil` for any other node.
+    public static func unlinked(_ node: [String: Any]) -> [String: Any]? {
+        guard node["Type"] as? String == "linked",
+              let linked = node["Linked"] as? [String: Any]
+        else { return nil }
+        var individual = node
+        individual.removeValue(forKey: "Linked")
+        individual["Desktop"] = linked
+        individual["Idle"] = linked
+        individual["Type"] = "individual"
+        return individual
+    }
+
+    /// What a split node's `Desktop` or `Idle` held before Muro first wrote
+    /// the store.
+    ///
+    /// The backup is taken before that first write, so a node `unlinkNodes`
+    /// split is still linked in it and has no `Desktop` or `Idle` of its own
+    /// there: both were its `Linked`. Without this a removal handed such a
+    /// node back to Apple's default rather than to the wallpaper the person
+    /// had. `nil` whenever the backup has the surface itself, so every node
+    /// that was never linked is restored exactly as before.
+    public static func linkedSurface(splitAt surfacePath: [String], in backup: Any) -> [String: Any]? {
+        guard let name = surfacePath.last, name == "Desktop" || name == "Idle" else { return nil }
+        var current = backup
+        for component in surfacePath.dropLast() {
+            guard let dictionary = current as? [String: Any],
+                  let next = dictionary[component]
+            else { return nil }
+            current = next
+        }
+        guard let node = current as? [String: Any], node[name] == nil else { return nil }
+        return node["Linked"] as? [String: Any]
+    }
+
     /// Whether a node describes itself honestly: every surface it carries is
     /// one its `Type` allows, and every surface that `Type` promises is there.
     ///

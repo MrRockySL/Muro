@@ -254,6 +254,9 @@ final class MacOSWallpaperService {
         for url in storeURLs where manager.fileExists(atPath: url.path) {
             var store = try PropertyListSerialization.propertyList(
                 from: try Data(contentsOf: url), format: nil)
+            // Automatic → Custom first, the same as Muro's own writes: a
+            // screen saver set here must not take the lock screen with it.
+            AppleWallpaperStore.unlinkNodes(in: &store)
             AppleWallpaperStore.applyChoiceCreatingNode(
                 choice,
                 to: &store,

@@ -1296,6 +1296,11 @@ final class LockScreenService {
 
             let data = existed ? try Data(contentsOf: storeURL) : seedData
             var store = try PropertyListSerialization.propertyList(from: data, format: nil)
+            // A Mac on "Use Screen Saver: Automatic" keeps one wallpaper for
+            // the lock screen and the screen saver. Muro's places are
+            // separate, so that Mac is switched to Custom first; a Mac already
+            // on Custom is left exactly as it is.
+            AppleWallpaperStore.unlinkNodes(in: &store)
             // Each node says which surface it keeps its wallpaper under, and
             // that is the one to write. Writing `Desktop` on a node whose
             // desktop and lock screen are linked put the wallpaper somewhere
@@ -1367,7 +1372,12 @@ final class LockScreenService {
                     path: [],
                     targetKey: targetKey
                 ) { path, _ in
-                    backup.flatMap { surface(named: surfaceName, at: path, in: $0) }
+                    // A node Muro split from Automatic is still linked in the
+                    // backup; `linkedSurface` answers only for such a node.
+                    backup.flatMap {
+                        surface(named: surfaceName, at: path, in: $0)
+                            ?? AppleWallpaperStore.linkedSurface(splitAt: path, in: $0)
+                    }
                         .flatMap { isMuroSurface($0) ? nil : $0 }
                         ?? fallback
                 }
@@ -1412,7 +1422,10 @@ final class LockScreenService {
                 mutateSurfaces(named: surfaceName, in: &current, path: []) { path, surface in
                     guard isDeadMuroSurface(surface) else { return surface }
                     changed = true
-                    return backup.flatMap { self.surface(named: surfaceName, at: path, in: $0) }
+                    return backup.flatMap {
+                        self.surface(named: surfaceName, at: path, in: $0)
+                            ?? AppleWallpaperStore.linkedSurface(splitAt: path, in: $0)
+                    }
                         .flatMap { isMuroSurface($0) ? nil : $0 }
                         ?? fallback
                 }
