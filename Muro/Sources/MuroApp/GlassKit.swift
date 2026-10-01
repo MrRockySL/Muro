@@ -1194,6 +1194,18 @@ struct CustomValueCard<Unit: View>: View {
     @ViewBuilder var unit: Unit
     var apply: () -> Void
 
+    /// What is in the box. Digits only, and no more than five of them, which
+    /// covers every unit's ceiling (a day is 86 400 seconds).
+    ///
+    /// The box used to take any text and keep showing letters, 0 and -5 while
+    /// its button quietly said "Set 10 s" (full check, 2026-10-01). Now a
+    /// letter or a minus sign never lands, and 0 or an empty box greys the
+    /// button out and says what it wants.
+    @State private var text = ""
+    private static var maxDigits: Int { 5 }
+
+    private var canApply: Bool { amount.wrappedValue > 0 }
+
     var body: some View {
         // Centred, not left-aligned. The card is a small floating panel with
         // one job, and a title and a field pushed into its left corner left a
@@ -1204,7 +1216,19 @@ struct CustomValueCard<Unit: View>: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity, alignment: .center)
             HStack(spacing: 12) {
-                TextField("", value: amount, format: .number)
+                TextField("", text: $text)
+                    .onChange(of: text) { _, typed in
+                        let digits = String(typed.filter { $0.isASCII && $0.isNumber }.prefix(Self.maxDigits))
+                        guard digits == typed else { text = digits; return }
+                        let value = Int(digits) ?? 0
+                        if amount.wrappedValue != value { amount.wrappedValue = value }
+                    }
+                    // A value set from outside, such as the picker opening on
+                    // the time already chosen.
+                    .onChange(of: amount.wrappedValue) { _, value in
+                        if (Int(text) ?? 0) != value { text = value > 0 ? String(value) : "" }
+                    }
+                    .onAppear { text = amount.wrappedValue > 0 ? String(amount.wrappedValue) : "" }
                     .textFieldStyle(.plain)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
@@ -1224,7 +1248,7 @@ struct CustomValueCard<Unit: View>: View {
             }
             .frame(maxWidth: .infinity, alignment: .center)
             Button(action: apply) {
-                Text(applyLabel)
+                Text(canApply ? applyLabel : "Enter a number")
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(Color.black)
                     .frame(maxWidth: .infinity)
@@ -1233,6 +1257,8 @@ struct CustomValueCard<Unit: View>: View {
                     .shadow(color: .black.opacity(0.35), radius: 5, y: 3)
             }
             .buttonStyle(.plain)
+            .disabled(!canApply)
+            .opacity(canApply ? 1 : 0.45)
         }
         .padding(18)
         .frame(width: width)
