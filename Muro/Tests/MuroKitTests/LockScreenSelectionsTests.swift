@@ -88,6 +88,29 @@ final class LockScreenSelectionsTests: XCTestCase {
         XCTAssertEqual(s, ["all": "jungle", dell: "watercolor", macBook: "ghost"])
     }
 
+    /// 2026-10-01: a stopped lock screen playlist held `all`, the MacBook had
+    /// its own lock screen and the DELL had opted out; the playlist's
+    /// wallpaper was deleted. Only the playlist's entry and the opt-out go.
+    func testRemovingAPlaylistKeepsADisplaysOwnLockScreen() {
+        let s = LockScreenSelections.afterRemovingRotation(
+            current: ["all": "muro-rotation-lockscreen", macBook: "pixelwave", dell: "__none__"],
+            fixedID: "muro-rotation-lockscreen",
+            removedMarker: "__none__"
+        )
+        XCTAssertEqual(s, [macBook: "pixelwave"])
+    }
+
+    /// The screen saver is always `all`, so nothing is left: the same as
+    /// removing it outright.
+    func testRemovingAScreenSaverPlaylistLeavesNothing() {
+        let s = LockScreenSelections.afterRemovingRotation(
+            current: ["all": "muro-rotation-screensaver"],
+            fixedID: "muro-rotation-screensaver",
+            removedMarker: "__none__"
+        )
+        XCTAssertTrue(s.isEmpty)
+    }
+
     func testItNeverHoldsMoreThanOnePerConnectedDisplayPlusAll() {
         var s: [String: String] = [:]
         for round in 0..<20 {

@@ -2293,7 +2293,9 @@ final class AppStore: ObservableObject {
                 else { continue }
             }
             do {
-                try await lockScreen.remove(target: .all, surface: role)
+                // Only the playlist's own records; a display with a lock
+                // screen of its own keeps it. See `removeRotation`.
+                try await lockScreen.removeRotation(role)
             } catch {
                 applyError = error.localizedDescription
             }

@@ -760,6 +760,48 @@ final class LockScreenService {
         state = nextState
     }
 
+    /// Takes a stopped playlist's or automation's fixed id off one role, when
+    /// the wallpaper staged behind it has been deleted. Only the records that
+    /// show that id go back to the person's own wallpaper, and a display with
+    /// a lock screen of its own keeps it.
+    ///
+    /// `remove(target: .all)` was used for this and cleared every selection,
+    /// so deleting the wallpaper a stopped lock screen playlist had left on
+    /// every display also took away the MacBook's own lock screen
+    /// (2026-10-01). For the screen saver, which is always `all`, the two do
+    /// the same thing.
+    func removeRotation(_ role: AppleWallpaperStore.Surface) async throws {
+        let fixedID = LockScreenRotation.fixedID(for: role)
+        var nextState = state
+        Self.setSelections(
+            LockScreenSelections.afterRemovingRotation(
+                current: Self.selections(nextState, for: role),
+                fixedID: fixedID,
+                removedMarker: Self.removedSelection
+            ),
+            for: role,
+            in: &nextState
+        )
+        let root = root
+        let extensionURL = extensionBundleURL
+        let stateAfter = nextState
+        try await Task.detached(priority: .userInitiated) {
+            try await Self.restoreSurfaces(showing: fixedID, surface: role, root: root)
+            try Self.saveState(stateAfter, root: root)
+            Self.restartWallpaperAgent()
+            try Self.pruneStagedLibrary(keeping: Self.heldIDs(stateAfter))
+            if (try? Self.purgeDeadMuroSurfaces(root: root)) == true {
+                Self.restartWallpaperAgent()
+            }
+            if Self.heldIDs(stateAfter).isEmpty {
+                Self.unregisterExtension(at: extensionURL)
+                try? FileManager.default.removeItem(at: Self.backupDirectoryURL(root: root))
+                try? FileManager.default.removeItem(at: Self.legacyBackupURL(root: root))
+            }
+        }.value
+        state = nextState
+    }
+
     /// `remove` for several roles at once, with one WallpaperAgent restart
     /// instead of one per role.
     ///
@@ -1389,6 +1431,40 @@ final class LockScreenService {
                 }
             }
 
+            try writePropertyList(current, to: storeURL)
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            try writePropertyList(current, to: storeURL)
+        }
+    }
+
+    /// `restoreWallpaperStores` for only the Muro records showing `id`, so a
+    /// display whose record shows a wallpaper of its own is left alone.
+    private static func restoreSurfaces(
+        showing id: String,
+        surface role: AppleWallpaperStore.Surface,
+        root: URL
+    ) async throws {
+        let manager = FileManager.default
+        for storeURL in wallpaperStoreURLs where manager.fileExists(atPath: storeURL.path) {
+            let currentData = try Data(contentsOf: storeURL)
+            var current = try PropertyListSerialization.propertyList(from: currentData, format: nil)
+            let backup = (try? Data(contentsOf: backupURL(root: root, storeName: storeURL.lastPathComponent)))
+                .flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) }
+            for surfaceName in surfaceNames(for: role) {
+                let fallback = backup.flatMap { firstNonMuroSurface(named: surfaceName, in: $0) }
+                    ?? firstNonMuroSurface(named: surfaceName, in: current)
+                    ?? crossStoreNonMuroSurface(named: surfaceName)
+                    ?? defaultSurface()
+                mutateSurfaces(named: surfaceName, in: &current, path: []) { path, surface in
+                    guard muroWallpaperID(of: surface) == id else { return surface }
+                    return backup.flatMap {
+                        self.surface(named: surfaceName, at: path, in: $0)
+                            ?? AppleWallpaperStore.linkedSurface(splitAt: path, in: $0)
+                    }
+                        .flatMap { isMuroSurface($0) ? nil : $0 }
+                        ?? fallback
+                }
+            }
             try writePropertyList(current, to: storeURL)
             try? await Task.sleep(nanoseconds: 250_000_000)
             try writePropertyList(current, to: storeURL)

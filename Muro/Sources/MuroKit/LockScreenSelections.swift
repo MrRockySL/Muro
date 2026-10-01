@@ -60,4 +60,22 @@ public enum LockScreenSelections {
         next[targetKey] = wallpaperID
         return next
     }
+
+    /// The record after a stopped playlist's or automation's fixed id comes
+    /// off, because the wallpaper staged behind it was deleted.
+    ///
+    /// Every display with a lock screen of its own keeps it; only the `all`
+    /// entry and any opt-outs of it go. Clearing the whole record instead,
+    /// which is what removing `all` does, also took away the MacBook's own
+    /// lock screen when the wallpaper a stopped lock screen playlist had left
+    /// on every display was deleted (2026-10-01).
+    public static func afterRemovingRotation(
+        current: [String: String],
+        fixedID: String,
+        removedMarker: String
+    ) -> [String: String] {
+        current.filter { key, value in
+            key != allKey && value != fixedID && value != removedMarker
+        }
+    }
 }
