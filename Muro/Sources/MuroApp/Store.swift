@@ -354,7 +354,7 @@ final class AppStore: ObservableObject {
         recentIDs = defaults.stringArray(forKey: "recents") ?? []
         scheduler.apply = { [weak self] id in
             guard let self, let item = self.item(id: id) else { return }
-            self.setWallpaper(item, mode: self.defaultMode(for: item))
+            self.setWallpaper(item, mode: self.defaultMode(for: item), fromSchedule: true)
         }
         scheduler.currentIDForOrdering = { [weak self] in self?.currentAppliedID }
         for (placeScheduler, role) in [
@@ -1073,12 +1073,22 @@ final class AppStore: ObservableObject {
     /// asked for that: choosing where a wallpaper goes is not the same as
     /// asking for the wallpaper already somewhere else to be removed. Removing
     /// one is its own action, the Remove button on that surface.
+    ///
+    /// `fromSchedule` is set only by a playlist or automation step. Anything
+    /// else is somebody choosing a wallpaper for a place, and that stops
+    /// whatever schedule was playing there: left running, it put its own
+    /// wallpaper back at its next step, so the choice lasted a minute and
+    /// vanished with "Applied" still showing (full check, 2026-10-01).
     func setWallpaper(
         _ item: WallpaperItem,
         mode: String,
         target: ApplyTarget = .all,
-        surface: ApplySurface? = nil
+        surface: ApplySurface? = nil,
+        fromSchedule: Bool = false
     ) {
+        if !fromSchedule {
+            stopSchedules(on: placesCovered(by: item, surface: surface ?? .desktop))
+        }
         // Apple's pictures and the ones macOS draws are handed to macOS.
         if AppleAerials.isMacOSOnly(item.id) {
             showThroughMacOS(item, target: target, surface: surface ?? .desktop)
@@ -1267,6 +1277,9 @@ final class AppStore: ObservableObject {
         target: ApplyTarget,
         surface: ApplySurface = .desktop
     ) {
+        // Emptying a place by hand is a choice for that place too; a schedule
+        // left running would fill it again at its next step.
+        stopSchedules(on: placesCovered(by: item, surface: surface))
         if AppleAerials.isMacOSOnly(item.id) {
             removeFromMacOS(item, target: target, surface: surface)
             return
@@ -1884,6 +1897,31 @@ final class AppStore: ObservableObject {
     /// For a delete: nothing may go on playing something that is gone.
     private func stopEverywhere(_ schedule: ScheduleRef) {
         let playing = places(playing: schedule)
+        guard !playing.isEmpty else { return }
+        for place in playing { placeScheduler(for: place).stopEverything() }
+        syncScheduler()
+    }
+
+    /// The places a wallpaper chosen by hand takes over. One of the wallpapers
+    /// macOS shows itself (a still picture, a drawn one, a screen saver file)
+    /// on the desktop is the lock screen too, because macOS keeps the two on
+    /// one key; anything Muro plays keeps them apart.
+    private func placesCovered(by item: WallpaperItem, surface: ApplySurface) -> [SchedulePlace] {
+        var places: [SchedulePlace] = []
+        if surface.coversDesktop { places.append(.desktop) }
+        if surface.coversLockScreen || (AppleAerials.isMacOSOnly(item.id) && surface.coversDesktop) {
+            places.append(.lockScreen)
+        }
+        if surface.coversScreenSaver { places.append(.screenSaver) }
+        return places
+    }
+
+    /// Stops what these places are playing. Every other place carries on.
+    private func stopSchedules(on places: [SchedulePlace]) {
+        let playing = places.filter {
+            let runner = placeScheduler(for: $0)
+            return runner.activePlaylistID != nil || runner.activeAutomationID != nil
+        }
         guard !playing.isEmpty else { return }
         for place in playing { placeScheduler(for: place).stopEverything() }
         syncScheduler()
