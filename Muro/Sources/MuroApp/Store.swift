@@ -2009,6 +2009,11 @@ final class AppStore: ObservableObject {
         // it is and only Muro's file goes.
         let ids = Set(entries.map(\.id)).union(apple.filter { !macOSKeepsAerial($0) })
 
+        // Whether the desktop was showing one of them, for step 5: a playlist
+        // or automation playing there has to put something else on.
+        let desktopShowedDeleted = (config.allDisplays.map { ids.contains($0.wallpaperID) } ?? false)
+            || config.perDisplay.values.contains { ids.contains($0.wallpaperID) }
+
         // 1. Off the desktop. A deleted all-displays wallpaper clears every
         //    display, which is what deleting the thing on screen means.
         var configChanged = false
@@ -2099,7 +2104,16 @@ final class AppStore: ObservableObject {
             )
         }
 
-        // 5. A playlist or automation on the lock screen or the screen saver
+        // 5. A playlist or automation playing on the desktop whose wallpaper
+        //    was just taken off it shows its next one now. Waiting for its next
+        //    step left the desktop with nothing on it, for up to a whole clock
+        //    window, while its card still said Playing (full check, 2026-10-01).
+        if desktopShowedDeleted,
+           scheduler.activePlaylistID != nil || scheduler.activeAutomationID != nil {
+            scheduler.showCurrentAgain()
+        }
+
+        //    A playlist or automation on the lock screen or the screen saver
         //    shows its wallpaper behind a fixed id, which step 2 cannot see.
         //    Its video is a hard link, so a deleted file would stay on disk
         //    behind it until the next step. The next step is now. With nothing

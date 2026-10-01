@@ -168,7 +168,15 @@ final class AutomationScheduler {
                 stepIndex = 0
                 stepStartedAt = Date()
             }
-            applyCurrent(of: automation)
+            if automation.mode == .clock {
+                // What was showing is gone, so a gap has nothing to keep:
+                // the last window to end takes over until the next one opens.
+                if let step = automation.clockStepOrLast(at: Self.minuteOfDay()) {
+                    apply?(step.wallpaperID)
+                }
+            } else {
+                applyCurrent(of: automation)
+            }
             schedule()
         } else if activePlaylist != nil {
             advancePlaylist(forward: true)

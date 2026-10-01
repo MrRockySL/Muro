@@ -148,6 +148,21 @@ public struct Automation: Codable, Identifiable, Equatable {
     public func clockStep(at minute: Int) -> Step? {
         steps.first { $0.covers(minute: minute) }
     }
+
+    /// `clockStep`, or inside a gap the step whose window ended last.
+    ///
+    /// A gap keeps whatever is playing, and that rule has nothing to keep
+    /// once the wallpaper playing is deleted: the desktop simply stopped
+    /// while the card still said Playing (full check, 2026-10-01). This is
+    /// for that case only. Every ordinary tick still uses `clockStep`, so a
+    /// gap still leaves the screen alone.
+    public func clockStepOrLast(at minute: Int) -> Step? {
+        if let step = clockStep(at: minute) { return step }
+        let now = normalizedMinute(minute)
+        return steps.min { a, b in
+            normalizedMinute(now - a.end) < normalizedMinute(now - b.end)
+        }
+    }
 }
 
 public enum AutomationStore {
@@ -175,7 +190,17 @@ public enum AutomationStore {
         var emptied: [String] = []
         let out = automations.map { automation -> Automation in
             var copy = automation
-            copy.steps.removeAll { ids.contains($0.wallpaperID) }
+            if automation.mode == .clock {
+                // The freed minutes go to the window before it, the same as
+                // removing it in the editor. Only dropping the step left a
+                // hole in the day, and during it the desktop had nothing to
+                // play (full check, 2026-10-01).
+                for step in automation.steps where ids.contains(step.wallpaperID) {
+                    copy.steps = Automation.fittedRemoving(step, from: copy.steps)
+                }
+            } else {
+                copy.steps.removeAll { ids.contains($0.wallpaperID) }
+            }
             if copy.steps.isEmpty, !automation.steps.isEmpty { emptied.append(automation.id) }
             return copy
         }

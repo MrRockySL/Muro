@@ -143,6 +143,37 @@ final class AutomationTests: XCTestCase {
         XCTAssertEqual(result.emptied.count, 1)
     }
 
+    /// A deleted wallpaper's hours go to the window before it, so the day
+    /// stays covered and nothing is left with no wallpaper to show.
+    func testADeletedClockWallpaperLeavesNoGap() {
+        let day = clock([("a", 0, 480), ("b", 480, 960), ("c", 960, 0)])
+        let result = AutomationStore.pruned([day], removing: ["b"])
+        let pruned = result.automations[0]
+        XCTAssertEqual(pruned.steps.map(\.wallpaperID), ["a", "c"])
+        XCTAssertTrue(pruned.uncoveredWindows.isEmpty, "no hole where b was")
+        XCTAssertEqual(pruned.clockStep(at: 600)?.wallpaperID, "a")
+        XCTAssertTrue(result.emptied.isEmpty)
+    }
+
+    /// Two of three gone leaves one, and one takes the whole day.
+    func testDeletingDownToOneClockWallpaperCoversTheDay() {
+        let day = clock([("a", 0, 480), ("b", 480, 960), ("c", 960, 0)])
+        let pruned = AutomationStore.pruned([day], removing: ["a", "b"]).automations[0]
+        XCTAssertEqual(pruned.steps.map(\.wallpaperID), ["c"])
+        XCTAssertEqual(pruned.clockStep(at: 100)?.wallpaperID, "c")
+        XCTAssertEqual(pruned.clockStep(at: 1000)?.wallpaperID, "c")
+    }
+
+    /// Inside a gap the last window to end answers, for the one case where
+    /// what was playing has gone.
+    func testTheLastWindowAnswersInsideAGap() {
+        let automation = clock([("morning", 420, 1200), ("evening", 1200, 1260)])
+        XCTAssertNil(automation.clockStep(at: 1300))
+        XCTAssertEqual(automation.clockStepOrLast(at: 1300)?.wallpaperID, "evening")
+        XCTAssertEqual(automation.clockStepOrLast(at: 60)?.wallpaperID, "evening", "past midnight")
+        XCTAssertEqual(automation.clockStepOrLast(at: 600)?.wallpaperID, "morning", "not a gap")
+    }
+
     // MARK: - Labels
 
     func testDurationLabels() {
