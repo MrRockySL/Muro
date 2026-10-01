@@ -1095,14 +1095,19 @@ final class AppStore: ObservableObject {
             return
         }
         guard item.local != nil else { return }
-        Task { await applyWallpaper(item, mode: mode, target: target, surface: surface) }
+        Task {
+            await applyWallpaper(
+                item, mode: mode, target: target, surface: surface, fromSchedule: fromSchedule
+            )
+        }
     }
 
     private func applyWallpaper(
         _ item: WallpaperItem,
         mode: String,
         target: ApplyTarget,
-        surface explicitSurface: ApplySurface?
+        surface explicitSurface: ApplySurface?,
+        fromSchedule: Bool = false
     ) async {
         guard var entry = item.local else { return }
         let surface = explicitSurface ?? .desktop
@@ -1124,7 +1129,9 @@ final class AppStore: ObservableObject {
         // Apple-side transaction succeeds, so a failed extension/store write
         // cannot leave the UI in a silently half-applied state.
         if surface == .desktop {
-            applyAssignment(id: entry.id, mode: resolvedMode, target: target)
+            applyAssignment(
+                id: entry.id, mode: resolvedMode, target: target, resume: !fromSchedule
+            )
         }
 
         let appleSurfaces = surface.appleSurfaces
@@ -1161,7 +1168,9 @@ final class AppStore: ObservableObject {
                     if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
                 }
                 if surface == .all {
-                    applyAssignment(id: entry.id, mode: resolvedMode, target: target)
+                    applyAssignment(
+                        id: entry.id, mode: resolvedMode, target: target, resume: !fromSchedule
+                    )
                 } else {
                     pushRecent(entry.id)
                 }
@@ -1173,7 +1182,13 @@ final class AppStore: ObservableObject {
         }
     }
 
-    private func applyAssignment(id: String, mode: String, target: ApplyTarget) {
+    /// `resume` is false for a playlist or automation step. A wallpaper chosen
+    /// by hand is meant to be seen moving, so it lifts a pause; a step is the
+    /// schedule moving on by itself, and it used to lift the pause too, so a
+    /// paused desktop started playing again at the next step (full check,
+    /// 2026-10-01). A step taken while paused shows the new wallpaper's first
+    /// frame and stays paused.
+    private func applyAssignment(id: String, mode: String, target: ApplyTarget, resume: Bool = true) {
         let assignment = EngineConfig.Assignment(wallpaperID: id, mode: mode)
         switch target {
         case .all:
@@ -1182,7 +1197,7 @@ final class AppStore: ObservableObject {
         case .display(let uuid):
             config.perDisplay[uuid] = assignment
         }
-        config.paused = false
+        if resume { config.paused = false }
         saveConfig()
         pushRecent(id)
     }
@@ -1858,15 +1873,26 @@ final class AppStore: ObservableObject {
                   !playlist.wallpaperIDs.isEmpty
             else { return }
             makeRoom(for: place)
+            resumeForStart(on: place)
             runner.startPlaylist(playlist)
         case .automation(let id):
             guard let automation = automations.first(where: { $0.id == id }),
                   !automation.steps.isEmpty
             else { return }
             makeRoom(for: place)
+            resumeForStart(on: place)
             runner.startAutomation(automation)
         }
         syncScheduler()
+    }
+
+    /// Starting a playlist or an automation is a choice made by hand, so it
+    /// plays, the way it always did. Only the steps after it keep a pause
+    /// (see `applyAssignment`).
+    private func resumeForStart(on place: SchedulePlace) {
+        guard place == .desktop, isPaused else { return }
+        config.paused = false
+        try? config.save(root: root)
     }
 
     /// Stops whatever a place is playing. It keeps showing the last wallpaper,
