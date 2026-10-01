@@ -474,3 +474,55 @@ final class LibraryTests: XCTestCase {
         XCTAssertTrue(exists("Masters/real.mov"))
     }
 }
+
+
+/// Importing the same video twice is recognised (full check, 2026-10-01).
+final class ImportFingerprintTests: XCTestCase {
+    private var folder: URL!
+
+    override func setUpWithError() throws {
+        folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("muro-fingerprint-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: folder)
+    }
+
+    private func file(_ name: String, bytes: Int, seed: UInt8) throws -> URL {
+        var data = Data(count: bytes)
+        for index in stride(from: 0, to: bytes, by: 4096) { data[index] = seed &+ UInt8(truncatingIfNeeded: index / 4096) }
+        let url = folder.appendingPathComponent(name)
+        try data.write(to: url)
+        return url
+    }
+
+    private func entry(title: String, fingerprint: String?, duration: Double = 6) -> WallpaperEntry {
+        WallpaperEntry(
+            id: UUID().uuidString, title: title, category: importedVideoCategory,
+            file: "Masters/x.mov", thumbnail: "Thumbnails/x.jpg", width: 1280, height: 720,
+            fps: 30, duration: duration, sizeBytes: 1, sourceFingerprint: fingerprint
+        )
+    }
+
+    func testACopyHasTheSameFingerprintAndAnotherFileDoesNot() throws {
+        let original = try file("a.mov", bytes: 3_000_000, seed: 1)
+        let copy = folder.appendingPathComponent("copy of a.mov")
+        try FileManager.default.copyItem(at: original, to: copy)
+        let other = try file("b.mov", bytes: 3_000_000, seed: 2)
+        let small = try file("c.mov", bytes: 10_000, seed: 1)
+        XCTAssertNotNil(videoFingerprint(of: original))
+        XCTAssertEqual(videoFingerprint(of: original), videoFingerprint(of: copy))
+        XCTAssertNotEqual(videoFingerprint(of: original), videoFingerprint(of: other))
+        XCTAssertNotNil(videoFingerprint(of: small), "a file under a megabyte still has one")
+    }
+
+    func testAFingerprintMatchIsAlreadyImported() throws {
+        let video = try file("Drift.mov", bytes: 2_000_000, seed: 3)
+        let print = videoFingerprint(of: video)
+        let known = entry(title: "Something else", fingerprint: print)
+        XCTAssertEqual(alreadyImported(source: video, fingerprint: print, in: [known])?.id, known.id)
+        XCTAssertNil(alreadyImported(source: video, fingerprint: print, in: [entry(title: "Drift", fingerprint: "other")]))
+    }
+}

@@ -353,7 +353,8 @@ struct LibraryView: View {
         return HStack(spacing: 20) {
             PlusBubble(size: 56, hovering: lit, pressed: pressingDrop)
             VStack(alignment: .leading, spacing: 4) {
-                Text(store.importStatus ?? addedNote ?? "Drop videos or screen savers here, or click to import")
+                Text(store.importStatus ?? addedNote ?? store.importNote
+                     ?? "Drop videos or screen savers here, or click to import")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
                 Text("MP4, MOV and M4V videos, and .saver screen savers")
@@ -363,7 +364,7 @@ struct LibraryView: View {
             Spacer(minLength: 12)
             if store.importStatus != nil {
                 ProgressView().controlSize(.small).tint(.white)
-            } else if addedNote != nil {
+            } else if addedNote != nil || store.importNote != nil {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color.muroGreen)

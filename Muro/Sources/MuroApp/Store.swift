@@ -258,6 +258,9 @@ final class AppStore: ObservableObject {
     @Published var downloads: [String: Double] = [:]        // id → 0…1
     @Published var generating: Set<String> = []             // efficient variants in flight
     @Published var importStatus: String?
+    /// A short line for the import bar after an import, such as a video that
+    /// was already there. It clears itself.
+    @Published private(set) var importNote: String?
     @Published var searchText = ""
     @Published var searchActive = false
     /// The What's New sheet. On the store rather than in the top bar so
@@ -1795,8 +1798,11 @@ final class AppStore: ObservableObject {
         }
         let skipped = urls.count - videos.count
         let root = self.root
+        let known = manifest.wallpapers
         Task.detached(priority: .userInitiated) {
             var failures: [String] = []
+            var already: [String] = []
+            var library = known
             for (index, url) in videos.enumerated() {
                 await MainActor.run {
                     // The file name and the codec are not news to the person
@@ -1806,17 +1812,31 @@ final class AppStore: ObservableObject {
                         ? "Importing…"
                         : "Importing \(index + 1) of \(videos.count)…"
                 }
+                // The same file twice used to make two identical wallpapers.
+                // It is turned away like a second `.saver`, including the
+                // same file picked twice in one go.
+                let fingerprint = videoFingerprint(of: url)
+                if let match = alreadyImported(source: url, fingerprint: fingerprint, in: library) {
+                    already.append(match.title)
+                    continue
+                }
                 do {
-                    _ = try importVideo(source: url, root: root)
+                    library.append(try importVideo(source: url, root: root, sourceFingerprint: fingerprint))
                 } catch {
                     failures.append("\(url.lastPathComponent): \(importFailureReason(error))")
                 }
                 await MainActor.run { AppStore.shared.reloadFromDisk() }
             }
             let report = failures
+            let duplicates = already
             await MainActor.run {
                 AppStore.shared.importStatus = nil
                 AppStore.shared.recomputeSize()
+                if !duplicates.isEmpty {
+                    AppStore.shared.showImportNote(duplicates.count == 1
+                        ? "\(duplicates[0]) is already in your Library."
+                        : "\(duplicates.count) of those videos are already in your Library.")
+                }
                 // Silence here is what made a failed import look like a
                 // no-op: the spinner stopped, nothing appeared, and the user
                 // was told nothing at all.
@@ -1832,6 +1852,14 @@ final class AppStore: ObservableObject {
                         + "Muro imports MP4, MOV and M4V videos."
                 }
             }
+        }
+    }
+
+    func showImportNote(_ text: String) {
+        importNote = text
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(5))
+            if importNote == text { importNote = nil }
         }
     }
 

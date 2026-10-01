@@ -20,6 +20,10 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
     /// Per wallpaper "pause after", overriding the global setting. Nil means
     /// follow the setting; a value here wins for this wallpaper only.
     public var pauseAfterSeconds: Int?
+    /// For a video the person imported, `videoFingerprint` of the file it
+    /// came from, so importing the same file again can be recognised. Nil for
+    /// downloads and for imports made before it was kept.
+    public var sourceFingerprint: String?
 
     public init(
         id: String, title: String, category: String, file: String,
@@ -27,7 +31,8 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
         thumbnail: String, width: Int,
         height: Int, fps: Double, duration: Double, sizeBytes: Int64,
         liked: Bool = false, dateAdded: Date = Date(),
-        pauseAfterSeconds: Int? = nil
+        pauseAfterSeconds: Int? = nil,
+        sourceFingerprint: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -44,6 +49,7 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
         self.liked = liked
         self.dateAdded = dateAdded
         self.pauseAfterSeconds = pauseAfterSeconds
+        self.sourceFingerprint = sourceFingerprint
     }
 
     /// Every file this wallpaper owns inside the library root. Deleting a
