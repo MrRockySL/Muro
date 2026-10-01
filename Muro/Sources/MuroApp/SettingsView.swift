@@ -571,8 +571,10 @@ struct SettingsView: View {
     /// never does that. Nothing here is gated, nothing is withheld, and
     /// ignoring it costs the user nothing.
     private var sponsorControl: some View {
+        // Ko-fi came out (owner, 2026-10-01): the page cannot take money until
+        // a bank is linked, and a button that leads nowhere is worse than one
+        // way to give that works.
         HStack(spacing: 8) {
-            supportPill("Ko-fi ↗", AppStore.kofiURL)
             supportPill("GitHub ↗", AppStore.sponsorURL)
         }
     }
