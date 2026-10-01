@@ -1289,6 +1289,7 @@ struct CreditLink: View {
 
 struct SearchField: View {
     @EnvironmentObject var store: AppStore
+    @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -1299,10 +1300,16 @@ struct SearchField: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .foregroundStyle(.white)
+                .focused($focused)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .frame(width: 260)
         .glassCapsule(fill: 0.08, stroke: 0.14)
+        // The field only appears because the search button was pressed, so
+        // the cursor goes straight into it. It used to wait for a click of
+        // its own, and typing right after the button went nowhere (full
+        // check, 2026-10-01). One turn later, once the field is in the window.
+        .onAppear { DispatchQueue.main.async { focused = true } }
     }
 }
