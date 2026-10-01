@@ -714,7 +714,12 @@ struct MenuOption: Identifiable {
     var isHeader = false
     var action: () -> Void = {}
 
-    static let divider = MenuOption(title: "", isDivider: true)
+    /// A new one each time it is asked for. As a stored `static let` every
+    /// divider was the same value with the same id, so a menu with two of them
+    /// (Pause After has one under "Use setting" and one above "Custom") made
+    /// SwiftUI log "the ID occurs multiple times" and draw undefined rows
+    /// (full check, 2026-10-01).
+    static var divider: MenuOption { MenuOption(title: "", isDivider: true) }
 
     static func header(_ title: String) -> MenuOption {
         MenuOption(title: title, isHeader: true)
