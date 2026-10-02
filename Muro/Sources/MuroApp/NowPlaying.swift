@@ -141,7 +141,7 @@ private struct NowPlayingTile: View {
                     Text(store.nowPlayingName(on: place) ?? "Off")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(
-                            store.nowPlaying[place] == nil ? Color.muroSecondary : Color.white
+                            store.nowPlaying[place] == nil ? Color.muroSecondary : Color.muroInk
                         )
                         .lineLimit(1)
                 }
@@ -155,11 +155,11 @@ private struct NowPlayingTile: View {
             .frame(height: 64)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(hovering ? 0.085 : 0.06))
+                    .fill(Color.muroInk.opacity(hovering ? 0.085 : 0.06))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(hovering ? 0.18 : 0.12), lineWidth: 1)
+                    .strokeBorder(Color.muroInk.opacity(hovering ? 0.18 : 0.12), lineWidth: 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: 18))
             .onHover { hovering = $0 }

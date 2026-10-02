@@ -1,8 +1,212 @@
 import SwiftUI
+import AppKit
+import Observation
 
 // Design tokens from the Figma file "Muro — App Design":
 // bg #0A0C10 · accent (moonbeam) #A9C4FF · secondary #98A0AC · green #7DE8A8
 // glass = white 7–12% fill + white 10–20% stroke · radii 16/18/99.
+//
+// Since 6.0 every one of them belongs to a palette, and there are three
+// (owner, 2026-10-02). See `Appearance` below.
+
+// MARK: - Appearance
+
+/// The look Muro wears, picked in Settings, General, Appearance.
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    /// Muro as it has always looked: midnight glass with the moonbeam blue.
+    case standard = "default"
+    /// The same glass in black and white: true black where the midnight blue
+    /// was, white wherever the moonbeam was.
+    case dark
+    /// White glass, dark text, dark buttons.
+    case light
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .standard: return "Default"
+        case .dark: return "Dark"
+        case .light: return "Light"
+        }
+    }
+}
+
+extension Notification.Name {
+    /// After the look changes, for the AppKit parts SwiftUI does not redraw by
+    /// itself: the menu bar panel's material and rim.
+    static let muroAppearanceChanged = Notification.Name("MuroAppearanceChanged")
+}
+
+/// The current look, and the palette that goes with it.
+///
+/// Observable, and that is the whole mechanism: every Muro colour is read
+/// through `palette`, so a view whose body uses one is redrawn when the look
+/// changes, in place, with its scroll position and state kept. Nothing is
+/// rebuilt and no window is reopened.
+@Observable
+final class Appearance {
+    static let shared = Appearance()
+    static let defaultsKey = "appearance"
+
+    private(set) var mode: AppearanceMode
+
+    private init() {
+        mode = UserDefaults.standard.string(forKey: Self.defaultsKey)
+            .flatMap(AppearanceMode.init(rawValue:)) ?? .standard
+    }
+
+    func set(_ newMode: AppearanceMode) {
+        guard newMode != mode else { return }
+        mode = newMode
+        UserDefaults.standard.set(newMode.rawValue, forKey: Self.defaultsKey)
+        apply()
+    }
+
+    var isLight: Bool { mode == .light }
+
+    /// What SwiftUI is told, for the system parts of each window.
+    var colorScheme: ColorScheme { isLight ? .light : .dark }
+
+    var palette: Palette {
+        switch mode {
+        case .standard: return .standard
+        case .dark: return .mono
+        case .light: return .light
+        }
+    }
+
+    /// The AppKit side: system controls, materials, menus and dialogs follow
+    /// `NSApp.appearance`. Called at launch and on every change.
+    func apply() {
+        NSApp?.appearance = NSAppearance(named: isLight ? .aqua : .darkAqua)
+        NotificationCenter.default.post(name: .muroAppearanceChanged, object: nil)
+    }
+}
+
+/// Every colour Muro draws with, for one look.
+struct Palette {
+    /// The page behind everything (`muroBG`).
+    var background: Color
+    /// The three stops of the page gradient.
+    var pageTop: Color, pageMid: Color, pageBottom: Color
+    /// How strong the page's soft colour blooms are; 0 leaves them out.
+    var blooms: Double
+    /// Selected states, rings, section caps: the moonbeam in Default.
+    var accent: Color
+    /// Text and glyphs sitting on an `accent` fill.
+    var onAccent: Color
+    /// Light that glows rather than marks: accent haloes and radial washes.
+    var glow: Color
+    /// Second-level text.
+    var secondary: Color
+    /// Text, glyphs, hairlines and glass washes: white on the dark looks,
+    /// near black on the light one, so every "white at 8%" surface becomes a
+    /// matching tint of the other ink.
+    var ink: Color
+    /// Text on an `ink` fill: the white pills' dark label.
+    var onInk: Color
+    /// The tint that darkens glass on the dark looks and lightens it on the
+    /// light one.
+    var shade: Color
+    /// The two editor sheets and every card shaped like them.
+    var sheetTop: Color, sheetBottom: Color
+    /// The base under a menu's glass.
+    var menuBase: Color
+    /// The glass tray a page's content sits in.
+    var trayTop: Color, trayBottom: Color
+    /// What dims the page behind a card in the middle of the window.
+    var scrim: Color
+    /// The track of a switch that is on.
+    var switchOn: Color
+    /// Accent and second-level text over a playing wallpaper, which stays
+    /// dark whatever the look.
+    var accentOnMedia: Color, secondaryOnMedia: Color
+    var green: Color, warn: Color, danger: Color, violet: Color, teal: Color
+    /// Whether materials should be the dark kind.
+    var darkMaterials: Bool
+    /// How strong the coloured light washed over sheets and cards is. Dark
+    /// leaves it out: black there means black (owner, 2026-10-02).
+    var wash: Double = 1
+
+    /// Muro as it has always looked. Every value is the one the app used
+    /// before 6.0, so Default is the old app exactly.
+    static let standard = Palette(
+        background: Color(hex: 0x0A0C10),
+        pageTop: Color(hex: 0x07080D), pageMid: Color(hex: 0x070A0E), pageBottom: Color(hex: 0x05070A),
+        blooms: 1,
+        accent: Color(hex: 0xA9C4FF),
+        onAccent: .black,
+        glow: Color(hex: 0xA9C4FF),
+        secondary: Color(hex: 0x98A0AC),
+        ink: .white,
+        onInk: .black,
+        shade: .black,
+        sheetTop: Color(hex: 0x11151C), sheetBottom: Color(hex: 0x0B0E14),
+        menuBase: Color(hex: 0x0B0E14),
+        trayTop: .white.opacity(0.055), trayBottom: .white.opacity(0.022),
+        scrim: .black.opacity(0.5),
+        switchOn: Color(hex: 0xA9C4FF),
+        accentOnMedia: Color(hex: 0xA9C4FF), secondaryOnMedia: Color(hex: 0x98A0AC),
+        green: Color(hex: 0x7DE8A8), warn: Color(hex: 0xFFC46B), danger: Color(hex: 0xFF6B6B),
+        violet: Color(hex: 0x8E7BFF), teal: Color(hex: 0x4FD6C9),
+        darkMaterials: true,
+        wash: 1
+    )
+
+    /// Black and white. The midnight blue goes to true black and neutral
+    /// greys, the moonbeam to white, the page's coloured blooms to a faint
+    /// white one. Green, amber and red keep their meaning.
+    static let mono = Palette(
+        background: Color(hex: 0x050505),
+        pageTop: Color(hex: 0x0B0B0B), pageMid: Color(hex: 0x060606), pageBottom: Color(hex: 0x000000),
+        blooms: 0.35,
+        accent: .white,
+        onAccent: .black,
+        glow: .white,
+        secondary: Color(hex: 0x98989D),
+        ink: .white,
+        onInk: .black,
+        shade: .black,
+        sheetTop: Color(hex: 0x0A0A0A), sheetBottom: Color(hex: 0x000000),
+        menuBase: Color(hex: 0x000000),
+        trayTop: .white.opacity(0.055), trayBottom: .white.opacity(0.022),
+        scrim: .black.opacity(0.55),
+        // A white track would hide the switch's white knob.
+        switchOn: Color(hex: 0x8E8E93),
+        accentOnMedia: .white, secondaryOnMedia: Color(hex: 0xA1A1A6),
+        green: Color(hex: 0x7DE8A8), warn: Color(hex: 0xFFC46B), danger: Color(hex: 0xFF6B6B),
+        violet: .white, teal: .white,
+        darkMaterials: true,
+        wash: 0
+    )
+
+    /// White. Apple's light greys for the page and the second-level text, a
+    /// near black for text and for everything the moonbeam marked, so the
+    /// buttons go dark. Green, amber and red are deepened to read on white.
+    static let light = Palette(
+        background: Color(hex: 0xF5F5F7),
+        pageTop: Color(hex: 0xF7F7F9), pageMid: Color(hex: 0xF0F0F3), pageBottom: Color(hex: 0xE8E8EC),
+        blooms: 0,
+        accent: Color(hex: 0x1D1D1F),
+        onAccent: .white,
+        glow: .clear,
+        secondary: Color(hex: 0x6E6E73),
+        ink: Color(hex: 0x1D1D1F),
+        onInk: .white,
+        shade: .white,
+        sheetTop: Color(hex: 0xFFFFFF), sheetBottom: Color(hex: 0xF4F4F7),
+        menuBase: Color(hex: 0xFFFFFF),
+        trayTop: .white.opacity(0.8), trayBottom: .white.opacity(0.62),
+        scrim: .black.opacity(0.22),
+        switchOn: Color(hex: 0x1D1D1F),
+        accentOnMedia: .white, secondaryOnMedia: Color(hex: 0xD1D1D6),
+        green: Color(hex: 0x1E8E4E), warn: Color(hex: 0xB26A00), danger: Color(hex: 0xD7263D),
+        violet: Color(hex: 0x5E5CE6), teal: Color(hex: 0x0E9E90),
+        darkMaterials: false,
+        wash: 0
+    )
+}
 
 extension Color {
     init(hex: UInt32) {
@@ -15,27 +219,59 @@ extension Color {
         )
     }
 
-    static let muroBG = Color(hex: 0x0A0C10)
-    static let muroAccent = Color(hex: 0xA9C4FF)
-    static let muroSecondary = Color(hex: 0x98A0AC)
-    static let muroGreen = Color(hex: 0x7DE8A8)
+    static var muroBG: Color { Appearance.shared.palette.background }
+    static var muroAccent: Color { Appearance.shared.palette.accent }
+    static var muroSecondary: Color { Appearance.shared.palette.secondary }
+    static var muroGreen: Color { Appearance.shared.palette.green }
+
+    // 6.0, the tokens the three looks needed. See `Palette`.
+    static var muroInk: Color { Appearance.shared.palette.ink }
+    static var muroOnInk: Color { Appearance.shared.palette.onInk }
+    static var muroOnAccent: Color { Appearance.shared.palette.onAccent }
+    static var muroGlow: Color { Appearance.shared.palette.glow }
+    static var muroShade: Color { Appearance.shared.palette.shade }
+    static var muroScrim: Color { Appearance.shared.palette.scrim }
+    static var muroSwitch: Color { Appearance.shared.palette.switchOn }
+    static var muroSheetTop: Color { Appearance.shared.palette.sheetTop }
+    static var muroSheetBottom: Color { Appearance.shared.palette.sheetBottom }
+    static var muroMenuBase: Color { Appearance.shared.palette.menuBase }
+    static var muroAccentOnMedia: Color { Appearance.shared.palette.accentOnMedia }
+    static var muroSecondaryOnMedia: Color { Appearance.shared.palette.secondaryOnMedia }
 }
 
 struct Glass: ViewModifier {
     var cornerRadius: CGFloat = 16
     var fill: Double = 0.07
     var stroke: Double = 0.12
+    @Environment(\.muroOnMedia) private var onMedia
 
     func body(content: Content) -> some View {
+        let ink = onMedia ? Color.white : Color.muroInk
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(fill))
+                    .fill(ink.opacity(fill))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(stroke), lineWidth: 1)
+                    .strokeBorder(ink.opacity(stroke), lineWidth: 1)
             )
+    }
+}
+
+// MARK: - Over a playing wallpaper
+
+private struct MuroOnMediaKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// True for controls drawn over a playing wallpaper: they keep the dark
+    /// looks' white whatever the look is. The top bar sets it on the light
+    /// look while Home's banner is behind it (owner, 2026-10-02).
+    var muroOnMedia: Bool {
+        get { self[MuroOnMediaKey.self] }
+        set { self[MuroOnMediaKey.self] = newValue }
     }
 }
 
@@ -50,13 +286,13 @@ struct LiquidGlass: ViewModifier {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         if #available(macOS 26.0, *) {
             content
-                .glassEffect(tint > 0 ? .regular.tint(Color.black.opacity(tint)) : .regular, in: shape)
-                .overlay(shape.strokeBorder(Color.white.opacity(stroke), lineWidth: 1))
+                .glassEffect(tint > 0 ? .regular.tint(Color.muroShade.opacity(tint)) : .regular, in: shape)
+                .overlay(shape.strokeBorder(Color.muroInk.opacity(stroke), lineWidth: 1))
         } else {
             content
-                .background(shape.fill(Color.black.opacity(tint)))
+                .background(shape.fill(Color.muroShade.opacity(tint)))
                 .background(.ultraThinMaterial, in: shape)
-                .overlay(shape.strokeBorder(Color.white.opacity(stroke), lineWidth: 1))
+                .overlay(shape.strokeBorder(Color.muroInk.opacity(stroke), lineWidth: 1))
         }
     }
 }
@@ -133,13 +369,13 @@ extension Color {
     // They keep the blue lean rather than going to neutral grey, because a
     // page that is exactly black makes the glass panels look like they are
     // floating on nothing.
-    static let muroBGTop = Color(hex: 0x07080D)
-    static let muroBGMid = Color(hex: 0x070A0E)
-    static let muroBGBottom = Color(hex: 0x05070A)
-    static let muroViolet = Color(hex: 0x8E7BFF)
-    static let muroTeal = Color(hex: 0x4FD6C9)
-    static let muroWarn = Color(hex: 0xFFC46B)
-    static let muroDanger = Color(hex: 0xFF6B6B)
+    static var muroBGTop: Color { Appearance.shared.palette.pageTop }
+    static var muroBGMid: Color { Appearance.shared.palette.pageMid }
+    static var muroBGBottom: Color { Appearance.shared.palette.pageBottom }
+    static var muroViolet: Color { Appearance.shared.palette.violet }
+    static var muroTeal: Color { Appearance.shared.palette.teal }
+    static var muroWarn: Color { Appearance.shared.palette.warn }
+    static var muroDanger: Color { Appearance.shared.palette.danger }
 }
 
 // MARK: - Page changes
@@ -233,6 +469,8 @@ private struct Bloom: View {
 /// but the hero is only the top of the page and everything below it read as
 /// flatter and darker than Explore and Library.
 struct MuroPageBackground: View {
+    private var blooms: Double { Appearance.shared.palette.blooms }
+
     var body: some View {
         LinearGradient(
             colors: [.muroBGTop, .muroBGMid, .muroBGBottom],
@@ -249,9 +487,13 @@ struct MuroPageBackground: View {
         // Library cover most of their background with the glass tray, while
         // Home leaves it bare between the hero and the rows. Judge this one on
         // Home, not on the other two, or it will always look too strong there.
-        .overlay(Bloom(colour: .muroAccent, alpha: 0.14, at: UnitPoint(x: 0.16, y: 0.06), spread: 0.86))
-        .overlay(Bloom(colour: .muroViolet, alpha: 0.05, at: UnitPoint(x: 0.88, y: 0.85), spread: 0.82))
-        .overlay(Bloom(colour: .muroTeal, alpha: 0.06, at: UnitPoint(x: 0.40, y: 1.02), spread: 0.62))
+        //
+        // Since 6.0 each look sets their strength: full in Default, a faint
+        // white in Dark, none in Light, where a coloured cloud reads as a
+        // stain on the white.
+        .overlay(Bloom(colour: .muroGlow, alpha: 0.14 * blooms, at: UnitPoint(x: 0.16, y: 0.06), spread: 0.86))
+        .overlay(Bloom(colour: .muroViolet, alpha: 0.05 * blooms, at: UnitPoint(x: 0.88, y: 0.85), spread: 0.82))
+        .overlay(Bloom(colour: .muroTeal, alpha: 0.06 * blooms, at: UnitPoint(x: 0.40, y: 1.02), spread: 0.62))
         .ignoresSafeArea()
         .allowsHitTesting(false)
     }
@@ -270,13 +512,13 @@ struct GlassTray<Content: View>: View {
             .background(
                 shape.fill(
                     LinearGradient(
-                        colors: [.white.opacity(0.055), .white.opacity(0.022)],
+                        colors: [Appearance.shared.palette.trayTop, Appearance.shared.palette.trayBottom],
                         startPoint: .top, endPoint: .bottom
                     )
                 )
             )
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Color.white.opacity(0.09), lineWidth: 1))
+            .overlay(shape.strokeBorder(Color.muroInk.opacity(0.09), lineWidth: 1))
             // The top edge catch-light: the detail that makes glass read as
             // glass rather than as a lighter rectangle.
             .overlay(alignment: .top) {
@@ -298,7 +540,7 @@ extension ShapeStyle where Self == LinearGradient {
     /// paper and a real pane is brighter where the light lands.
     static func glassSheen(_ top: Double, _ bottom: Double) -> LinearGradient {
         LinearGradient(
-            colors: [.white.opacity(top), .white.opacity(bottom)],
+            colors: [Color.muroInk.opacity(top), Color.muroInk.opacity(bottom)],
             startPoint: .top, endPoint: .bottom
         )
     }
@@ -318,10 +560,24 @@ extension View {
             .background(shape.fill(.glassSheen(active ? 0.10 : top, active ? 0.04 : bottom)))
             .overlay(
                 shape.strokeBorder(
-                    active ? Color.muroAccent.opacity(0.5) : Color.white.opacity(0.1),
+                    active ? Color.muroAccent.opacity(0.5) : Color.muroInk.opacity(0.1),
                     lineWidth: active ? 1.5 : 1
                 )
             )
             .shadow(color: active ? Color.muroAccent.opacity(0.18) : .clear, radius: 13, x: 0, y: 3)
     }
+}
+
+// MARK: - The look, per window
+
+/// What each window tells SwiftUI about light and dark, read inside a body so
+/// it follows the look the moment it changes.
+private struct MuroColorScheme: ViewModifier {
+    func body(content: Content) -> some View {
+        content.preferredColorScheme(Appearance.shared.colorScheme)
+    }
+}
+
+extension View {
+    func muroColorScheme() -> some View { modifier(MuroColorScheme()) }
 }

@@ -21,7 +21,7 @@ struct PlusGlyph: View {
     /// Length of each arm.
     var span: CGFloat
     var thickness: CGFloat
-    var colour: Color = .white
+    var colour: Color = Color.muroInk
 
     var body: some View {
         ZStack {
@@ -55,9 +55,11 @@ struct BubbleSurface: ViewModifier {
     var tint: Color = .muroAccent
 
     private var lit: Bool { hovering || active }
+    @Environment(\.muroOnMedia) private var onMedia
 
     func body(content: Content) -> some View {
-        content
+        let ink = onMedia ? Color.white : Color.muroInk
+        return content
             .frame(width: size, height: size)
             // The accent light lives inside the circle.
             //
@@ -69,7 +71,10 @@ struct BubbleSurface: ViewModifier {
             // light to the circle keeps the lit look and stops it leaking.
             .background {
                 Circle()
-                    .fill(.glassSheen(lit ? 0.26 : 0.20, lit ? 0.09 : 0.06))
+                    .fill(LinearGradient(
+                        colors: [ink.opacity(lit ? 0.26 : 0.20), ink.opacity(lit ? 0.09 : 0.06)],
+                        startPoint: .top, endPoint: .bottom
+                    ))
                     .overlay {
                         RadialGradient(
                             gradient: Gradient(colors: [
@@ -83,7 +88,7 @@ struct BubbleSurface: ViewModifier {
             }
             .overlay(
                 Circle().strokeBorder(
-                    active ? tint.opacity(0.55) : Color.white.opacity(hovering ? 0.34 : 0.26),
+                    active ? tint.opacity(0.55) : ink.opacity(hovering ? 0.34 : 0.26),
                     lineWidth: 1
                 )
             )
@@ -131,7 +136,7 @@ struct PlusBubble: View {
 
     var body: some View {
         PlusGlyph(span: size * 0.36, thickness: size * 0.054, colour: .muroAccent)
-            .shadow(color: Color.muroAccent.opacity(0.55), radius: hovering ? 5 : 3)
+            .shadow(color: Color.muroGlow.opacity(0.55), radius: hovering ? 5 : 3)
             .bubbleSurface(size: size, hovering: hovering, pressed: pressed)
     }
 }
@@ -186,11 +191,21 @@ struct GlassBubbleButton: View {
 
     @State private var hovering = false
 
+    @Environment(\.muroOnMedia) private var onMedia
+
+    /// White is "the app's own glyph colour", which since 6.0 is the look's
+    /// ink: dark on the light look, unless the bubble sits over a playing
+    /// wallpaper. Any other tint is a real colour and stays.
+    private var glyph: Color {
+        if onMedia { return .white }
+        return tint == .white ? Color.muroInk : tint
+    }
+
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: size * glyphScale, weight: weight))
-                .foregroundStyle(tint)
+                .foregroundStyle(glyph)
                 .shadow(color: tint.opacity(0.45), radius: hovering ? 5 : 3)
                 .rotationEffect(.degrees(turns && hovering ? 40 : 0))
                 .animation(.spring(response: 0.34, dampingFraction: 0.7), value: hovering)
@@ -283,16 +298,16 @@ struct MetaChip: View {
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle((tint ?? .white).opacity(tint == nil ? 0.75 : 1))
+                    .foregroundStyle((tint ?? Color.muroInk).opacity(tint == nil ? 0.75 : 1))
             }
             Text(text)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(tint ?? Color.white.opacity(0.82))
+                .foregroundStyle(tint ?? Color.muroInk.opacity(0.82))
         }
         .padding(.horizontal, 11)
         .padding(.vertical, 6)
-        .background(Capsule().fill((tint ?? .white).opacity(tint == nil ? 0.07 : 0.15)))
-        .overlay(Capsule().strokeBorder((tint ?? .white).opacity(tint == nil ? 0.11 : 0.3), lineWidth: 1))
+        .background(Capsule().fill((tint ?? Color.muroInk).opacity(tint == nil ? 0.07 : 0.15)))
+        .overlay(Capsule().strokeBorder((tint ?? Color.muroInk).opacity(tint == nil ? 0.11 : 0.3), lineWidth: 1))
     }
 }
 
@@ -335,16 +350,16 @@ struct GlassPlayButton: View {
         Button(action: action) {
             Image(systemName: playing ? "pause.fill" : "play.fill")
                 .font(.system(size: diameter * 0.28, weight: .semibold))
-                .foregroundStyle(playing ? Color.black : Color.white)
+                .foregroundStyle(playing ? Color.muroOnInk : Color.muroInk)
                 // The play triangle's ink sits left of its box; nudging it
                 // back is what makes it look centred in a circle.
                 .offset(x: playing ? 0 : 1)
                 .frame(width: diameter, height: diameter)
                 .background(
-                    Circle().fill(playing ? AnyShapeStyle(Color.white) : AnyShapeStyle(LinearGradient.glassSheen(0.16, 0.06)))
+                    Circle().fill(playing ? AnyShapeStyle(Color.muroInk) : AnyShapeStyle(LinearGradient.glassSheen(0.16, 0.06)))
                 )
                 .overlay {
-                    if !playing { Circle().strokeBorder(Color.white.opacity(0.2), lineWidth: 1) }
+                    if !playing { Circle().strokeBorder(Color.muroInk.opacity(0.2), lineWidth: 1) }
                 }
                 .shadow(color: .black.opacity(0.32), radius: 6, x: 0, y: 3)
         }
@@ -416,8 +431,8 @@ struct PillSegments: View {
         }
         .padding(5)
         .background(alignment: .topLeading) { pill }
-        .background(Capsule().fill(Color.white.opacity(0.06)))
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.13), lineWidth: 1))
+        .background(Capsule().fill(Color.muroInk.opacity(0.06)))
+        .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.13), lineWidth: 1))
         .shadow(color: .black.opacity(0.30), radius: 9, x: 0, y: 4)
         .coordinateSpace(name: "segments")
         .onPreferenceChange(SegmentFrames.self) { value in
@@ -429,7 +444,7 @@ struct PillSegments: View {
     @ViewBuilder private var pill: some View {
         if let rect = frames[selection], rect.width > 0 {
             Capsule()
-                .fill(Color.white)
+                .fill(Color.muroInk)
                 .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 2)
                 .frame(width: rect.width, height: rect.height)
                 .offset(x: rect.minX, y: rect.minY)
@@ -444,7 +459,7 @@ struct PillSegments: View {
             if let symbol = option.systemImage {
                 Image(systemName: symbol)
                     .font(.system(size: labelSize * 0.85, weight: .medium))
-                    .foregroundStyle(on ? Color.black : Color.white.opacity(0.7))
+                    .foregroundStyle(on ? Color.muroOnInk : Color.muroInk.opacity(0.7))
             }
             Text(option.label)
                 // Without this "Every 15 min" wrapped onto two lines and the
@@ -452,19 +467,19 @@ struct PillSegments: View {
                 .font(.system(size: labelSize, weight: .semibold))
                 .lineLimit(1)
                 .fixedSize()
-                .foregroundStyle(on ? Color.black : Color.white.opacity(0.78))
+                .foregroundStyle(on ? Color.muroOnInk : Color.muroInk.opacity(0.78))
             if let count = option.count {
                 Text("\(count)")
                     .font(.system(size: labelSize * 0.81, weight: .semibold))
                     .monospacedDigit()
-                    .foregroundStyle(on ? Color.black.opacity(0.55) : Color.muroAccent)
+                    .foregroundStyle(on ? Color.muroOnInk.opacity(0.55) : Color.muroAccent)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
                     // A fixed width, so a count going from 9 to 10 cannot
                     // resize the segment the pill is sitting on.
                     .frame(minWidth: 22)
                     .background(
-                        Capsule().fill(on ? Color.black.opacity(0.10) : Color.muroAccent.opacity(0.16))
+                        Capsule().fill(on ? Color.muroOnInk.opacity(0.10) : Color.muroAccent.opacity(0.16))
                     )
             }
         }
@@ -550,20 +565,20 @@ struct SheetSurface: ViewModifier {
                 shape
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: 0x11151C), Color(hex: 0x0B0E14)],
+                            colors: [Color.muroSheetTop, Color.muroSheetBottom],
                             startPoint: .top, endPoint: .bottom
                         )
                     )
                     .overlay(
                         RadialGradient(
                             gradient: Gradient(colors: [
-                                Color.muroAccent.opacity(0.16), Color.muroAccent.opacity(0)
+                                Color.muroGlow.opacity(0.16 * Appearance.shared.palette.wash), Color.muroGlow.opacity(0)
                             ]),
                             center: UnitPoint(x: 0.12, y: -0.06), startRadius: 0, endRadius: 480
                         )
                         .clipShape(shape)
                     )
-                    .overlay(shape.strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                    .overlay(shape.strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1))
                     .overlay(alignment: .top) {
                         LinearGradient(
                             colors: [.white.opacity(0), .white.opacity(0.3), .white.opacity(0)],
@@ -577,7 +592,7 @@ struct SheetSurface: ViewModifier {
             // only show once the window's own background is out of the way.
             .background(ClearWindowChrome())
             .presentationBackground(.clear)
-            .preferredColorScheme(.dark)
+            .muroColorScheme()
     }
 }
 
@@ -591,7 +606,7 @@ extension View {
         self
             .frame(width: diameter, height: diameter)
             .background(Circle().fill(.glassSheen(0.13, 0.05)))
-            .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+            .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.16), lineWidth: 1))
     }
 }
 
@@ -607,12 +622,12 @@ struct SheetHeader: View {
         HStack {
             Text(title)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Spacer()
             Button(action: onClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(Color.muroInk.opacity(0.85))
                     .glassCircleChrome()
             }
             .buttonStyle(.plain)
@@ -667,7 +682,7 @@ struct GlassTextField: View {
                 TextField(placeholder, text: $text)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
             }
             if let problem {
                 HStack(spacing: 5) {
@@ -697,7 +712,7 @@ struct GlassTextField: View {
         .overlay(
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .strokeBorder(
-                    problem == nil ? Color.white.opacity(0.13) : Color.muroWarn.opacity(0.5),
+                    problem == nil ? Color.muroInk.opacity(0.13) : Color.muroWarn.opacity(0.5),
                     lineWidth: 1
                 )
         )
@@ -734,7 +749,7 @@ struct PickerTile: View {
             .overlay(alignment: .bottomLeading) {
                 Text(item.title)
                     .font(.system(size: titleSize, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
                     .padding(9)
             }
@@ -745,7 +760,7 @@ struct PickerTile: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .strokeBorder(
-                        selected ? Color.muroAccent.opacity(0.85) : Color.white.opacity(0.09),
+                        selected ? Color.muroAccent.opacity(0.85) : Color.muroInk.opacity(0.09),
                         lineWidth: selected ? 1.6 : 1
                     )
             )
@@ -768,9 +783,9 @@ struct SheetFooter<Info: View, Actions: View>: View {
         .padding(.horizontal, 26)
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.035))
+        .background(Color.muroInk.opacity(0.035))
         .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.09)).frame(height: 1)
+            Rectangle().fill(Color.muroInk.opacity(0.09)).frame(height: 1)
         }
     }
 }
@@ -788,10 +803,10 @@ struct PrimaryPill: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(Color.black)
+                .foregroundStyle(Color.muroOnInk)
                 .padding(.horizontal, 22)
                 .frame(height: 38)
-                .background(Capsule().fill(Color.white))
+                .background(Capsule().fill(Color.muroInk))
                 .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
         }
         .buttonStyle(.plain)
@@ -809,11 +824,11 @@ struct GhostPill: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(Color.muroInk.opacity(0.9))
                 .padding(.horizontal, 20)
                 .frame(height: 38)
                 .background(Capsule().fill(.glassSheen(0.11, 0.05)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: 1))
+                .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.15), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -844,11 +859,11 @@ struct MiniSwitch: View {
 
     var body: some View {
         Capsule()
-            .fill(on ? Color.muroAccent : Color.white.opacity(0.16))
+            .fill(on ? Color.muroAccent : Color.muroInk.opacity(0.16))
             .frame(width: 34, height: 20)
             .overlay(alignment: on ? .trailing : .leading) {
                 Circle()
-                    .fill(on ? Color(hex: 0x0B0E14) : Color.white.opacity(0.85))
+                    .fill(on ? Color.muroOnAccent : Color.muroInk.opacity(0.85))
                     .frame(width: 15, height: 15)
                     .padding(.horizontal, 2.5)
             }
@@ -1040,11 +1055,11 @@ struct GlassScrollView<Content: View>: View {
                 // The lane. Invisible until the pointer is near, but always
                 // there to be clicked.
                 Capsule()
-                    .fill(Color.white.opacity(hovering ? 0.05 : 0))
+                    .fill(Color.muroInk.opacity(hovering ? 0.05 : 0))
                     .frame(width: 5)
                     .frame(maxHeight: .infinity)
                 Capsule()
-                    .fill(Color.white.opacity(hovering || grabbedAt != nil ? 0.42 : 0.28))
+                    .fill(Color.muroInk.opacity(hovering || grabbedAt != nil ? 0.42 : 0.28))
                     .frame(width: grabbedAt != nil ? 5 : 4, height: knob)
                     .frame(width: Self.lane)
                     .contentShape(Rectangle())
@@ -1131,7 +1146,7 @@ struct GlassCard: ViewModifier {
             .background {
                 RadialGradient(
                     gradient: Gradient(colors: [
-                        Color.muroAccent.opacity(0.07), Color.muroAccent.opacity(0)
+                        Color.muroGlow.opacity(0.07 * Appearance.shared.palette.wash), Color.muroGlow.opacity(0)
                     ]),
                     center: UnitPoint(x: 0.15, y: -0.15), startRadius: 0, endRadius: 240
                 )
@@ -1142,8 +1157,8 @@ struct GlassCard: ViewModifier {
             // bright 4K wallpaper needs it, and the menu bar's menus live in a
             // transparent window of their own, where a material with nothing
             // behind it has nothing to blur.
-            .background(shape.fill(Color(hex: 0x0B0E14).opacity(0.38)))
-            .overlay(shape.strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
+            .background(shape.fill(Color.muroMenuBase.opacity(0.38)))
+            .overlay(shape.strokeBorder(Color.muroInk.opacity(0.18), lineWidth: 1))
             // The top edge catch-light, the detail that makes glass read as
             // glass rather than as a lighter rectangle.
             .overlay(alignment: .top) {
@@ -1158,7 +1173,7 @@ struct GlassCard: ViewModifier {
                 color: .black.opacity(shadow ? 0.5 : 0),
                 radius: shadow ? 20 : 0, x: 0, y: shadow ? 10 : 0
             )
-            .preferredColorScheme(.dark)
+            .muroColorScheme()
     }
 }
 
@@ -1170,10 +1185,10 @@ private struct GlassMaterial: ViewModifier {
 
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
-            content.glassEffect(.regular.tint(Color.black.opacity(tint)), in: shape)
+            content.glassEffect(.regular.tint(Color.muroShade.opacity(tint)), in: shape)
         } else {
             content
-                .background(shape.fill(Color.black.opacity(tint)))
+                .background(shape.fill(Color.muroShade.opacity(tint)))
                 .background(.ultraThinMaterial, in: shape)
         }
     }
@@ -1217,7 +1232,7 @@ struct CustomValueCard<Unit: View>: View {
         VStack(alignment: .center, spacing: 14) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
                 .frame(maxWidth: .infinity, alignment: .center)
             HStack(spacing: 12) {
                 TextField("", text: $text)
@@ -1237,7 +1252,7 @@ struct CustomValueCard<Unit: View>: View {
                     .onSubmit { if canApply { apply() } }
                     .textFieldStyle(.plain)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .multilineTextAlignment(.center)
                     .frame(width: 56)
                     .padding(.horizontal, 10)
@@ -1248,7 +1263,7 @@ struct CustomValueCard<Unit: View>: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                            .strokeBorder(Color.muroInk.opacity(0.22), lineWidth: 1)
                     )
                 unit
             }
@@ -1256,10 +1271,10 @@ struct CustomValueCard<Unit: View>: View {
             Button(action: apply) {
                 Text(canApply ? applyLabel : "Enter a number")
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(Color.muroOnInk)
                     .frame(maxWidth: .infinity)
                     .frame(height: 38)
-                    .background(Capsule().fill(Color.white))
+                    .background(Capsule().fill(Color.muroInk))
                     .shadow(color: .black.opacity(0.35), radius: 5, y: 3)
             }
             .buttonStyle(.plain)

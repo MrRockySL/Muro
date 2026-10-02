@@ -30,8 +30,9 @@ struct SettingsView: View {
             // Full-bleed glass layer: fills the ENTIRE window including under
             // the transparent, separator-less titlebar (so the top bar is the
             // same glass, no seam). Content scrolls on top.
-            VisualEffectBackground()
-                .overlay(Color.black.opacity(0.22))
+            // The light look takes the light kind of glass (6.0).
+            VisualEffectBackground(material: Appearance.shared.isLight ? .popover : .hudWindow)
+                .overlay(Color.muroShade.opacity(0.22))
                 .ignoresSafeArea()
 
             ScrollViewReader { proxy in
@@ -47,7 +48,7 @@ struct SettingsView: View {
                         subtitle: "Starts quietly in the background") {
                         Toggle("", isOn: $launchAtLogin)
                             .toggleStyle(.switch)
-                            .tint(Color.muroAccent)
+                            .tint(Color.muroSwitch)
                             .labelsHidden()
                             .onChange(of: launchAtLogin) { _, enabled in
                                 setLaunchAtLogin(enabled)
@@ -58,7 +59,7 @@ struct SettingsView: View {
                         subtitle: menuBarSubtitle) {
                         Toggle("", isOn: $showMenuBarIcon)
                             .toggleStyle(.switch)
-                            .tint(Color.muroAccent)
+                            .tint(Color.muroSwitch)
                             .labelsHidden()
                     }
                     divider
@@ -66,12 +67,27 @@ struct SettingsView: View {
                         subtitle: "Off keeps Muro in the menu bar only") {
                         Toggle("", isOn: $showDockIcon)
                             .toggleStyle(.switch)
-                            .tint(Color.muroAccent)
+                            .tint(Color.muroSwitch)
                             .labelsHidden()
                             .onChange(of: showDockIcon) { _, on in
                                 NSApp.setActivationPolicy(on ? .regular : .accessory)
                                 NSApp.activate(ignoringOtherApps: true)
                             }
+                    }
+                    divider
+                    // Default is Muro as it has always looked; Dark is the
+                    // same glass in black and white; Light is white with dark
+                    // buttons (owner, 2026-10-02). It changes at once, in
+                    // every window and the menu bar.
+                    row(icon: .appearance, title: "Appearance",
+                        subtitle: "Default, Light or Dark") {
+                        CapsuleSegments(
+                            options: [AppearanceMode.standard, .light, .dark].map { ($0.title, $0.rawValue) },
+                            selection: Binding(
+                                get: { Appearance.shared.mode.rawValue },
+                                set: { Appearance.shared.set(AppearanceMode(rawValue: $0) ?? .standard) }
+                            )
+                        )
                     }
                 }
 
@@ -89,10 +105,10 @@ struct SettingsView: View {
                             HStack(spacing: 6) {
                                 Text(speedLabel(store.playbackSpeed))
                                     .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Color.muroInk)
                                 Image(systemName: "chevron.down")
                                     .font(.system(size: 8, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.6))
+                                    .foregroundStyle(Color.muroInk.opacity(0.6))
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 5.5)
@@ -122,10 +138,10 @@ struct SettingsView: View {
                                 Text(store.pauseAfterSeconds == 0
                                      ? "Off" : durationLabel(store.pauseAfterSeconds))
                                     .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Color.muroInk)
                                 Image(systemName: "chevron.down")
                                     .font(.system(size: 8, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.6))
+                                    .foregroundStyle(Color.muroInk.opacity(0.6))
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 5.5)
@@ -149,7 +165,7 @@ struct SettingsView: View {
                             get: { store.replayOnClearDesktop },
                             set: { store.setReplayOnClearDesktop($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
                     // Apple's setting, offered here so a Mac running Muro as
@@ -174,10 +190,10 @@ struct SettingsView: View {
                             HStack(spacing: 6) {
                                 Text(ScreenSaverDelay.label(screenSaverDelay))
                                     .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Color.muroInk)
                                 Image(systemName: "chevron.down")
                                     .font(.system(size: 8, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.6))
+                                    .foregroundStyle(Color.muroInk.opacity(0.6))
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 5.5)
@@ -193,7 +209,7 @@ struct SettingsView: View {
                             get: { store.autoPauseLowPower },
                             set: { store.setAutoPauseLowPower($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
                     row(icon: .lowBattery, title: "Auto-pause below 20% battery",
@@ -202,7 +218,7 @@ struct SettingsView: View {
                             get: { store.autoPauseBattery },
                             set: { store.setAutoPauseBattery($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
                     row(icon: .covered, title: "Auto-pause when covered",
@@ -211,7 +227,7 @@ struct SettingsView: View {
                             get: { store.autoPauseFullScreen },
                             set: { store.setAutoPauseFullScreen($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
                     // Issue #22. Any app window open on a screen freezes that
@@ -222,7 +238,7 @@ struct SettingsView: View {
                             get: { store.playOnlyOnDesktop },
                             set: { store.setPlayOnlyOnDesktop($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroAccent).labelsHidden()
+                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
                     }
                 }
 
@@ -249,7 +265,7 @@ struct SettingsView: View {
                             Button("Clear") { confirmClear = true }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color.muroInk)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 5.5)
                                 .glassCapsule(fill: 0.09, stroke: 0.15)
@@ -449,7 +465,7 @@ struct SettingsView: View {
                 .frame(width: 64, height: 64)
             Text("Muro")
                 .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Text("Version \(AppStore.appVersion)")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.muroSecondary)
@@ -483,7 +499,7 @@ struct SettingsView: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.06))
+            .fill(Color.muroInk.opacity(0.06))
             .frame(height: 1)
             .padding(.leading, 58)
     }
@@ -500,7 +516,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                 Text(subtitle)
                     .font(.system(size: 11))
                     .foregroundStyle(Color.muroSecondary)
@@ -547,7 +563,7 @@ struct SettingsView: View {
             Button("Download ↗") { store.downloadUpdate() }
                 .buttonStyle(.plain)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.black)
+                .foregroundStyle(Color.muroOnAccent)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 5.5)
                 .background(Capsule().fill(Color.muroAccent))
@@ -557,7 +573,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.muroInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 5.5)
             .glassCapsule(fill: 0.09, stroke: 0.15)
@@ -587,7 +603,7 @@ struct SettingsView: View {
         Button(title) { NSWorkspace.shared.open(url) }
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.muroInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 5.5)
             .glassCapsule(fill: 0.09, stroke: 0.15)
@@ -615,7 +631,7 @@ struct SettingsView: View {
         Button(title, action: action)
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.muroInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 5.5)
             .glassCapsule(fill: 0.09, stroke: 0.15)
@@ -630,7 +646,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                 Text(subtitle)
                     .font(.system(size: 11))
                     .foregroundStyle(Color.muroSecondary)

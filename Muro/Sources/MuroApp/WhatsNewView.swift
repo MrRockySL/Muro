@@ -137,12 +137,12 @@ struct WhatsNewView: View {
                 .frame(width: 32, height: 32)
             Text("What's New")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Spacer()
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(Color.muroInk.opacity(0.85))
                     .glassCircleChrome()
             }
             .buttonStyle(.plain)
@@ -155,7 +155,7 @@ struct WhatsNewView: View {
                 .fill(.glassSheen(0.05, 0.02))
                 .overlay(alignment: .bottom) {
                     Rectangle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.muroInk.opacity(0.08))
                         .frame(height: 1)
                 }
         )
@@ -171,7 +171,7 @@ struct WhatsNewView: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text("Muro \(release.version)")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                 if let date = release.date {
                     Text(date)
                         .font(.system(size: 10.5, weight: .medium, design: .rounded))
@@ -179,7 +179,7 @@ struct WhatsNewView: View {
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
                         .background(Capsule().fill(.glassSheen(0.09, 0.03)))
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+                        .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.1), lineWidth: 1))
                 }
             }
             Text(release.headline)
@@ -196,7 +196,7 @@ struct WhatsNewView: View {
                 .overlay(
                     RadialGradient(
                         gradient: Gradient(colors: [
-                            Color.muroAccent.opacity(0.30), Color.muroAccent.opacity(0)
+                            Color.muroGlow.opacity(0.30 * Appearance.shared.palette.wash), Color.muroGlow.opacity(0)
                         ]),
                         center: UnitPoint(x: 0.5, y: 1.05), startRadius: 0, endRadius: 260
                     )
@@ -205,7 +205,7 @@ struct WhatsNewView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                .strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1)
         )
     }
 
@@ -243,7 +243,7 @@ struct WhatsNewView: View {
                         .font(.system(size: 9.5, weight: .semibold))
                         .tracking(1.3)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(Color.muroAccent))
@@ -257,7 +257,7 @@ struct WhatsNewView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Muro \(update.version)")
                     .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                 if let title = update.title {
                     Text(title)
                         .font(.system(size: 13.5))
@@ -303,7 +303,7 @@ struct WhatsNewView: View {
                 .overlay(
                     RadialGradient(
                         gradient: Gradient(colors: [
-                            Color.muroAccent.opacity(0.28), Color.muroAccent.opacity(0)
+                            Color.muroGlow.opacity(0.28 * Appearance.shared.palette.wash), Color.muroGlow.opacity(0)
                         ]),
                         center: UnitPoint(x: 0.1, y: -0.2), startRadius: 0, endRadius: 360
                     )
@@ -326,7 +326,7 @@ struct WhatsNewView: View {
                 .padding(.top, 6)
             Text(text)
                 .font(.system(size: 12.5))
-                .foregroundStyle(.white.opacity(0.86))
+                .foregroundStyle(Color.muroInk.opacity(0.86))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -357,7 +357,7 @@ struct WhatsNewView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(entry.title)
                 .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
                 .fixedSize(horizontal: false, vertical: true)
             Text(entry.detail)
                 .font(.system(size: 12))
@@ -378,10 +378,10 @@ struct WhatsNewView: View {
                 .foregroundStyle(Color.muroAccent)
                 .frame(width: 54, height: 54)
                 .background(Circle().fill(.glassSheen(0.14, 0.05)))
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+                .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.16), lineWidth: 1))
             Text("The notes for this update are on the way")
                 .font(.system(size: 14.5, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Text("Everything that changed will be listed right here: what is new, what got better, and what was fixed.")
                 .font(.system(size: 12.5))
                 .foregroundStyle(Color.muroSecondary)
@@ -397,7 +397,7 @@ struct WhatsNewView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                .strokeBorder(Color.muroInk.opacity(0.1), lineWidth: 1)
         )
     }
 

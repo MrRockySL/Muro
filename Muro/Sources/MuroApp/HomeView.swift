@@ -50,8 +50,16 @@ struct HomeView: View {
                         .padding(.horizontal, 64)
                         .padding(.bottom, 48)
                 }
+                .background(alignment: .top) { heroGlow }
                 .background(NoOverscroll())
+                // Whether the banner is still behind the top bar, for the
+                // light look's top bar: white over the banner, dark once the
+                // page scrolls under it.
+                .background(BannerUnderBarWatcher(threshold: heroHeight - 100) { under in
+                    if store.heroUnderTopBar != under { store.heroUnderTopBar = under }
+                })
             }
+            .onDisappear { store.heroUnderTopBar = true }
             .ignoresSafeArea(edges: .top)
             // A drop that lands while the app is open replaces the row's
             // contents under whatever page the user had turned to, which would
@@ -61,6 +69,21 @@ struct HomeView: View {
     }
 
     // MARK: - Hero
+
+    /// 560, and 60 more on the light look, where the blend into the white
+    /// page needs a little room below the words.
+    private var heroHeight: CGFloat { Appearance.shared.isLight ? 620 : 560 }
+
+    /// The light look only: the banner's own colours as a soft light behind
+    /// its last strip and on the page just under it. See `HeroGlow`.
+    @ViewBuilder private var heroGlow: some View {
+        if Appearance.shared.isLight, let item = store.heroItem {
+            HeroGlow(item: item)
+                .frame(height: HeroGlow.above + HeroGlow.below)
+                .padding(.top, heroHeight - HeroGlow.above)
+                .allowsHitTesting(false)
+        }
+    }
 
     @ViewBuilder private var hero: some View {
         if let item = store.heroItem {
@@ -80,8 +103,21 @@ struct HomeView: View {
                     // Darkening only, for the title and buttons to read
                     // against. Black rather than a background colour, because
                     // this fades out with everything else.
+                    //
+                    // On the light look it sits behind the words only and is
+                    // gone before the blend below them, so the wallpaper melts
+                    // into the white page in its own colours, not through grey
+                    // (owner, 2026-10-02). Any black left in the blend turns
+                    // it into a grey band, so it ends above it.
                     LinearGradient(
-                        stops: [
+                        stops: Appearance.shared.isLight ? [
+                            .init(color: .black.opacity(0.15), location: 0),
+                            .init(color: .clear, location: 0.30),
+                            .init(color: .black.opacity(0.34), location: 0.55),
+                            .init(color: .black.opacity(0.40), location: 0.74),
+                            .init(color: .black.opacity(0.12), location: 0.84),
+                            .init(color: .clear, location: 0.90)
+                        ] : [
                             .init(color: .black.opacity(0.15), location: 0),
                             .init(color: .clear, location: 0.35),
                             .init(color: .black.opacity(0.30), location: 0.75),
@@ -93,9 +129,24 @@ struct HomeView: View {
                 // Four stops rather than two: a straight ramp still reads as a
                 // line where it begins, because the eye finds the point the
                 // slope changes. This eases in and then falls away.
+                //
+                // On the light look the banner is a little taller and the words
+                // sit where they always were, so the blend into the white page
+                // happens just below them: no hard line and no white over the
+                // title (owner, 2026-10-02). It fades over its last 124 points
+                // into `HeroGlow`, the wallpaper's own colours, not into the
+                // white itself: a dark picture faded straight into white goes
+                // through grey, and that grey band read as a shade whatever its
+                // length (owner, 2026-10-03).
                 .mask(
                     LinearGradient(
-                        stops: [
+                        stops: Appearance.shared.isLight ? [
+                            .init(color: .white, location: 0),
+                            .init(color: .white, location: 0.80),
+                            .init(color: .white.opacity(0.70), location: 0.87),
+                            .init(color: .white.opacity(0.30), location: 0.94),
+                            .init(color: .clear, location: 1)
+                        ] : [
                             .init(color: .white, location: 0),
                             .init(color: .white, location: 0.50),
                             .init(color: .white.opacity(0.82), location: 0.70),
@@ -106,10 +157,13 @@ struct HomeView: View {
                     )
                 )
                 heroContent(item)
+                    // Over the playing wallpaper in every look, so its glass
+                    // stays white like the rest of the banner.
+                    .environment(\.muroOnMedia, true)
                     .padding(.leading, 64)
-                    .padding(.bottom, 44)
+                    .padding(.bottom, 44 + heroHeight - 560)
             }
-            .frame(height: 560)
+            .frame(height: heroHeight)
             .clipped()
         } else {
             emptyLibraryHero
@@ -138,10 +192,12 @@ struct HomeView: View {
 
     private func heroContent(_ item: WallpaperItem) -> some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Over the playing wallpaper, so these keep the dark look's
+            // colours whatever the look is (6.0).
             Text("FEATURED")
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(2.4)
-                .foregroundStyle(Color.muroAccent)
+                .foregroundStyle(Color.muroAccentOnMedia)
             Text(item.title)
                 .font(.system(size: 44, weight: .bold))
                 .foregroundStyle(.white)
@@ -149,7 +205,7 @@ struct HomeView: View {
             HStack(spacing: 12) {
                 Text(item.metaLine)
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Color.muroSecondary)
+                    .foregroundStyle(Color.muroSecondaryOnMedia)
                 FPSChip(text: item.fps > 40 ? "\(standardFrameRate(item.fps)) FPS" : "\(item.resolutionLabel) · \(standardFrameRate(item.fps))")
                 if let label = store.appliedChipLabel(for: item.id) {
                     AppliedChip(label: "APPLIED · " + label)
@@ -185,7 +241,7 @@ struct HomeView: View {
                 .foregroundStyle(Color.muroSecondary)
             Text("Your library is empty")
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Text("Import your own videos with the + button, or browse Explore to download wallpapers.")
                 .font(.system(size: 12.5))
                 .foregroundStyle(Color.muroSecondary)
@@ -272,7 +328,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.muroInk)
                     Text(subtitle)
                         .font(.system(size: 12.5))
                         .foregroundStyle(Color.muroSecondary)
@@ -351,6 +407,209 @@ private struct NoOverscroll: NSViewRepresentable {
                 }
                 view = current.superview
             }
+        }
+    }
+}
+
+/// Says whether Home's banner is still behind the top bar, from the
+/// `NSScrollView` itself (owner, 2026-10-02).
+///
+/// A geometry reader inside the page never heard about scrolling on macOS:
+/// the clip view moves, the content's frame does not. This watches the clip
+/// view's bounds instead, like `NoOverscroll` finds the scroller, and reports
+/// only when the answer changes. The bar's lower edge sits about 100 down, so
+/// past the banner's height less 100 the page itself is behind the bar.
+private struct BannerUnderBarWatcher: NSViewRepresentable {
+    let threshold: CGFloat
+    let onChange: (Bool) -> Void
+
+    func makeNSView(context: Context) -> Probe {
+        let probe = Probe()
+        probe.threshold = threshold
+        probe.onChange = onChange
+        return probe
+    }
+
+    func updateNSView(_ nsView: Probe, context: Context) {
+        nsView.threshold = threshold
+        nsView.onChange = onChange
+    }
+
+    final class Probe: NSView {
+        var threshold: CGFloat = 460
+        var onChange: ((Bool) -> Void)?
+        private var observer: NSObjectProtocol?
+        private var last: Bool?
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard observer == nil, window != nil else { return }
+            var view = superview
+            while let current = view {
+                if let scroller = current as? NSScrollView {
+                    let clip = scroller.contentView
+                    clip.postsBoundsChangedNotifications = true
+                    observer = NotificationCenter.default.addObserver(
+                        forName: NSView.boundsDidChangeNotification, object: clip, queue: .main
+                    ) { [weak self, weak scroller] _ in
+                        guard let scroller else { return }
+                        self?.report(scroller)
+                    }
+                    report(scroller)
+                    return
+                }
+                view = current.superview
+            }
+        }
+
+        private func report(_ scroller: NSScrollView) {
+            let clip = scroller.contentView
+            let documentHeight = scroller.documentView?.frame.height ?? 0
+            // How far the page has scrolled down, whichever way the document
+            // view counts.
+            let offset = clip.isFlipped
+                ? clip.bounds.origin.y
+                : documentHeight - clip.bounds.height - clip.bounds.origin.y
+            let under = offset < threshold
+            guard under != last else { return }
+            last = under
+            onChange?(under)
+        }
+
+        deinit {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+        }
+    }
+}
+
+/// The banner's own colours as a soft light on the white page, for the light
+/// look (owner, 2026-10-03).
+///
+/// A dark wallpaper faded into white passes through grey on the way, however
+/// long or short the fade, and that grey band is what read as a shade. This
+/// lays a pale wash of the wallpaper's own colours behind the banner's last
+/// strip and on the page just under it, one colour per column, so the picture
+/// fades into its own light and that light into the page: green under a
+/// jungle, peach under a warm room, pale blue under a rainy street. Grey only
+/// where the picture itself is grey.
+private struct HeroGlow: View {
+    @EnvironmentObject var store: AppStore
+    let item: WallpaperItem
+
+    /// How far the wash reaches up behind the banner, and down onto the page.
+    static let above: CGFloat = 150
+    static let below: CGFloat = 130
+
+    /// Bumped when a wallpaper's colours land, to draw them.
+    @State private var landed = 0
+
+    var body: some View {
+        let colours = HeroGlowPalette.cached(item.id)
+        let fold = Self.above / (Self.above + Self.below)
+        ZStack {
+            if let colours {
+                LinearGradient(colors: colours, startPoint: .leading, endPoint: .trailing)
+                    .id(item.id)
+                    .transition(.opacity)
+            }
+        }
+        // Full strength where the banner ends, then gone over the page.
+        .mask(
+            LinearGradient(
+                stops: [
+                    .init(color: .white, location: 0),
+                    .init(color: .white, location: fold),
+                    .init(color: .white.opacity(0.55), location: fold + (1 - fold) * 0.35),
+                    .init(color: .white.opacity(0.18), location: fold + (1 - fold) * 0.70),
+                    .init(color: .clear, location: 1)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
+        .opacity(0.9)
+        // The banner cuts straight to the next wallpaper, so this only softens
+        // the change a little.
+        .animation(.easeInOut(duration: 0.35), value: "\(item.id) \(colours != nil) \(landed)")
+        .task(id: item.id) {
+            guard HeroGlowPalette.cached(item.id) == nil,
+                  let path = store.thumbnailPath(for: item) else { return }
+            let colours = await Task.detached(priority: .utility) {
+                HeroGlowPalette.colours(thumbnailPath: path)
+            }.value
+            guard let colours, !Task.isCancelled else { return }
+            HeroGlowPalette.remember(colours, for: item.id)
+            landed += 1
+        }
+    }
+}
+
+/// Reads a wallpaper's light colours from its thumbnail, for `HeroGlow`.
+enum HeroGlowPalette {
+    /// Wallpaper id to colours, left to right. Touched on the main thread only.
+    private static var cache: [String: [Color]] = [:]
+
+    static func cached(_ id: String) -> [Color]? { cache[id] }
+
+    static func remember(_ colours: [Color], for id: String) { cache[id] = colours }
+
+    /// The thumbnail shrunk to 24 by 14; per column, the mean colour of the
+    /// lower half (where the banner meets the page), weighted towards the
+    /// brighter pixels so leaves count and the black between them does not.
+    /// Hue kept, saturation capped at 0.2 and brightness set to 0.96: light,
+    /// not paint. Off the main thread.
+    static func colours(thumbnailPath path: String) -> [Color]? {
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+              let picture = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                  kCGImageSourceCreateThumbnailFromImageAlways: true,
+                  kCGImageSourceCreateThumbnailWithTransform: true,
+                  kCGImageSourceThumbnailMaxPixelSize: 96,
+              ] as CFDictionary),
+              let space = CGColorSpace(name: CGColorSpace.sRGB)
+        else { return nil }
+        let width = 24, height = 14
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width * 4, space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            context.interpolationQuality = .medium
+            context.draw(picture, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+
+        // Row 0 of the buffer is the top of the picture.
+        var means: [(Double, Double, Double)] = []
+        for x in 0..<width {
+            var r = 0.0, g = 0.0, b = 0.0, total = 0.0
+            for y in (height / 2)..<height {
+                for dx in -3...3 {
+                    let column = min(width - 1, max(0, x + dx))
+                    let i = (y * width + column) * 4
+                    let pr = Double(pixels[i]) / 255, pg = Double(pixels[i + 1]) / 255, pb = Double(pixels[i + 2]) / 255
+                    let luma = 0.2126 * pr + 0.7152 * pg + 0.0722 * pb
+                    let weight = luma * luma + 0.0004
+                    r += pr * weight; g += pg * weight; b += pb * weight; total += weight
+                }
+            }
+            means.append((r / total, g / total, b / total))
+        }
+        // A light blur across the columns, so the wash has no steps.
+        let kernel = [1.0, 4.0, 6.0, 4.0, 1.0]
+        return (0..<width).map { x in
+            var r = 0.0, g = 0.0, b = 0.0
+            for (k, w) in kernel.enumerated() {
+                let m = means[min(width - 1, max(0, x + k - 2))]
+                r += m.0 * w; g += m.1 * w; b += m.2 * w
+            }
+            let colour = NSColor(srgbRed: r / 16, green: g / 16, blue: b / 16, alpha: 1)
+            var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+            colour.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+            return Color(hue: Double(hue), saturation: Double(min(saturation, 0.2)), brightness: 0.96)
         }
     }
 }

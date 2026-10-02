@@ -18,19 +18,21 @@ struct NoticeGlyph: View {
     var size: CGFloat = 18
 
     var body: some View {
+        // Read here so the glyph redraws when the look changes.
+        let ink = Color.muroInk
         Canvas { context, _ in
             context.scaleBy(x: size / 18, y: size / 18)
-            draw(context)
+            draw(context, ink: ink)
         }
         .frame(width: size, height: size)
     }
 
-    private func draw(_ context: GraphicsContext) {
+    private func draw(_ context: GraphicsContext, ink: Color) {
         func fill(_ path: Path, opacity: Double = 1) {
-            context.fill(path, with: .color(.white.opacity(opacity)))
+            context.fill(path, with: .color(ink.opacity(opacity)))
         }
         func stroke(_ path: Path, opacity: Double = 1) {
-            context.stroke(path, with: .color(.white.opacity(opacity)),
+            context.stroke(path, with: .color(ink.opacity(opacity)),
                            style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
         }
         switch kind {

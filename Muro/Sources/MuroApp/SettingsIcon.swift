@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// The icons in Settings, one for each row.
 ///
@@ -21,6 +22,9 @@ enum SettingsIcon {
     case launchAtLogin, menuBar, dockIcon, playbackSpeed, defaultQuality, pauseAfter
     case replay, screenSaver, lowPower, lowBattery, covered, desktopOnly
     case builtInDisplay, externalDisplay, storage, downloadFolder, softwareUpdate, support
+    /// Default, Light or Dark (6.0). Drawn here on the same grid and rules,
+    /// like Download Folder: a circle half light and half dark.
+    case appearance
 
     /// The tile's colour. Nil for the replay arrow, which has no tile.
     var tint: Color? {
@@ -43,6 +47,7 @@ enum SettingsIcon {
         case .downloadFolder: return Color(hex: 0xFFB23F)
         case .softwareUpdate: return Color(hex: 0x45D483)
         case .support: return Color(hex: 0xFF6B8E)
+        case .appearance: return Color(hex: 0xB9C2D0)
         }
     }
 
@@ -67,6 +72,19 @@ enum SettingsIcon {
         case .downloadFolder: return Color(hex: 0xFFD89F)
         case .softwareUpdate: return Color(hex: 0xA2EAC1)
         case .support: return Color(hex: 0xFFB5C6)
+        case .appearance: return Color(hex: 0xDCE1E8)
+        }
+    }
+
+    /// The glyph's colour in each look. Default and Dark keep the tint mixed
+    /// halfway to white (on Dark the tile is graphite but the glyph keeps its
+    /// colour, owner 2026-10-02); Light puts the tint, deepened, on a white
+    /// tile.
+    func glyph(for mode: AppearanceMode) -> Color {
+        switch mode {
+        case .standard: return glyphColor
+        case .dark: return glyphColor
+        case .light: return tint.map { $0.mixed(withBlack: 0.32) } ?? Color(hex: 0x6E6E73)
         }
     }
 
@@ -74,8 +92,7 @@ enum SettingsIcon {
     /// so it still reads as a heart at this size.
     var softFillOpacity: Double { self == .support ? 0.4 : 0.28 }
 
-    fileprivate func draw(_ context: GraphicsContext) {
-        let color = glyphColor
+    fileprivate func draw(_ context: GraphicsContext, color: Color) {
         func fill(_ path: Path, soft: Bool = false) {
             context.fill(path, with: .color(soft ? color.opacity(softFillOpacity) : color))
         }
@@ -368,6 +385,22 @@ enum SettingsIcon {
                 p.move(to: pt(4.9, 6.2))
                 p.addCurve(to: pt(6.35, 4.75), control1: pt(5, 5.35), control2: pt(5.55, 4.85))
             }, width: 1.1, opacity: 0.8)
+        case .appearance:
+            // The left half soft, the right half solid; 3.728 is the radius,
+            // 6.75, times 0.5523 for a quarter circle.
+            fill(Path { p in
+                p.move(to: pt(9, 2.25))
+                p.addCurve(to: pt(2.25, 9), control1: pt(5.272, 2.25), control2: pt(2.25, 5.272))
+                p.addCurve(to: pt(9, 15.75), control1: pt(2.25, 12.728), control2: pt(5.272, 15.75))
+                p.closeSubpath()
+            }, soft: true)
+            fill(Path { p in
+                p.move(to: pt(9, 2.25))
+                p.addCurve(to: pt(15.75, 9), control1: pt(12.728, 2.25), control2: pt(15.75, 5.272))
+                p.addCurve(to: pt(9, 15.75), control1: pt(15.75, 12.728), control2: pt(12.728, 15.75))
+                p.closeSubpath()
+            })
+            stroke(circle(9, 9, 6.75))
         }
     }
 }
@@ -376,21 +409,49 @@ struct SettingsIconView: View {
     let icon: SettingsIcon
 
     var body: some View {
+        // Read in the body, so the tile redraws when the look changes.
+        let mode = Appearance.shared.mode
+        let glyph = icon.glyph(for: mode)
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         ZStack {
             if let tint = icon.tint {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color(hex: 0x0C0F16))
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(LinearGradient(colors: [tint.opacity(0.46), tint.opacity(0.16)],
-                                         startPoint: .top, endPoint: .bottom))
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(LinearGradient(colors: [.white.opacity(0.3), .white.opacity(0.04)],
-                                                 startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                switch mode {
+                case .standard:
+                    shape.fill(Color(hex: 0x0C0F16))
+                    shape.fill(LinearGradient(colors: [tint.opacity(0.46), tint.opacity(0.16)],
+                                              startPoint: .top, endPoint: .bottom))
+                    shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.3), .white.opacity(0.04)],
+                                                      startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                case .dark:
+                    // Black and white: graphite glass, no colour.
+                    shape.fill(Color(hex: 0x161616))
+                    shape.fill(LinearGradient(colors: [.white.opacity(0.16), .white.opacity(0.05)],
+                                              startPoint: .top, endPoint: .bottom))
+                    shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.04)],
+                                                      startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                case .light:
+                    // A white tile washed with the colour, the way macOS's own
+                    // Settings icons sit on a light window.
+                    shape.fill(Color.white)
+                    shape.fill(LinearGradient(colors: [tint.opacity(0.26), tint.opacity(0.11)],
+                                              startPoint: .top, endPoint: .bottom))
+                    shape.strokeBorder(LinearGradient(colors: [tint.opacity(0.42), tint.opacity(0.16)],
+                                                      startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                }
             }
-            Canvas { context, _ in icon.draw(context) }
+            Canvas { context, _ in icon.draw(context, color: glyph) }
                 .frame(width: 18, height: 18)
         }
         .frame(width: 30, height: 30)
+    }
+}
+
+extension Color {
+    /// This colour with `amount` of black mixed in, for a tint that has to
+    /// read on white.
+    func mixed(withBlack amount: Double) -> Color {
+        let base = NSColor(self).usingColorSpace(.sRGB) ?? NSColor(self)
+        return Color(nsColor: base.blended(withFraction: amount, of: .black) ?? base)
     }
 }
 

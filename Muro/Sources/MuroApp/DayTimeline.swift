@@ -117,16 +117,16 @@ private struct DayTrack: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(Color.white.opacity(0.05))
+            .fill(Color.muroInk.opacity(0.05))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.11), lineWidth: 1)
+                    .strokeBorder(Color.muroInk.opacity(0.11), lineWidth: 1)
             )
             .overlay {
                 GeometryReader { geo in
                     ForEach(Array(stride(from: 3, to: 24, by: 3)), id: \.self) { hour in
                         Rectangle()
-                            .fill(Color.white.opacity(0.06))
+                            .fill(Color.muroInk.opacity(0.06))
                             .frame(width: 1)
                             .offset(x: geo.size.width * CGFloat(hour) / 24)
                     }
@@ -176,7 +176,7 @@ private struct SpanBlock: View {
                 .allowsHitTesting(false)
             }
         }
-        .overlay(shape.strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+        .overlay(shape.strokeBorder(Color.muroInk.opacity(0.22), lineWidth: 1))
         .padding(.leading, 2)
     }
 
@@ -228,7 +228,7 @@ private struct NowMarker: View {
                 .frame(width: 2)
         }
         .frame(height: height)
-        .shadow(color: Color.muroAccent.opacity(0.6), radius: 4)
+        .shadow(color: Color.muroGlow.opacity(0.6), radius: 4)
     }
 }
 

@@ -209,10 +209,10 @@ struct AutomationEditorView: View {
         VStack(spacing: 7) {
             Image(systemName: mode == .timer ? "timer" : "clock")
                 .font(.system(size: 22, weight: .light))
-                .foregroundStyle(Color.white.opacity(0.22))
+                .foregroundStyle(Color.muroInk.opacity(0.22))
             Text("Nothing scheduled yet")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(Color.muroInk.opacity(0.75))
             Text(mode == .timer
                  ? "Pick a wallpaper above and it plays for ten minutes. Every one you add gets its own length."
                  : "Pick a wallpaper above and it takes the whole day. Add another and the day splits between them.")
@@ -362,7 +362,7 @@ struct AutomationEditorView: View {
             HStack(spacing: 12) {
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(reorderID == step.id ? 0.9 : 0.4))
+                    .foregroundStyle(Color.muroInk.opacity(reorderID == step.id ? 0.9 : 0.4))
                     .frame(width: 22, height: 44)
                     .contentShape(Rectangle())
                     .onHover { inside in
@@ -383,11 +383,11 @@ struct AutomationEditorView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                            .strokeBorder(Color.muroInk.opacity(0.1), lineWidth: 1)
                     )
                 Text(store.item(id: step.wallpaperID)?.title ?? "Missing wallpaper")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
                 Spacer(minLength: 12)
                 if mode == .timer {
@@ -400,10 +400,10 @@ struct AutomationEditorView: View {
                 } label: {
                     Image(systemName: "minus")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Color.muroInk.opacity(0.7))
                         .frame(width: 28, height: 28)
-                        .background(Circle().fill(Color.white.opacity(0.07)))
-                        .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                        .background(Circle().fill(Color.muroInk.opacity(0.07)))
+                        .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .help("Remove from this automation")
@@ -417,7 +417,7 @@ struct AutomationEditorView: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
                     .strokeBorder(
-                        focused ? Color.muroAccent.opacity(0.5) : Color.white.opacity(0.1),
+                        focused ? Color.muroAccent.opacity(0.5) : Color.muroInk.opacity(0.1),
                         lineWidth: focused ? 1.5 : 1
                     )
             )
@@ -583,11 +583,11 @@ struct AutomationEditorView: View {
                     } label: {
                         Text(durationLabel(seconds))
                             .font(.system(size: 11.5, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.8))
+                            .foregroundStyle(Color.muroInk.opacity(0.8))
                             .padding(.horizontal, 13)
                             .frame(height: 30)
-                            .background(Capsule().fill(Color.white.opacity(0.06)))
-                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.11), lineWidth: 1))
+                            .background(Capsule().fill(Color.muroInk.opacity(0.06)))
+                            .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.11), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -605,7 +605,7 @@ struct AutomationEditorView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(summaryLine)
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
                 HStack(spacing: 6) {
                     if warningLine != nil {
@@ -714,7 +714,7 @@ struct TimeChip: View {
             // reason the old field was too small to read in the first place.
             Text(clockLabel(minute))
                 .font(.system(size: 14.5, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
                 .monospacedDigit()
                 .lineLimit(1)
                 // Fixed, not minimum. While a timeline edge is being dragged
@@ -736,7 +736,7 @@ struct TimeChip: View {
         .overlay(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .strokeBorder(
-                    focused ? Color.muroAccent.opacity(0.45) : Color.white.opacity(0.14),
+                    focused ? Color.muroAccent.opacity(0.45) : Color.muroInk.opacity(0.14),
                     lineWidth: 1
                 )
         )
@@ -748,7 +748,7 @@ struct TimeChip: View {
         } label: {
             Image(systemName: icon)
                 .font(.system(size: 7.5, weight: .bold))
-                .foregroundStyle(.white.opacity(0.65))
+                .foregroundStyle(Color.muroInk.opacity(0.65))
                 .frame(width: 18, height: 13)
                 .contentShape(Rectangle())
         }
@@ -766,7 +766,7 @@ struct DurationStepper: View {
     var body: some View {
         HStack(spacing: 0) {
             side("minus") { seconds = step(down: true) }
-            Rectangle().fill(Color.white.opacity(0.1)).frame(width: 1, height: 20)
+            Rectangle().fill(Color.muroInk.opacity(0.1)).frame(width: 1, height: 20)
             MenuButton(width: 160, align: .center) {
                 presets.map { value in
                     MenuOption(title: durationLabel(value), checked: seconds == value) { seconds = value }
@@ -775,14 +775,14 @@ struct DurationStepper: View {
                 HStack(spacing: 6) {
                     Text(durationLabel(seconds))
                         .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.muroInk)
                     Image(systemName: "chevron.down")
                         .font(.system(size: 7.5, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(Color.muroInk.opacity(0.55))
                 }
                 .frame(width: 76)
             }
-            Rectangle().fill(Color.white.opacity(0.1)).frame(width: 1, height: 20)
+            Rectangle().fill(Color.muroInk.opacity(0.1)).frame(width: 1, height: 20)
             side("plus") { seconds = step(down: false) }
         }
         .frame(height: 38)
@@ -792,7 +792,7 @@ struct DurationStepper: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                .strokeBorder(Color.muroInk.opacity(0.14), lineWidth: 1)
         )
     }
 
@@ -800,7 +800,7 @@ struct DurationStepper: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(Color.muroInk.opacity(0.8))
                 .frame(width: 34, height: 38)
                 .contentShape(Rectangle())
         }

@@ -15,7 +15,7 @@ struct MenuBarView: View {
             speedRow
             if !store.recentItems.isEmpty { recents }
             placesSection
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+            Rectangle().fill(Color.muroInk.opacity(0.08)).frame(height: 1)
             menuButtons
         }
         .padding(16)
@@ -46,7 +46,7 @@ struct MenuBarView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.title)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.muroInk)
                         HStack(spacing: 5) {
                             Circle()
                                 .fill(store.isPaused || store.desktopResting ? Color.muroSecondary : Color.muroGreen)
@@ -54,7 +54,7 @@ struct MenuBarView: View {
                             Text(statusLine(item))
                                 .font(.system(size: 8.5, weight: .semibold))
                                 .tracking(0.8)
-                                .foregroundStyle(.white.opacity(0.75))
+                                .foregroundStyle(Color.muroInk.opacity(0.75))
                         }
                     }
                     .padding(12)
@@ -127,9 +127,9 @@ struct MenuBarView: View {
             } label: {
                 Image(systemName: store.isPaused || store.desktopResting ? "play.fill" : "pause.fill")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(Color.muroOnInk)
                     .frame(width: 44, height: 44)
-                    .background(Circle().fill(Color.white))
+                    .background(Circle().fill(Color.muroInk))
             }
             .buttonStyle(.plain)
             .disabled(currentItem == nil)
@@ -152,7 +152,7 @@ struct MenuBarView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(active ? Color.muroAccent : .white)
+                .foregroundStyle(active ? Color.muroAccent : Color.muroInk)
                 .frame(width: 34, height: 34)
                 .glassCapsule(fill: 0.08, stroke: 0.14)
         }
@@ -171,10 +171,10 @@ struct MenuBarView: View {
                     .font(.system(size: 10.5, weight: selected ? .semibold : .medium))
                     .lineLimit(1)
                     .fixedSize()
-                    .foregroundStyle(selected ? Color.black : Color.white.opacity(0.7))
+                    .foregroundStyle(selected ? Color.muroOnInk : Color.muroInk.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
-                    .background { if selected { Capsule().fill(Color.white) } }
+                    .background { if selected { Capsule().fill(Color.muroInk) } }
                     .contentShape(Capsule())
                     .onTapGesture { store.setPlaybackSpeed(speed) }
             }
@@ -199,7 +199,7 @@ struct MenuBarView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                                .strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1)
                         )
                         .onTapGesture {
                             store.setWallpaper(item, mode: store.defaultMode(for: item))
@@ -237,7 +237,7 @@ struct MenuBarView: View {
                 .frame(width: 16)
             Text(place.title)
                 .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Spacer()
             GlassDropdown(width: 230, arrowEdge: .bottom, options: { store.placeMenu(for: place) }) {
                 HStack(spacing: 4) {
@@ -291,11 +291,11 @@ struct MenuBarView: View {
             HStack(spacing: 9) {
                 Image(systemName: icon)
                     .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(Color.muroInk.opacity(0.85))
                     .frame(width: 16)
                 Text(title)
                     .font(.system(size: 12.5))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .fixedSize()
                 Spacer(minLength: 6)
                 if let badge {
@@ -316,7 +316,7 @@ struct MenuBarView: View {
                 if let trailing {
                     Image(systemName: trailing)
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(Color.muroInk.opacity(0.8))
                 }
                 if let trailingText {
                     Text(trailingText)
@@ -395,11 +395,11 @@ struct MenuBarView: View {
                     .frame(width: 16)
                 Text("Muro \(version) is available")
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                 Spacer()
                 Text("Download")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Color.muroOnAccent)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .background(Capsule().fill(Color.muroAccent))
@@ -421,7 +421,7 @@ struct MenuBarView: View {
         HStack(spacing: 9) {
             Image(systemName: icon)
                 .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Color.muroInk.opacity(0.85))
                 .frame(width: 16)
             Text(title)
                 .font(.system(size: 12.5))
@@ -439,7 +439,7 @@ struct MenuRowButtonStyle: ButtonStyle {
         configuration.label
             .background(
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.white.opacity(configuration.isPressed ? 0.12 : 0))
+                    .fill(Color.muroInk.opacity(configuration.isPressed ? 0.12 : 0))
             )
     }
 }

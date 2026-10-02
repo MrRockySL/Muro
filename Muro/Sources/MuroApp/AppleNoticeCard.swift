@@ -35,7 +35,7 @@ struct AppleNoticeCard: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.5)
+            Color.muroScrim
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {}
@@ -54,7 +54,7 @@ struct AppleNoticeCard: View {
             header
             Text("It brings Apple's own live wallpapers and screen savers into Muro:")
                 .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.86))
+                .foregroundStyle(Color.muroInk.opacity(0.86))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 14)
             kinds
@@ -62,7 +62,7 @@ struct AppleNoticeCard: View {
             powerNote
                 .padding(.top, 16)
             Rectangle()
-                .fill(Color.white.opacity(0.1))
+                .fill(Color.muroInk.opacity(0.1))
                 .frame(height: 1)
                 .padding(.top, 20)
             footer
@@ -77,7 +77,7 @@ struct AppleNoticeCard: View {
         .overlay(
             shape.strokeBorder(
                 LinearGradient(
-                    colors: [.white.opacity(0.3), .white.opacity(0.06)],
+                    colors: [Color.muroInk.opacity(0.3), Color.muroInk.opacity(0.06)],
                     startPoint: .top, endPoint: .bottom
                 ),
                 lineWidth: 1
@@ -110,7 +110,7 @@ struct AppleNoticeCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("About this section")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                 Text("This section was added by community request.")
                     .font(.system(size: 13))
                     .foregroundStyle(Color.muroAccent)
@@ -150,19 +150,19 @@ struct AppleNoticeCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Text(detail)
                     .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Color.muroInk.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(shape.fill(.glassSheen(0.08, 0.025)))
-        .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 1))
+        .overlay(shape.strokeBorder(Color.muroInk.opacity(0.1), lineWidth: 1))
     }
 
     /// Muro's own live wallpapers are what the low CPU, RAM and power promise
@@ -192,7 +192,7 @@ struct AppleNoticeCard: View {
                     SelectionTick(isSelected: dontShowAgain, size: 18)
                     Text("Do not show this message again")
                         .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(dontShowAgain ? Color.white : Color.white.opacity(0.62))
+                        .foregroundStyle(dontShowAgain ? Color.muroInk : Color.muroInk.opacity(0.62))
                 }
                 .contentShape(Rectangle())
                 .animation(.easeOut(duration: 0.12), value: dontShowAgain)
@@ -204,20 +204,25 @@ struct AppleNoticeCard: View {
     }
 
     /// Dark and nearly solid, brighter at the top where the light lands, with
-    /// the accent glow in the top corner that the sheets have.
+    /// the accent glow in the top corner that the sheets have. On the Dark
+    /// look it is solid black with no glow: the bit of glass that showed
+    /// through picked up the warm pictures behind it and read as brown
+    /// (owner, 2026-10-02).
     private var surface: some View {
         let shape = RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
+        let solid = Appearance.shared.mode == .dark
         return shape
             .fill(
                 LinearGradient(
-                    colors: [Color(hex: 0x161B24).opacity(0.9), Color(hex: 0x0B0E14).opacity(0.95)],
+                    colors: [Color.muroSheetTop.opacity(solid ? 1 : 0.9),
+                             Color.muroSheetBottom.opacity(solid ? 1 : 0.95)],
                     startPoint: .top, endPoint: .bottom
                 )
             )
             .overlay(
                 RadialGradient(
                     gradient: Gradient(colors: [
-                        Color.muroAccent.opacity(0.16), Color.muroAccent.opacity(0)
+                        Color.muroGlow.opacity(0.16 * Appearance.shared.palette.wash), Color.muroGlow.opacity(0)
                     ]),
                     center: UnitPoint(x: 0.12, y: -0.06), startRadius: 0, endRadius: 480
                 )
@@ -240,7 +245,7 @@ private struct DarkGlass<S: Shape>: ViewModifier {
 
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
-            content.glassEffect(.regular.tint(Color.black.opacity(0.4)), in: shape)
+            content.glassEffect(.regular.tint(Color.muroShade.opacity(0.4)), in: shape)
         } else {
             content.background(.ultraThinMaterial, in: shape)
         }

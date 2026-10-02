@@ -284,7 +284,7 @@ struct ExploreView: View {
             emptyIcon(symbol(for: problem))
             Text(problem.title)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Text(problem.detail)
                 .font(.system(size: 12.5))
                 .foregroundStyle(Color.muroSecondary)
@@ -303,7 +303,7 @@ struct ExploreView: View {
             emptyIcon("sparkle.magnifyingglass")
             Text("Nothing matches that")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Text(store.searchText.isEmpty
                  ? "Try another category, or widen the resolution and frame rate."
                  : "No wallpaper called \(store.searchText). Try another word.")
@@ -329,7 +329,7 @@ struct ExploreView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(problem.title)
                         .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.muroInk)
                     Text("Only the wallpapers you have already downloaded are showing.")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Color.muroSecondary)
@@ -346,7 +346,7 @@ struct ExploreView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.13), lineWidth: 1)
+                    .strokeBorder(Color.muroInk.opacity(0.13), lineWidth: 1)
             )
         }
     }
@@ -383,7 +383,7 @@ struct ExploreView: View {
             .foregroundStyle(Color.muroAccent)
             .frame(width: 54, height: 54)
             .background(Circle().fill(.glassSheen(0.14, 0.05)))
-            .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+            .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.16), lineWidth: 1))
     }
 
     private func symbol(for problem: CatalogError) -> String {
@@ -420,10 +420,10 @@ struct FilterDropdown: View {
                     .foregroundStyle(Color.muroSecondary)
                 Text(value)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(set ? Color.muroAccent : .white)
+                    .foregroundStyle(set ? Color.muroAccent : Color.muroInk)
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(Color.muroInk.opacity(0.55))
             }
             .lineLimit(1)
             .fixedSize()
@@ -432,7 +432,7 @@ struct FilterDropdown: View {
             .background(Capsule().fill(.glassSheen(hovering ? 0.14 : 0.10, hovering ? 0.06 : 0.045)))
             .overlay(
                 Capsule().strokeBorder(
-                    set ? Color.muroAccent.opacity(0.35) : Color.white.opacity(hovering ? 0.2 : 0.13),
+                    set ? Color.muroAccent.opacity(0.35) : Color.muroInk.opacity(hovering ? 0.2 : 0.13),
                     lineWidth: 1
                 )
             )

@@ -16,19 +16,22 @@ struct PlaceGlyph: View {
     var size: CGFloat = 18
 
     var body: some View {
+        // Read here rather than inside the canvas, so the glyph redraws when
+        // the look changes: dark on the light look, white on the others.
+        let ink = Color.muroInk
         Canvas { context, _ in
             context.scaleBy(x: size / 18, y: size / 18)
-            draw(context)
+            draw(context, ink: ink)
         }
         .frame(width: size, height: size)
     }
 
-    private func draw(_ context: GraphicsContext) {
+    private func draw(_ context: GraphicsContext, ink: Color) {
         func fill(_ path: Path, soft: Bool = false) {
-            context.fill(path, with: .color(.white.opacity(soft ? 0.2 : 1)))
+            context.fill(path, with: .color(ink.opacity(soft ? 0.2 : 1)))
         }
         func stroke(_ path: Path, width: CGFloat = 1.5) {
-            context.stroke(path, with: .color(.white),
+            context.stroke(path, with: .color(ink),
                            style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
         }
         switch place {

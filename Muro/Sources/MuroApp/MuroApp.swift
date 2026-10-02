@@ -22,6 +22,8 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // The look first, so every window and the menu bar panel open in it.
+        Appearance.shared.apply()
         Self.applyActivationPolicy()
         engine.onRestingChange = { resting in AppStore.shared.desktopResting = resting }
         AppStore.shared.replayDesktop = { [weak self] in self?.engine.replayAll() }
@@ -282,7 +284,7 @@ struct MuroApp: App {
                 // Its cards let go of their pictures while the window is hidden.
                 .tracksGalleryVisibility()
                 .frame(minWidth: GallerySize.opening.width, minHeight: GallerySize.opening.height)
-                .preferredColorScheme(.dark)
+                .muroColorScheme()
                 .onAppear {
                     // Here rather than in the delegate: the window is what is
                     // being reconfigured, and by the time its content appears
@@ -306,7 +308,7 @@ struct MuroApp: App {
         Window(MuroWindow.settings, id: "settings") {
             SettingsView()
                 .environmentObject(store)
-                .preferredColorScheme(.dark)
+                .muroColorScheme()
                 .onAppear { makeMinimiseHideTheWindow(titled: MuroWindow.settings) }
         }
         .windowResizability(.contentSize)

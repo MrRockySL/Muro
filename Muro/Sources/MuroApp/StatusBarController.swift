@@ -13,6 +13,7 @@ final class StatusBarController: NSObject {
     private var statusItem: NSStatusItem?
     private let panel: NSPanel
     private let container = NSView()
+    private let blur = NSVisualEffectView()
     private let hostingView: NSHostingView<MenuBarPanelRoot>
     private let store: AppStore
     private var eventMonitors: [Any] = []
@@ -42,17 +43,12 @@ final class StatusBarController: NSObject {
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.animationBehavior = .none
-        panel.appearance = NSAppearance(named: .darkAqua)
-
         container.wantsLayer = true
         container.layer?.cornerRadius = 26
         container.layer?.cornerCurve = .continuous
         container.layer?.masksToBounds = true
         container.layer?.borderWidth = 1
-        container.layer?.borderColor = NSColor.white.withAlphaComponent(0.14).cgColor
 
-        let blur = NSVisualEffectView()
-        blur.material = .hudWindow
         blur.blendingMode = .behindWindow
         blur.state = .active
         blur.autoresizingMask = [.width, .height]
@@ -64,11 +60,33 @@ final class StatusBarController: NSObject {
 
         super.init()
         StatusBarController.shared = self
+        applyLook()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(lookChanged),
+            name: .muroAppearanceChanged, object: nil
+        )
         syncStatusItemVisibility()
         NotificationCenter.default.addObserver(
             self, selector: #selector(defaultsChanged),
             name: UserDefaults.didChangeNotification, object: nil
         )
+    }
+
+    // MARK: - The look
+
+    @objc private func lookChanged() {
+        Task { @MainActor in self.applyLook() }
+    }
+
+    /// The panel's AppKit half follows the look: its appearance, the
+    /// material behind the card, and the rim. The SwiftUI half redraws itself.
+    private func applyLook() {
+        let light = Appearance.shared.isLight
+        panel.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
+        blur.material = light ? .popover : .hudWindow
+        container.layer?.borderColor = (light
+            ? NSColor.black.withAlphaComponent(0.1)
+            : NSColor.white.withAlphaComponent(0.14)).cgColor
     }
 
     // MARK: - Status item
@@ -192,8 +210,8 @@ struct MenuBarPanelRoot: View {
     var body: some View {
         MenuBarView()
             .environmentObject(store)
-            .background(Color.black.opacity(0.25))
-            .preferredColorScheme(.dark)
+            .background(Color.muroShade.opacity(0.25))
+            .muroColorScheme()
     }
 }
 
@@ -272,7 +290,7 @@ final class MenuBarMenuPanel {
         let body = content()
             .frame(width: width)
             .padding(Self.pad)
-            .preferredColorScheme(.dark)
+            .muroColorScheme()
 
         let hosting = FirstMouseHostingView(rootView: body)
         let size = hosting.fittingSize
@@ -292,7 +310,7 @@ final class MenuBarMenuPanel {
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.animationBehavior = .none
-        panel.appearance = NSAppearance(named: .darkAqua)
+        panel.appearance = NSAppearance(named: Appearance.shared.isLight ? .aqua : .darkAqua)
         hosting.autoresizingMask = [.width, .height]
         panel.contentView = hosting
 

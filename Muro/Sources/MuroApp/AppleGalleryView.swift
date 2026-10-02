@@ -308,7 +308,7 @@ struct AppleGalleryView: View {
             emptyIcon("macwindow.badge.plus")
             Text("Apple's wallpapers are not on this Mac yet")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Text("Open System Settings and look at Wallpaper once. macOS writes "
                  + "its list of aerials then, and Muro reads the same list.")
                 .font(.system(size: 12.5))
@@ -339,7 +339,7 @@ struct AppleGalleryView: View {
             emptyIcon("sparkle.magnifyingglass")
             Text("Nothing matches that")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Text(store.searchText.isEmpty
                  ? "Try another category."
                  : "No \(noun) called \(store.searchText). Try another word.")
@@ -359,6 +359,6 @@ struct AppleGalleryView: View {
             .foregroundStyle(Color.muroAccent)
             .frame(width: 54, height: 54)
             .background(Circle().fill(.glassSheen(0.14, 0.05)))
-            .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1))
+            .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.16), lineWidth: 1))
     }
 }

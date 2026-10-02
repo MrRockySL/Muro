@@ -171,7 +171,7 @@ struct PreviewView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
                 Text(metaLine(item))
                     .font(.system(size: 10.5, weight: .medium))
@@ -245,11 +245,11 @@ struct PreviewView: View {
         )
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color.black.opacity(0.35))
+                .fill(Color.muroShade.opacity(0.35))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                .strokeBorder(Color.muroInk.opacity(0.14), lineWidth: 1)
         )
     }
 
@@ -302,11 +302,11 @@ struct PreviewView: View {
     /// font-metric center (e.g. share's arrow) so they look centered.
     private func barIcon(_ systemName: String, opticalYOffset: CGFloat = 0) -> some View {
         ZStack {
-            Circle().fill(Color.white.opacity(0.08))
-            Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+            Circle().fill(Color.muroInk.opacity(0.08))
+            Circle().strokeBorder(Color.muroInk.opacity(0.14), lineWidth: 1)
             Image(systemName: systemName)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
                 .offset(y: opticalYOffset)
         }
         .frame(width: 40, height: 40)
@@ -320,18 +320,18 @@ struct PreviewView: View {
             fpsSegment("30", mode: "efficient", hint: "Lower CPU", item: item)
         }
         .padding(3)
-        .background(Capsule().fill(Color.white.opacity(0.08)))
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+        .background(Capsule().fill(Color.muroInk.opacity(0.08)))
+        .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.14), lineWidth: 1))
     }
 
     private func fpsSegment(_ label: String, mode: String, hint: String, item: WallpaperItem) -> some View {
         let selected = store.previewMode == mode
         return Text(label)
             .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(selected ? Color.black : Color.white.opacity(0.7))
+            .foregroundStyle(selected ? Color.muroOnInk : Color.muroInk.opacity(0.7))
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background { if selected { Capsule().fill(Color.white) } }
+            .background { if selected { Capsule().fill(Color.muroInk) } }
             .contentShape(Capsule())
             .onTapGesture { store.setPreviewMode(mode, for: item) }
             .help("\(label) fps · \(hint)")
@@ -374,16 +374,16 @@ struct PreviewView: View {
             HStack(spacing: 6) {
                 Image(systemName: "pause.circle")
                     .font(.system(size: 12))
-                    .foregroundStyle(overridden ? Color.muroAccent : .white.opacity(0.75))
+                    .foregroundStyle(overridden ? Color.muroAccent : Color.muroInk.opacity(0.75))
                 Text(value == 0 ? "Off" : durationLabel(value))
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(overridden ? Color.muroAccent : .white)
+                    .foregroundStyle(overridden ? Color.muroAccent : Color.muroInk)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Capsule().fill(Color.white.opacity(0.08)))
+            .background(Capsule().fill(Color.muroInk.opacity(0.08)))
             .overlay(Capsule().strokeBorder(
-                overridden ? Color.muroAccent.opacity(0.4) : Color.white.opacity(0.14),
+                overridden ? Color.muroAccent.opacity(0.4) : Color.muroInk.opacity(0.14),
                 lineWidth: 1
             ))
         }
@@ -405,16 +405,16 @@ struct PreviewView: View {
             HStack(spacing: 10) {
                 ProgressView(value: progress)
                     .progressViewStyle(.linear)
-                    .tint(.white)
+                    .tint(Color.muroInk)
                     .frame(width: 70)
                 Text("\(Int(progress * 100))% of \(formatSize(item.sizeBytes))")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(Color.muroInk.opacity(0.8))
                     .monospacedDigit()
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(Capsule().fill(Color.white.opacity(0.14)))
+            .background(Capsule().fill(Color.muroInk.opacity(0.14)))
         } else if !item.isDownloaded {
             // Preview and Download are ONE action wearing two words — both
             // pull the master. "Preview" is the smaller ask, and once someone
@@ -434,21 +434,21 @@ struct PreviewView: View {
             Text("Preparing 30 fps…")
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(Color.muroInk.opacity(0.75))
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
-                .background(Capsule().fill(Color.white.opacity(0.14)))
+                .background(Capsule().fill(Color.muroInk.opacity(0.14)))
         } else if store.applyingLockScreen {
             HStack(spacing: 9) {
-                ProgressView().controlSize(.small).tint(.white)
+                ProgressView().controlSize(.small).tint(Color.muroInk)
                 Text("Setting lock screen…")
                     .font(.system(size: 12.5, weight: .semibold))
                     .lineLimit(1)
             }
-            .foregroundStyle(.white.opacity(0.82))
+            .foregroundStyle(Color.muroInk.opacity(0.82))
             .padding(.horizontal, 18)
             .padding(.vertical, 11)
-            .background(Capsule().fill(Color.white.opacity(0.12)))
+            .background(Capsule().fill(Color.muroInk.opacity(0.12)))
         } else if let appliedLabel = store.appliedFullLabel(for: item.id) {
             // Applied anywhere at all, the same rule as the pictures macOS
             // shows below. This asked whether it was applied on every display
@@ -473,7 +473,7 @@ struct PreviewView: View {
                 .foregroundStyle(Color.muroGreen)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
-                .background(Capsule().fill(Color.white.opacity(0.12)))
+                .background(Capsule().fill(Color.muroInk.opacity(0.12)))
                 .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.4), lineWidth: 1))
             }
             .buttonStyle(.plain)
@@ -493,26 +493,26 @@ struct PreviewView: View {
             HStack(spacing: 10) {
                 ProgressView(value: progress)
                     .progressViewStyle(.linear)
-                    .tint(.white)
+                    .tint(Color.muroInk)
                     .frame(width: 70)
                 Text("\(Int(progress * 100))% of \(formatSize(item.sizeBytes))")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(Color.muroInk.opacity(0.8))
                     .monospacedDigit()
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(Capsule().fill(Color.white.opacity(0.14)))
+            .background(Capsule().fill(Color.muroInk.opacity(0.14)))
         } else if store.applyingLockScreen {
             HStack(spacing: 9) {
-                ProgressView().controlSize(.small).tint(.white)
+                ProgressView().controlSize(.small).tint(Color.muroInk)
                 Text("Setting…")
                     .font(.system(size: 12.5, weight: .semibold))
             }
-            .foregroundStyle(.white.opacity(0.82))
+            .foregroundStyle(Color.muroInk.opacity(0.82))
             .padding(.horizontal, 18)
             .padding(.vertical, 11)
-            .background(Capsule().fill(Color.white.opacity(0.12)))
+            .background(Capsule().fill(Color.muroInk.opacity(0.12)))
         } else if let label = store.appliedFullLabel(for: item.id) {
             Button {
                 showDisplayPopover.toggle()
@@ -527,7 +527,7 @@ struct PreviewView: View {
                 .foregroundStyle(Color.muroGreen)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
-                .background(Capsule().fill(Color.white.opacity(0.12)))
+                .background(Capsule().fill(Color.muroInk.opacity(0.12)))
                 .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.4), lineWidth: 1))
             }
             .buttonStyle(.plain)
@@ -560,10 +560,10 @@ struct PreviewView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
             }
-            .foregroundStyle(Color.black)
+            .foregroundStyle(Color.muroOnInk)
             .padding(.horizontal, 22)
             .padding(.vertical, 12)
-            .background(Capsule().fill(Color.white))
+            .background(Capsule().fill(Color.muroInk))
         }
         .buttonStyle(.plain)
     }
@@ -580,11 +580,11 @@ struct PreviewView: View {
                 Text(title)
                     .font(.system(size: 13, weight: .semibold))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.muroInk)
             .padding(.horizontal, 22)
             .padding(.vertical, 12)
-            .background(Capsule().fill(Color.white.opacity(0.12)))
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+            .background(Capsule().fill(Color.muroInk.opacity(0.12)))
+            .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.2), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -676,7 +676,7 @@ struct ChooseDisplayPopover: View {
 
             Text("This needs macOS 26")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
 
             Text("The lock screen and the screen saver use a part of macOS that arrived in macOS 26. This Mac runs \(Self.osLabel), so Muro can set your desktop but not those.")
                 .font(.system(size: 11.5, weight: .medium))
@@ -690,11 +690,11 @@ struct ChooseDisplayPopover: View {
             } label: {
                 Text("Set my desktop instead")
                     .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 7)
-                    .background(Capsule().fill(Color.white.opacity(0.12)))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1))
+                    .background(Capsule().fill(Color.muroInk.opacity(0.12)))
+                    .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .padding(.top, 2)
@@ -839,14 +839,14 @@ struct ChooseDisplayPopover: View {
         VStack(spacing: 6) {
             Image(systemName: symbol)
                 .font(.system(size: 21))
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(Color.muroInk.opacity(0.9))
             HStack(spacing: 5) {
                 if applied {
                     Circle().fill(Color.muroGreen).frame(width: 5, height: 5)
                 }
                 Text(name)
                     .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
             }
@@ -873,7 +873,7 @@ struct ChooseDisplayPopover: View {
             .fill(.glassSheen(0.12, 0.05)))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
             .strokeBorder(
-                applied ? Color.muroGreen.opacity(0.55) : Color.white.opacity(0.14),
+                applied ? Color.muroGreen.opacity(0.55) : Color.muroInk.opacity(0.14),
                 lineWidth: applied ? 1.5 : 1
             ))
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -911,12 +911,12 @@ struct ChooseDisplayPopover: View {
                 .font(.system(size: 11.5, weight: .semibold))
                 .lineLimit(1)
                 .fixedSize()
-                .foregroundStyle(selected ? Color.black : Color.white.opacity(enabled ? 0.8 : 0.3))
+                .foregroundStyle(selected ? Color.muroOnInk : Color.muroInk.opacity(enabled ? 0.8 : 0.3))
                 .padding(.horizontal, Self.pillPadding)
                 .padding(.vertical, 6)
                 .background {
                     if selected {
-                        Capsule().fill(Color.white)
+                        Capsule().fill(Color.muroInk)
                             .matchedGeometryEffect(id: "surface", in: surfaceNS)
                     }
                 }
@@ -951,18 +951,18 @@ struct ChooseDisplayPopover: View {
         } label: {
             Text(appliedEverywhere ? "Remove all" : "All displays")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(appliedEverywhere ? Color(hex: 0xFF6B6B) : .white)
+                .foregroundStyle(appliedEverywhere ? Color(hex: 0xFF6B6B) : Color.muroInk)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(
                     appliedEverywhere
                         ? Color(hex: 0xFF6B6B).opacity(0.13)
-                        : Color.white.opacity(0.12)
+                        : Color.muroInk.opacity(0.12)
                 ))
                 .overlay(Capsule().strokeBorder(
                     appliedEverywhere
                         ? Color(hex: 0xFF6B6B).opacity(0.4)
-                        : Color.white.opacity(0.18),
+                        : Color.muroInk.opacity(0.18),
                     lineWidth: 1
                 ))
         }

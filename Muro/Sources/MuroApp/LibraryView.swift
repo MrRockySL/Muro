@@ -260,18 +260,18 @@ struct LibraryView: View {
                 Text(selecting ? "Done" : "Select")
                     .font(.system(size: 12.5, weight: .semibold))
             }
-            .foregroundStyle(selecting ? Color.black : Color.white.opacity(0.88))
+            .foregroundStyle(selecting ? Color.muroOnInk : Color.muroInk.opacity(0.88))
             .padding(.horizontal, 16)
             .frame(height: 38)
             .background {
                 if selecting {
-                    Capsule().fill(Color.white)
+                    Capsule().fill(Color.muroInk)
                 } else {
                     Capsule().fill(.glassSheen(0.10, 0.045))
                 }
             }
             .overlay {
-                if !selecting { Capsule().strokeBorder(Color.white.opacity(0.13), lineWidth: 1) }
+                if !selecting { Capsule().strokeBorder(Color.muroInk.opacity(0.13), lineWidth: 1) }
             }
         }
         .buttonStyle(.plain)
@@ -298,10 +298,10 @@ struct LibraryView: View {
         HStack(spacing: 14) {
             Text("\(selected.count) selected")
                 .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
                 .lineLimit(1)
                 .fixedSize()
-            Rectangle().fill(Color.white.opacity(0.14)).frame(width: 1, height: 18)
+            Rectangle().fill(Color.muroInk.opacity(0.14)).frame(width: 1, height: 18)
             Button("Clear") { selected = [] }
                 .buttonStyle(.plain)
                 .font(.system(size: 12, weight: .medium))
@@ -356,14 +356,14 @@ struct LibraryView: View {
                 Text(store.importStatus ?? addedNote ?? store.importNote
                      ?? "Drop videos or screen savers here, or click to import")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                 Text("MP4, MOV and M4V videos, and .saver screen savers")
                     .font(.system(size: 11.5))
                     .foregroundStyle(Color.muroSecondary)
             }
             Spacer(minLength: 12)
             if store.importStatus != nil {
-                ProgressView().controlSize(.small).tint(.white)
+                ProgressView().controlSize(.small).tint(Color.muroInk)
             } else if addedNote != nil || store.importNote != nil {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 16, weight: .semibold))
@@ -380,7 +380,7 @@ struct LibraryView: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(
                     dropTargeted ? Color.muroAccent.opacity(0.65)
-                        : Color.white.opacity(lit ? 0.2 : 0.12),
+                        : Color.muroInk.opacity(lit ? 0.2 : 0.12),
                     lineWidth: dropTargeted ? 1.5 : 1
                 )
         )
@@ -602,7 +602,7 @@ struct NewThingCard: View {
             PlusBubble(size: 60, hovering: hovering)
             Text(title)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
             Text(subtitle)
                 .font(.system(size: 11.5))
                 .foregroundStyle(Color.muroSecondary)
@@ -616,7 +616,7 @@ struct NewThingCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(hovering ? 0.16 : 0.1), lineWidth: 1)
+                .strokeBorder(Color.muroInk.opacity(hovering ? 0.16 : 0.1), lineWidth: 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 22))
         .onHover { hovering = $0 }
@@ -657,7 +657,7 @@ struct PlaylistCard: View {
             HStack(spacing: 10) {
                 Text(playlist.name)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
                 if let playingLabel { PlayingChip(text: playingLabel) }
                 Spacer(minLength: 8)
@@ -726,10 +726,10 @@ struct ThumbStrip: View {
             if items.count < 4 {
                 ForEach(items.count..<4, id: \.self) { _ in
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.white.opacity(0.04))
+                        .fill(Color.muroInk.opacity(0.04))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
+                                .strokeBorder(Color.muroInk.opacity(0.06), lineWidth: 1)
                         )
                         .frame(maxWidth: .infinity)
                         .frame(height: height)
@@ -756,7 +756,7 @@ struct ThumbStrip: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.09), lineWidth: 1)
+                    .strokeBorder(Color.muroInk.opacity(0.09), lineWidth: 1)
             )
     }
 }
@@ -829,7 +829,7 @@ struct AutomationCard: View {
             HStack(spacing: 9) {
                 Text(automation.name)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
                 MetaChip(
                     systemImage: automation.mode == .clock ? "clock" : "timer",
@@ -919,7 +919,7 @@ struct AutomationCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.09), lineWidth: 1)
+                    .strokeBorder(Color.muroInk.opacity(0.09), lineWidth: 1)
             )
     }
 
@@ -1149,18 +1149,18 @@ struct PlaylistEditorView: View {
             HStack(spacing: 10) {
                 Image(systemName: "shuffle")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(shuffle ? Color.muroAccent : Color.white.opacity(0.6))
+                    .foregroundStyle(shuffle ? Color.muroAccent : Color.muroInk.opacity(0.6))
                 Text("Shuffle")
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.white.opacity(shuffle ? 0.95 : 0.75))
+                    .foregroundStyle(Color.muroInk.opacity(shuffle ? 0.95 : 0.75))
                 MiniSwitch(on: shuffle)
             }
             .padding(.horizontal, 14)
             .frame(height: 42)
-            .background(Capsule().fill(shuffle ? Color.muroAccent.opacity(0.14) : Color.white.opacity(0.06)))
+            .background(Capsule().fill(shuffle ? Color.muroAccent.opacity(0.14) : Color.muroInk.opacity(0.06)))
             .overlay(
                 Capsule().strokeBorder(
-                    shuffle ? Color.muroAccent.opacity(0.34) : Color.white.opacity(0.12),
+                    shuffle ? Color.muroAccent.opacity(0.34) : Color.muroInk.opacity(0.12),
                     lineWidth: 1
                 )
             )

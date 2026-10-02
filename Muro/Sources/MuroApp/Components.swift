@@ -122,7 +122,7 @@ struct ThumbImage: View {
                 } else if let ready {
                     Image(nsImage: ready).resizable().scaledToFill()
                 } else {
-                    Color.white.opacity(0.04)
+                    Color.muroInk.opacity(0.04)
                 }
             }
             .clipped()
@@ -204,6 +204,17 @@ struct TopBar: View {
     @EnvironmentObject var store: AppStore
     @Namespace private var navNS
 
+    /// Over Home's playing banner on the light look. The bar keeps the dark
+    /// looks' white there, because the light look's dark text would sit on a
+    /// dark video, and turns dark once the page scrolls under it (owner,
+    /// 2026-10-02). On the dark looks the ink is white anyway.
+    private var onMedia: Bool {
+        Appearance.shared.isLight && store.tab == .home
+            && store.heroItem != nil && store.heroUnderTopBar
+    }
+
+    private var ink: Color { onMedia ? .white : Color.muroInk }
+
     var body: some View {
         ZStack {
             HStack(spacing: 0) {
@@ -216,6 +227,8 @@ struct TopBar: View {
         .padding(.leading, 92)   // clear of the traffic lights
         .padding(.trailing, 40)
         .padding(.top, 22)
+        .environment(\.muroOnMedia, onMedia)
+        .animation(.easeOut(duration: 0.2), value: onMedia)
     }
 
     private var logo: some View {
@@ -225,7 +238,7 @@ struct TopBar: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Muro")
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ink)
                 CreditLink(text: "made by \(Credits.name)")
             }
         }
@@ -237,12 +250,12 @@ struct TopBar: View {
                 let selected = store.tab == tab
                 Text(tab.rawValue)
                     .font(.system(size: 13, weight: selected ? .semibold : .medium))
-                    .foregroundStyle(selected ? Color.black : Color.white.opacity(0.85))
+                    .foregroundStyle(selected ? (onMedia ? Color.black : Color.muroOnInk) : ink.opacity(0.85))
                     .padding(.horizontal, 20)
                     .padding(.vertical, 9)
                     .background {
                         if selected {
-                            Capsule().fill(Color.white)
+                            Capsule().fill(ink)
                                 .matchedGeometryEffect(id: "navTab", in: navNS)
                         }
                     }
@@ -357,14 +370,14 @@ struct UpdateCallout: View {
                 }
                 .buttonStyle(.plain)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.muroInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(
                 Capsule().fill(Color.muroAccent.opacity(hovering ? 0.98 : 0.9))
             )
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
-            .shadow(color: Color.muroAccent.opacity(0.45), radius: 14, y: 5)
+            .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.22), lineWidth: 1))
+            .shadow(color: Color.muroGlow.opacity(0.45), radius: 14, y: 5)
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: open)
@@ -398,12 +411,13 @@ struct ImportButton: View {
 
     @State private var showImporter = false
     @State private var hovering = false
+    @Environment(\.muroOnMedia) private var onMedia
 
     var body: some View {
         Button { showImporter = true } label: {
             // White here, accent in the Library. Same bubble, but the top bar
             // is chrome and the Library's is the page's own call to action.
-            PlusGlyph(span: size * 0.36, thickness: size * 0.054, colour: .white)
+            PlusGlyph(span: size * 0.36, thickness: size * 0.054, colour: onMedia ? .white : Color.muroInk)
                 .shadow(color: Color.white.opacity(0.45), radius: hovering ? 5 : 3)
         }
         .buttonStyle(BubbleButtonStyle(size: size, hovering: hovering, active: false, tint: .white))
@@ -412,7 +426,7 @@ struct ImportButton: View {
         .overlay {
             if let done = store.importProgress {
                 ZStack {
-                    Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 2.5)
+                    Circle().strokeBorder(Color.muroInk.opacity(0.14), lineWidth: 2.5)
                     Circle()
                         .inset(by: 1.25)
                         .trim(from: 0, to: max(done, 0.02))
@@ -785,7 +799,7 @@ struct GlassMenuList: View {
             ForEach(options) { option in
                 if option.isDivider {
                     Rectangle()
-                        .fill(Color.white.opacity(0.09))
+                        .fill(Color.muroInk.opacity(0.09))
                         .frame(height: 1)
                         .padding(.vertical, 4)
                         .padding(.horizontal, 4)
@@ -822,7 +836,7 @@ private struct GlassMenuRow: View {
             HStack(spacing: 8) {
                 Text(option.title)
                     .font(.system(size: 12.5, weight: option.checked ? .semibold : .medium))
-                    .foregroundStyle(option.destructive ? Color.muroDanger : .white.opacity(0.92))
+                    .foregroundStyle(option.destructive ? Color.muroDanger : Color.muroInk.opacity(0.92))
                     // Beside grey words the name keeps its room and the words
                     // shorten first. A row without them is laid out as before.
                     .lineLimit(option.detail == nil ? nil : 1)
@@ -847,7 +861,7 @@ private struct GlassMenuRow: View {
                     .fill(
                         option.destructive
                             ? Color.muroDanger.opacity(hovering ? 0.12 : 0)
-                            : Color.white.opacity(hovering || option.checked ? 0.10 : 0)
+                            : Color.muroInk.opacity(hovering || option.checked ? 0.10 : 0)
                     )
             )
             .contentShape(RoundedRectangle(cornerRadius: 11))
@@ -887,12 +901,12 @@ struct CapsuleSegments: View {
                 let selected = selection == option.tag
                 Text(option.label)
                     .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(selected ? Color.black : Color.white.opacity(0.7))
+                    .foregroundStyle(selected ? Color.muroOnInk : Color.muroInk.opacity(0.7))
                     .padding(.horizontal, 13)
                     .padding(.vertical, 5.5)
                     .background {
                         if selected {
-                            Capsule().fill(Color.white)
+                            Capsule().fill(Color.muroInk)
                                 .matchedGeometryEffect(id: "seg", in: ns)
                         }
                     }
@@ -983,7 +997,7 @@ struct NewBadge: View {
         Text("NEW")
             .font(.system(size: 9, weight: .bold))
             .tracking(1)
-            .foregroundStyle(Color.black)
+            .foregroundStyle(Color.muroOnAccent)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(Capsule().fill(Color.muroAccent))
@@ -1063,7 +1077,7 @@ struct SelectionTick: View {
             if isSelected {
                 Image(systemName: "checkmark")
                     .font(.system(size: size * 0.45, weight: .bold))
-                    .foregroundStyle(Color.black)
+                    .foregroundStyle(Color.muroOnAccent)
             } else {
                 Circle().strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
             }
@@ -1139,7 +1153,7 @@ struct WallpaperCard: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color.muroAccent.opacity(0.85) : Color.white.opacity(0.07),
+                        isSelected ? Color.muroAccent.opacity(0.85) : Color.muroInk.opacity(0.07),
                         lineWidth: isSelected ? 2 : 1
                     )
             )
@@ -1312,18 +1326,20 @@ struct CreditLink: View {
     var text: String
     var size: CGFloat = 8
     @State private var hovering = false
+    @Environment(\.muroOnMedia) private var onMedia
 
     var body: some View {
+        let ink = onMedia ? Color.white : Color.muroInk
         Text(text)
             .font(.system(size: size, weight: .semibold, design: .monospaced))
             .tracking(0.4)
-            .foregroundStyle(hovering ? Color.muroAccent : Color.white.opacity(0.78))
+            .foregroundStyle(hovering ? Color.muroAccent : ink.opacity(0.78))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(Capsule().fill(Color.black.opacity(0.38)))
+            .background(Capsule().fill((onMedia ? Color.black : Color.muroShade).opacity(0.38)))
             .overlay(
                 Capsule().strokeBorder(
-                    hovering ? Color.muroAccent.opacity(0.45) : Color.white.opacity(0.14),
+                    hovering ? Color.muroAccent.opacity(0.45) : ink.opacity(0.14),
                     lineWidth: 1
                 )
             )
@@ -1349,7 +1365,7 @@ struct SearchField: View {
             TextField("Search wallpapers…", text: $store.searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.muroInk)
                 .focused($focused)
         }
         .padding(.horizontal, 14)

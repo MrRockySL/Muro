@@ -46,7 +46,7 @@ struct ConfirmDeleteView: View {
                         .foregroundStyle(Color.muroWarn)
                     Text(scheduleLine)
                         .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(Color.muroInk.opacity(0.85))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.top, notices.isEmpty ? 16 : 12)
@@ -60,7 +60,7 @@ struct ConfirmDeleteView: View {
         // only place painting itself flat `muroBG`. That single line is most
         // of why it looked like it came from a different app.
         .sheetSurface()
-        .preferredColorScheme(.dark)
+        .muroColorScheme()
     }
 
     /// Icon, question, and one line of consequence. The line used to be three
@@ -80,7 +80,7 @@ struct ConfirmDeleteView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 16.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                 Text(subtitle)
                     .font(.system(size: 12.5))
                     .foregroundStyle(permanent ? Self.danger.opacity(0.95) : Color.muroSecondary)
@@ -97,7 +97,7 @@ struct ConfirmDeleteView: View {
             Button { dismiss() } label: {
                 Text("Cancel")
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 8)
                     .glassCapsule(fill: 0.09, stroke: 0.15)
@@ -111,7 +111,7 @@ struct ConfirmDeleteView: View {
             } label: {
                 Text(actionWord + (items.count > 1 ? " \(items.count)" : ""))
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.muroInk)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 8)
                     .background(Capsule().fill(Self.danger.opacity(0.9)))
@@ -134,7 +134,7 @@ struct ConfirmDeleteView: View {
             Text(text)
                 .font(.system(size: 9.5, weight: .semibold))
                 .tracking(0.9)
-                .foregroundStyle(.white.opacity(0.92))
+                .foregroundStyle(Color.muroInk.opacity(0.92))
         }
         .padding(.leading, 9)
         .padding(.trailing, 11)
@@ -168,7 +168,7 @@ struct ConfirmDeleteView: View {
                     .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                            .strokeBorder(Color.muroInk.opacity(0.08), lineWidth: 1)
                     )
             }
             if overflow {
