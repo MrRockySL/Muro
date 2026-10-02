@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 5.0.x   | Yes |
-| < 5.0   | Please update |
+| 6.0.x   | Yes |
+| < 6.0   | Please update |
 
 Only the latest release receives security fixes. Updates are published on the
 [Releases](https://github.com/MrRockySL/Muro/releases) page.
@@ -46,6 +46,12 @@ The main app uses normal user-level access to:
   power state
 - Register Muro as a login item only when you enable **Launch at Login**
 - Set your Mac's screen saver, and how long it waits, when you ask it to
+- Copy screen savers you import into `~/Library/Screen Savers`, and move ones you
+  delete from there to the Trash
+- Keep your downloaded wallpapers in a folder you choose, when you set
+  **Download Folder**
+- Set Apple's still pictures, its drawn wallpapers and your own screen savers
+  through macOS's wallpaper store, when you pick one
 - Read the position, size, layer and opacity of on-screen windows, never their
   names or contents, and only while **Play only on desktop** or **Replay on
   Clear Desktop** is on
@@ -105,11 +111,11 @@ own application bundle and the wallpaper extension inside it. It does this at
 launch, and again before registering the extension, and only when the attribute
 is actually present.
 
-This is disclosed because it is the one thing Muro does that changes state
-outside its own data directories. The reason: a DMG downloaded through a
-browser is quarantined, the flag is inherited by the embedded extension, and
-macOS then refuses to load that extension, so lock-screen wallpapers silently
-fail to apply. Muro is not sandboxed, so it can clear the flag on itself.
+This is disclosed because it changes state outside Muro's own data directories.
+The reason: a DMG downloaded through a browser is quarantined, the flag is
+inherited by the embedded extension, and macOS then refuses to load that
+extension, so lock-screen wallpapers silently fail to apply. Muro is not
+sandboxed, so it can clear the flag on itself.
 
 The scope is deliberately narrow. Muro only ever touches paths inside its own
 bundle, only that one attribute, and it removes rather than adds. It does not
@@ -128,7 +134,9 @@ move it to Applications.
 On macOS 26 or newer, Muro can register its bundled, sandboxed wallpaper
 extension. When you apply a lock-screen wallpaper, the main app:
 
-- Copies the selected video and thumbnail into the extension's local container
+- Copies the selected video and thumbnail into the extension's local container.
+  A playlist or automation hard links each step's video there instead, so a
+  step takes no extra disk space; a wallpaper kept on another drive is copied
 - Backs up and updates the user-level macOS wallpaper stores, `Index.plist` and
   `Index2.plist`
 - Registers the extension with `pluginkit`
@@ -136,6 +144,13 @@ extension. When you apply a lock-screen wallpaper, the main app:
 
 Muro attempts to restore the previous wallpaper settings if applying fails and
 when you remove its lock-screen wallpaper.
+
+Since 6.0, Muro also handles Macs set to **Use Screen Saver: Automatic** in
+System Settings, Wallpaper, Screen Saver, which is how a new Mac starts. There
+macOS keeps one wallpaper for the desktop, the lock screen and the screen saver.
+Before Muro sets one of those places on such a Mac, it switches it to **Custom**
+in the same stores, keeping what is on screen, so each place keeps its own
+wallpaper. Muro does not switch it back to Automatic.
 
 The extension also answers macOS when it asks what the lock wallpaper looks
 like as a still picture. macOS keeps that picture on the Preboot volume and
@@ -175,14 +190,74 @@ you change that row, and it writes **Never** as `0`, which is how macOS itself
 records it. No other key, domain, user or host is touched, and nothing is read
 from or written to the preference unless you open Settings.
 
+### Apple section
+
+Since 6.0, the Apple section lists Apple's aerials, Dynamic Wallpapers and
+screen savers. To build that list Muro reads Apple's own catalogues on your Mac,
+in `/Library/Application Support/com.apple.idleassetsd/Customer`,
+`/System/Library/Desktop Pictures`, `/System/Library/AssetsV2`,
+`/System/Library/Wallpapers` and `/System/Library/ExtensionKit/Extensions`, and
+the screen savers in `/Library/Screen Savers` and `~/Library/Screen Savers`. It
+only reads these folders and never writes into them. An aerial macOS has already
+downloaded is played from where it is.
+
+Aerials and still pictures download from Apple's servers, at the addresses
+those catalogues give, and only when you choose **Download**, **Preview** or
+**Set Wallpaper**. Before that, an aerial's card picture is read from Apple's
+server: the video's index and one frame, never the whole file. The card pictures
+of still pictures, drawn wallpapers and screen savers come from
+`cdn.murowallpaper.com`, and so do Apple's eight screen savers, which are Muro's
+own 4K recordings.
+
+Still pictures and drawn wallpapers can only be shown by macOS, so
+**Set Wallpaper** writes them into the user-level wallpaper stores described
+under Lock-screen integration, as the same record System Settings writes. Muro
+keeps a list of what it set in
+`~/Library/Application Support/Muro/macos-wallpapers.json`, so **Remove** can
+give the place back. Downloaded aerials and still pictures are kept beside your
+other wallpapers, so they follow **Download Folder**.
+
+### Screen savers you import
+
+Since 6.0, the Library's import bar takes `.saver` screen savers, such as
+XScreenSaver. Muro copies the one you choose into `~/Library/Screen Savers`,
+where macOS looks for screen savers, and leaves your original where it was.
+Deleting one from the Library moves it to the Trash, as System Settings does.
+Only screen savers in your own `~/Library/Screen Savers` can be deleted from
+Muro.
+
+A `.saver` is code written by someone else, and Muro never loads one into
+itself. When an imported screen saver has no picture of its own, Muro runs it
+for about 20 seconds in a separate helper process, `muro-saver-picture`, in a
+hidden window off every screen, and keeps one frame as its card picture in
+`~/Library/Caches/Muro/AppleAerials`. A screen saver that crashes or hangs takes
+only the helper down. The helper is not sandboxed, and macOS runs the same code
+whenever that screen saver is in use, so only import screen savers you trust.
+
+### Download Folder
+
+Since 6.0, Settings has a **Download Folder** row. If you choose a folder, Muro
+moves your downloaded wallpapers into a folder called `Muro Wallpapers` inside
+it, marks that folder with a small hidden `.muro-wallpapers` file so it is never
+mistaken for someone else's, and puts a symbolic link to it in place of
+`~/Library/Application Support/Muro/Masters`. **Default** moves them back.
+
+This is disclosed because that folder is outside Muro's own data directories.
+Uninstalling Muro does not remove it: delete `Muro Wallpapers` yourself if you
+no longer want the videos.
+
 ### Network access
 
 With its default catalog, the current app makes unauthenticated HTTPS requests
 to:
 
 - `cdn.murowallpaper.com`, Muro's own domain in front of Cloudflare R2, for the
-  wallpaper catalog, thumbnails, previews, and wallpaper downloads
+  wallpaper catalog, thumbnails, previews, and wallpaper downloads, and since
+  6.0 the Apple section's card pictures and its 4K screen saver recordings
 - GitHub's Releases API to check for a newer Muro version
+- Since 6.0, Apple's own servers, only for the Apple section: an aerial's index
+  and one frame for its card, and the aerials and still pictures you choose to
+  download
 
 Before 4.0 those requests went to a shared `pub-<id>.r2.dev` address. That
 hostname is common to every Cloudflare R2 bucket, so networks that block it
@@ -206,11 +281,11 @@ been removed. The full video downloads only when you choose **Preview** or
 browser, or the release page if that release has no disk image. You install it
 yourself.
 
-Cloudflare and GitHub receive normal connection information such as your IP
-address. Muro has no account system, advertising, analytics, telemetry, or
-third-party crash-reporting service. It sends no separate telemetry payload and
-does not intentionally upload imported video contents, preferences, or
-diagnostic logs.
+Cloudflare, GitHub and, when you use the Apple section, Apple receive normal
+connection information such as your IP address. Muro has no account system,
+advertising, analytics, telemetry, or third-party crash-reporting service. It
+sends no separate telemetry payload and does not intentionally upload imported
+video contents, preferences, or diagnostic logs.
 
 ### Data stored on your Mac
 
@@ -220,6 +295,13 @@ Muro stores local data in:
   thumbnails, configuration, playlists, lock-screen state, and wallpaper-store
   backups
 - `~/Library/Caches/Muro/Previews` for a preview cache capped at 200 MB
+- `~/Library/Caches/Muro/Thumbnails` for catalog thumbnails, kept so each loads
+  only once
+- `~/Library/Caches/Muro/AppleAerials` for the Apple section's card pictures and
+  the details read about each aerial
+- `~/Library/Caches/Muro/Share` for at most one hard link to the wallpaper you
+  last shared, emptied at launch
+- The folder you choose with **Download Folder**, if you choose one
 - The `com.mrrockysl.muro` preferences domain for interface and catalog settings
 - The wallpaper extension's container for staged lock-screen files and its
   local diagnostic log
@@ -262,7 +344,7 @@ You can inspect and compile the tagged source:
 ```bash
 git clone https://github.com/MrRockySL/Muro.git
 cd Muro
-git checkout v5.0
+git checkout v6.0
 swift build -c release --package-path Muro
 ```
 
@@ -284,6 +366,10 @@ assets expected by `Muro/build-app.sh`.
 - Release builds are created manually and are not reproduced through CI.
 - The main app is not sandboxed.
 - Lock-screen support depends on private macOS interfaces.
+- The Apple section reads Apple's own catalogues and writes Apple's own
+  wallpaper records, which Apple can change without notice.
+- Imported `.saver` screen savers are third-party code: macOS runs them as your
+  screen saver, and Muro's picture helper runs them briefly, without a sandbox.
 - Muro trusts the URLs and metadata supplied by the default HTTPS catalog.
   The catalog and wallpaper assets have no separate cryptographic signatures,
   hashes, or host pinning.
