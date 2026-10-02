@@ -44,20 +44,21 @@ wallpaper and every feature is unlocked.
 - 🌙 **Live video wallpapers.** Looping, seamless, on every display at once.
 - 🔒 **Lock screen live wallpapers.** Play a wallpaper on your lock screen too, not just the desktop. Set it to the desktop, the lock screen, or both, on every display. Requires macOS 26 or newer.
 - 🖥️ **Screen saver.** Muro can be your screen saver as well, playing video rather than a still picture, and you set how long your Mac waits before it starts. Requires macOS 26 or newer.
+- 🍎 **The Apple section.** Apple's aerials, Dynamic Wallpapers and screen savers in a tab of their own. The screen savers come as seamless 4K videos, so they play smoothly on the desktop and the lock screen too.
 - 🪶 **Very low CPU usage.** HEVC decoded in hardware, never on the CPU.
 - 😴 **Pauses itself** on full screen apps, display sleep, screen lock, Low Power Mode and low battery. A paused wallpaper uses no CPU at all.
 - 🖱️ **Play only on desktop.** Hold the wallpaper still while you work and let it play when the desktop is clear, one screen at a time.
 - ⚡ **Smooth or Efficient.** Keep a wallpaper's original frame rate, or drop it to 30 fps to halve the power draw. Your choice, per wallpaper.
 - 🖼️ **Explore gallery.** Browse the catalog, preview full screen, download only what you want.
 - 🔄 **New wallpapers arrive on their own.** The library updates without updating the app. More on that below.
-- 📃 **Playlists.** Rotate through a set on a timer, shuffled or in order.
+- 📃 **Playlists.** Rotate through a set on a timer, shuffled or in order. The desktop, the lock screen and the screen saver can each play their own.
 - ⏱️ **Automations.** Give every wallpaper its own time. Ten seconds each, or a full day schedule where each wallpaper has its own hours.
 - ⏸️ **Pause after a set time.** Let a wallpaper play for a while after it changes or after you unlock, then hold still. Set it in seconds, minutes or hours, for everything or for one wallpaper, and turn on Replay on Clear Desktop to get that time again whenever your desktop is clear.
 - 🗑️ **Delete what you do not want.** Remove wallpapers one at a time or several at once, imported videos included.
-- 📥 **Import your own.** Drop in any video and it gets transcoded once to HEVC and added to your library.
+- 📥 **Import your own.** Drop in any video and it gets transcoded once to HEVC and added to your library. Screen savers too: add `.saver` files like XScreenSaver and set them from Muro.
 - 🎛️ **Menu bar controls.** Play, pause, skip and switch wallpapers without opening the app.
 - ✨ **Tells you when there is a new Muro.** What's New shows what changed in the release and downloads it for you.
-- 💾 **Space control.** See what each wallpaper costs on disk, and remove downloads you're done with.
+- 💾 **Space control.** See what each wallpaper costs on disk, remove downloads you're done with, or keep them all on another drive.
 - 🆓 **Free and source available.** Anyone can use it and read the code.
 
 > Requires macOS 14 (Sonoma) or newer. The build is universal, so it runs on
@@ -124,8 +125,9 @@ the morning, something else after dark. The day is drawn as a 24 hour timeline
 you drag, so you can see the whole thing at a glance rather than typing times
 into boxes.
 
-Only one runs at a time, and you can start or stop either from the menu bar
-without opening the app.
+The desktop, the lock screen and the screen saver can each play their own
+playlist or automation. Start or stop them from the Library or the menu bar,
+and turning one off brings back what was there before.
 
 ---
 
@@ -171,6 +173,22 @@ Settings also has **Start Screen Saver**, so you can choose how long your Mac
 waits before it begins without opening System Settings. macOS keeps one screen
 saver for the whole Mac, so this is one setting rather than one per display.
 
+You can also add your own `.saver` screen savers, like XScreenSaver, from the
+Library.
+
+---
+
+## Apple's wallpapers too
+
+The Apple tab holds Apple's own aerials and Dynamic Wallpapers, in Apple's own
+categories. Aerials download straight from Apple and play like any other
+wallpaper in Muro. The still pictures and the drawn ones are handed to macOS,
+because only macOS can show them.
+
+Apple's screen savers are there too, Flurry, Hello, Drift and the rest, as
+seamless 4K recordings, so they play smoothly on the desktop and the lock
+screen as well.
+
 ---
 
 ## Your library, your rules
@@ -181,6 +199,9 @@ possible before 3.0.
 
 Nothing is ever deleted without asking first, and deleting a wallpaper cleans up
 everything that pointed at it: playlists, automations, and the lock screen.
+
+Want them on another drive? Settings has **Download Folder**: pick a folder and
+Muro moves your wallpapers there, shows how far it is, and lets you cancel.
 
 ---
 
@@ -222,7 +243,8 @@ cd Muro/Muro
 The package builds MuroKit, which holds the shared engine and library code, the
 app itself, and a handful of command line tools (`muro-engine`, `muro-import`,
 `muro-set`, `muro-prepare` and `muro-publish`) that read the same config and
-library files as the app.
+library files as the app. It also builds `muro-saver-picture`, the small helper
+the app uses to take a picture of an imported screen saver.
 
 ---
 
