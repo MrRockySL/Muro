@@ -8,8 +8,8 @@ set -e
 # The one place Muro's version is written. The app bundle, the wallpaper
 # extension and the DMG name are all derived from these two lines, and the
 # build fails below if the app and the extension ever disagree.
-VERSION="5.0"
-BUILD="36"
+VERSION="6.0"
+BUILD="82"
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 APP="$DIR/dist/Muro.app"
