@@ -69,10 +69,31 @@ xcodebuild \
 mkdir -p "$APP/Contents/Extensions"
 cp -R "$EXT_DERIVED/Build/Products/Release/MuroWallpaperExtension.appex" "$EXT"
 
-# App icon (concept A "Moonbeam"), if present — source + generator in Icon/.
-if [[ -f "$DIR/Icon/AppIcon.icns" ]]; then
-    cp "$DIR/Icon/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+# App icon: the Glass Moon (owner, 2026-10-03), an Icon Composer file with a
+# light picture and, for the dark icon, the art alone on macOS's own dark tile
+# (system-dark), the same tile Apple's dark icons sit on; a black tile of our
+# own looked too black beside them (owner, 2026-10-04). actool turns it into
+# Assets.car, from which macOS 26 and later draws the light or the dark icon in
+# the Dock and Finder, following System Settings > Appearance > Icon & widget
+# style like every other app, and MuroIcon.icns, the light one, for older
+# macOS. Inside the app the icon follows Muro's own Appearance setting instead:
+# the three pictures in Icon/InApp, read by MuroAppIcon.swift.
+echo "==> compiling the app icon"
+ICON_OUT="$DIR/.build/app-icon"
+rm -rf "$ICON_OUT"
+mkdir -p "$ICON_OUT"
+xcrun actool --compile "$ICON_OUT" --platform macosx --minimum-deployment-target 14.0 \
+    --app-icon MuroIcon --output-partial-info-plist "$ICON_OUT/partial.plist" \
+    --target-device mac "$DIR/Icon/MuroIcon.icon" > /dev/null
+# actool once dropped dark artwork without a word, so the dark icon is
+# checked for rather than assumed.
+if ! xcrun assetutil --info "$ICON_OUT/Assets.car" | grep -q NSAppearanceNameDarkAqua; then
+    echo "ERROR: the compiled app icon has no dark version" >&2
+    exit 1
 fi
+cp "$ICON_OUT/Assets.car" "$ICON_OUT/MuroIcon.icns" "$APP/Contents/Resources/"
+cp "$DIR/Icon/InApp/MuroIcon-Default.png" "$DIR/Icon/InApp/MuroIcon-Light.png" \
+    "$DIR/Icon/InApp/MuroIcon-Dark.png" "$APP/Contents/Resources/"
 cp "$DIR/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
 # Bundled wallpaper: "Snowfall in Forest" full 4K master + thumb, so a fresh
@@ -103,8 +124,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key>            <string>Muro</string>
     <key>CFBundleDisplayName</key>     <string>Muro</string>
     <key>CFBundleExecutable</key>      <string>Muro</string>
-    <key>CFBundleIconFile</key>        <string>AppIcon</string>
-    <key>CFBundleIconName</key>        <string>AppIcon</string>
+    <key>CFBundleIconFile</key>        <string>MuroIcon</string>
+    <key>CFBundleIconName</key>        <string>MuroIcon</string>
     <key>CFBundleIdentifier</key>      <string>com.mrrockysl.muro</string>
     <key>CFBundleVersion</key>         <string>$BUILD</string>
     <key>CFBundleShortVersionString</key> <string>$VERSION</string>

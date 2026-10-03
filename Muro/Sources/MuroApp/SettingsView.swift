@@ -461,7 +461,7 @@ struct SettingsView: View {
 
     private var header: some View {
         VStack(spacing: 8) {
-            MuroMark(cornerRadius: 16)
+            MuroAppIcon()
                 .frame(width: 64, height: 64)
             Text("Muro")
                 .font(.system(size: 20, weight: .bold))

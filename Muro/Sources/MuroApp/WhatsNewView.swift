@@ -133,7 +133,7 @@ struct WhatsNewView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            MuroMark(cornerRadius: 9)
+            MuroAppIcon()
                 .frame(width: 32, height: 32)
             Text("What's New")
                 .font(.system(size: 18, weight: .semibold))

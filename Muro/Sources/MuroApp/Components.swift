@@ -233,7 +233,7 @@ struct TopBar: View {
 
     private var logo: some View {
         HStack(spacing: 10) {
-            MuroMark(cornerRadius: 8)
+            MuroAppIcon()
                 .frame(width: 34, height: 34)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Muro")
