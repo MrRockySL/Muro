@@ -1698,6 +1698,9 @@ final class LockScreenService {
     /// reconnect on its own first, because usually it does and a restart is
     /// the heavier thing.
     private static func reviveExtensionIfNeeded() async {
+        // A lock screen set while macOS kept the extension switched off never
+        // played, and this is where it starts to, without being set again.
+        switchExtensionOn()
         for _ in 0..<8 {
             if extensionIsRunning() { return }
             try? await Task.sleep(nanoseconds: 250_000_000)
@@ -1722,10 +1725,27 @@ final class LockScreenService {
         clearQuarantine()
         _ = run("/usr/bin/pluginkit", ["-a", url.path])
         for _ in 0..<12 {
-            if extensionIsRegistered() { return }
+            if extensionIsRegistered() {
+                switchExtensionOn()
+                return
+            }
             try? await Task.sleep(nanoseconds: 250_000_000)
         }
         throw LockScreenServiceError.extensionNotRegistered
+    }
+
+    /// Switch the extension on, not only register it.
+    ///
+    /// `pluginkit -a` registers it, and on some Macs that is not enough: macOS
+    /// keeps a registered extension switched off until it is chosen for use,
+    /// WallpaperAgent never asks it for anything, and the lock screen stays on
+    /// Apple's Aerial while Muro reports it applied. Seen on a new MacBook Air
+    /// M5 on macOS 27.0.1 (October 2026), where `pluginkit -e use` by hand made
+    /// it work at once. Most Macs use the extension without this, which is why
+    /// it went unnoticed, and on those it changes nothing. It only ever touches
+    /// Muro's own extension.
+    static func switchExtensionOn() {
+        _ = run("/usr/bin/pluginkit", ["-e", "use", "-i", extensionBundleID])
     }
 
     static func extensionIsRegistered() -> Bool {
