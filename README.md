@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/icon-dark.png" width="120" alt="Muro icon, dark">&nbsp;&nbsp;&nbsp;<img src="assets/icon-light.png" width="120" alt="Muro icon, light">
+<img src="assets/icon-dark.png" width="120" alt="Muro">
 
 # Muro
 
