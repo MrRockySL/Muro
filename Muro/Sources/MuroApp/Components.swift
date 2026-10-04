@@ -771,6 +771,9 @@ struct MenuOption: Identifiable {
     var detail: String? = nil
     /// A small title over a group of rows. Clicking it does nothing.
     var isHeader = false
+    /// A template glyph before the title, tinted like the words: the menu bar
+    /// icon choices (6.0). Every other menu has none and looks as before.
+    var icon: NSImage? = nil
     var action: () -> Void = {}
 
     /// A new one each time it is asked for. As a stored `static let` every
@@ -834,6 +837,13 @@ private struct GlassMenuRow: View {
             option.action()
         } label: {
             HStack(spacing: 8) {
+                if let icon = option.icon {
+                    Image(nsImage: icon)
+                        .renderingMode(.template)
+                        .foregroundStyle(Color.muroInk.opacity(0.92))
+                        .frame(width: 18, height: 18)
+                        .padding(.trailing, 2)
+                }
                 Text(option.title)
                     .font(.system(size: 12.5, weight: option.checked ? .semibold : .medium))
                     .foregroundStyle(option.destructive ? Color.muroDanger : Color.muroInk.opacity(0.92))

@@ -66,6 +66,7 @@ final class StatusBarController: NSObject {
             name: .muroAppearanceChanged, object: nil
         )
         syncStatusItemVisibility()
+        syncStatusItemIcon()
         NotificationCenter.default.addObserver(
             self, selector: #selector(defaultsChanged),
             name: UserDefaults.didChangeNotification, object: nil
@@ -92,7 +93,28 @@ final class StatusBarController: NSObject {
     // MARK: - Status item
 
     @objc private func defaultsChanged() {
-        Task { @MainActor in self.syncStatusItemVisibility() }
+        Task { @MainActor in
+            self.syncStatusItemVisibility()
+            self.syncStatusItemIcon()
+        }
+    }
+
+    /// The icon chosen in Settings, General (6.0). The item is still made with
+    /// the default glyph above; this swaps in the chosen one, and again
+    /// whenever the choice changes. Any defaults change lands here, so it only
+    /// draws when the choice differs from what the item is showing, or the
+    /// item is a new one (Show Menu Bar Icon off and on again).
+    private var shownIconStyle: MenuBarIconStyle?
+    private var shownIconImage: NSImage?
+
+    private func syncStatusItemIcon() {
+        guard let button = statusItem?.button else { return }
+        let style = MenuBarIconStyle.current
+        if style == shownIconStyle, let shown = shownIconImage, button.image === shown { return }
+        let image = style.menuBarImage()
+        button.image = image
+        shownIconStyle = style
+        shownIconImage = image
     }
 
     private func syncStatusItemVisibility() {

@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("defaultMode") private var defaultMode = "smooth"
+    @AppStorage(MenuBarIconStyle.defaultsKey) private var menuBarIcon = MenuBarIconStyle.standard.rawValue
 
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var confirmClear = false
@@ -88,6 +89,40 @@ struct SettingsView: View {
                                 set: { Appearance.shared.set(AppearanceMode(rawValue: $0) ?? .standard) }
                             )
                         )
+                    }
+                    divider
+                    // The icon in the menu bar (6.0): the default and the five
+                    // the owner picked from ten drawn in Figma. The menu shows
+                    // each glyph beside its name, and the menu bar changes the
+                    // moment one is chosen (StatusBarController).
+                    row(icon: .menuBarIcon, title: "Menu Bar Icon",
+                        subtitle: "The icon Muro shows in the menu bar") {
+                        GlassDropdown(width: 170, align: .trailing, options: {
+                            MenuBarIconStyle.allCases.map { style in
+                                MenuOption(
+                                    title: style.title,
+                                    checked: currentMenuBarIcon == style,
+                                    icon: style.menuBarImage()
+                                ) { menuBarIcon = style.rawValue }
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(nsImage: currentMenuBarIcon.menuBarImage(size: 16))
+                                    .renderingMode(.template)
+                                    .foregroundStyle(Color.muroInk)
+                                    .frame(width: 16, height: 16)
+                                Text(currentMenuBarIcon.title)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.muroInk)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundStyle(Color.muroInk.opacity(0.6))
+                            }
+                            .padding(.leading, 9)
+                            .padding(.trailing, 12)
+                            .padding(.vertical, 4.65)
+                            .glassCapsule(fill: 0.09, stroke: 0.15)
+                        }
                     }
                 }
 
@@ -624,6 +659,10 @@ struct SettingsView: View {
         showMenuBarIcon || showDockIcon
             ? "Quick controls from the menu bar"
             : "Open Muro from Launchpad or Spotlight"
+    }
+
+    private var currentMenuBarIcon: MenuBarIconStyle {
+        MenuBarIconStyle(rawValue: menuBarIcon) ?? .standard
     }
 
     /// The glass capsule the Clear button uses, for the rows beside it.

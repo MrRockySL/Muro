@@ -25,6 +25,9 @@ enum SettingsIcon {
     /// Default, Light or Dark (6.0). Drawn here on the same grid and rules,
     /// like Download Folder: a circle half light and half dark.
     case appearance
+    /// Menu Bar Icon (6.0): Muro's own glyph, the moon over the horizon, on
+    /// a tile the colour of moonlight. Same grid and rules.
+    case menuBarIcon
 
     /// The tile's colour. Nil for the replay arrow, which has no tile.
     var tint: Color? {
@@ -48,6 +51,7 @@ enum SettingsIcon {
         case .softwareUpdate: return Color(hex: 0x45D483)
         case .support: return Color(hex: 0xFF6B8E)
         case .appearance: return Color(hex: 0xB9C2D0)
+        case .menuBarIcon: return Color(hex: 0xF5C451)
         }
     }
 
@@ -73,6 +77,7 @@ enum SettingsIcon {
         case .softwareUpdate: return Color(hex: 0xA2EAC1)
         case .support: return Color(hex: 0xFFB5C6)
         case .appearance: return Color(hex: 0xDCE1E8)
+        case .menuBarIcon: return Color(hex: 0xFAE1A8)
         }
     }
 
@@ -401,6 +406,16 @@ enum SettingsIcon {
                 p.closeSubpath()
             })
             stroke(circle(9, 9, 6.75))
+        case .menuBarIcon:
+            // The menu bar glyph's moon with a soft glow, and its horizon,
+            // fitted to the set's 1.75 to 16.25 width and 1.5 point line.
+            fill(circle(9, 6.75, 5.25), soft: true)
+            fill(circle(9, 6.75, 3.25))
+            stroke(Path { p in
+                p.move(to: pt(1.75, 13.4))
+                p.addCurve(to: pt(9, 12.85), control1: pt(4.25, 11.7), control2: pt(6.35, 13.8))
+                p.addCurve(to: pt(16.25, 13.55), control1: pt(11.65, 11.9), control2: pt(14.15, 12.05))
+            })
         }
     }
 }
