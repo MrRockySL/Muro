@@ -9,7 +9,7 @@ set -e
 # extension and the DMG name are all derived from these two lines, and the
 # build fails below if the app and the extension ever disagree.
 VERSION="6.0"
-BUILD="82"
+BUILD="103"
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 APP="$DIR/dist/Muro.app"
