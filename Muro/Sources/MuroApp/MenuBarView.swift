@@ -230,6 +230,10 @@ struct MenuBarView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// The place (Desktop, Lock screen, Screen saver) is always named in full;
+    /// the playlist or automation it plays may be cut short with "...". The
+    /// name's capped width used to squeeze the place instead, so a row read
+    /// "Screen s..." (owner, 2026-10-05: the name can be cut, the place never).
     private func placeRow(_ place: SchedulePlace) -> some View {
         HStack {
             PlaceGlyph(place: place, size: 15)
@@ -238,6 +242,7 @@ struct MenuBarView: View {
             Text(place.title)
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(Color.muroInk)
+                .fixedSize()
             Spacer()
             GlassDropdown(width: 230, arrowEdge: .bottom, options: { store.placeMenu(for: place) }) {
                 HStack(spacing: 4) {
@@ -253,7 +258,8 @@ struct MenuBarView: View {
                 }
                 .frame(maxWidth: 150, alignment: .trailing)
             }
-            .fixedSize()
+            // the room the place's name leaves, before the spacer takes any
+            .layoutPriority(1)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)

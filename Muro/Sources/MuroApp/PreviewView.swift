@@ -173,6 +173,7 @@ struct PreviewView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Text(metaLine(item))
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(Color.muroSecondary)
@@ -222,8 +223,9 @@ struct PreviewView: View {
                 // all displays"), the bar is centred, so it grew or shrank
                 // from both ends and slid out from under the panel hanging off
                 // it, and the next click in the same place could land on a
-                // different card or its Remove (full check, 2026-10-01). A
-                // longer label is cut short until the panel closes.
+                // different card or its Remove (full check, 2026-10-01). Its
+                // words are short now (Set Wallpaper, Setting..., Applied) and
+                // all in the same box, so nothing is ever cut.
                 .frame(width: heldSetButtonWidth)
                 .onChange(of: showDisplayPopover) { _, open in
                     heldSetButtonWidth = open && setButtonWidth > 0 ? setButtonWidth : nil
@@ -439,17 +441,8 @@ struct PreviewView: View {
                 .padding(.vertical, 12)
                 .background(Capsule().fill(Color.muroInk.opacity(0.14)))
         } else if store.applyingLockScreen {
-            HStack(spacing: 9) {
-                ProgressView().controlSize(.small).tint(Color.muroInk)
-                Text("Setting lock screen…")
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .lineLimit(1)
-            }
-            .foregroundStyle(Color.muroInk.opacity(0.82))
-            .padding(.horizontal, 18)
-            .padding(.vertical, 11)
-            .background(Capsule().fill(Color.muroInk.opacity(0.12)))
-        } else if let appliedLabel = store.appliedFullLabel(for: item.id) {
+            settingFace
+        } else if store.appliedFullLabel(for: item.id) != nil {
             // Applied anywhere at all, the same rule as the pictures macOS
             // shows below. This asked whether it was applied on every display
             // of the tab the panel was last left on, so after a lock screen
@@ -459,22 +452,7 @@ struct PreviewView: View {
             Button {
                 showDisplayPopover.toggle()   // re-target / change display
             } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                    // Named in full here. The chip on a card has a corner to
-                    // fit into and has to abbreviate; this bar has the room,
-                    // and with four places a wallpaper can be in, which one it
-                    // is in is the answer someone opened this for.
-                    Text(appliedLabel)
-                        .font(.system(size: 13, weight: .semibold))
-                        .lineLimit(1)
-                }
-                .foregroundStyle(Color.muroGreen)
-                .padding(.horizontal, 22)
-                .padding(.vertical, 12)
-                .background(Capsule().fill(Color.muroInk.opacity(0.12)))
-                .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.4), lineWidth: 1))
+                appliedFace
             }
             .buttonStyle(.plain)
         } else {
@@ -504,31 +482,12 @@ struct PreviewView: View {
             .padding(.vertical, 12)
             .background(Capsule().fill(Color.muroInk.opacity(0.14)))
         } else if store.applyingLockScreen {
-            HStack(spacing: 9) {
-                ProgressView().controlSize(.small).tint(Color.muroInk)
-                Text("Setting…")
-                    .font(.system(size: 12.5, weight: .semibold))
-            }
-            .foregroundStyle(Color.muroInk.opacity(0.82))
-            .padding(.horizontal, 18)
-            .padding(.vertical, 11)
-            .background(Capsule().fill(Color.muroInk.opacity(0.12)))
-        } else if let label = store.appliedFullLabel(for: item.id) {
+            settingFace
+        } else if store.appliedFullLabel(for: item.id) != nil {
             Button {
                 showDisplayPopover.toggle()
             } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                    Text(label)
-                        .font(.system(size: 13, weight: .semibold))
-                        .lineLimit(1)
-                }
-                .foregroundStyle(Color.muroGreen)
-                .padding(.horizontal, 22)
-                .padding(.vertical, 12)
-                .background(Capsule().fill(Color.muroInk.opacity(0.12)))
-                .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.4), lineWidth: 1))
+                appliedFace
             }
             .buttonStyle(.plain)
         } else if item.id.hasPrefix(AppleAerials.picturePrefix), !store.isApplePictureDownloaded(item) {
@@ -547,6 +506,51 @@ struct PreviewView: View {
                 showDisplayPopover.toggle()
             }
         }
+    }
+
+    /// While Apple's side is being set. One short word for every place: it
+    /// said "Setting lock screen..." while the screen saver was being set, and
+    /// a longer name for each place did not fit the box (owner, 2026-10-05).
+    /// The hidden "Set Wallpaper" keeps it exactly that button's size.
+    private var settingFace: some View {
+        ZStack {
+            Text("Set Wallpaper")
+                .font(.system(size: 13, weight: .semibold))
+                .hidden()
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small).tint(Color.muroInk)
+                Text("Setting…")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+        }
+        .fixedSize()
+        .foregroundStyle(Color.muroInk.opacity(0.82))
+        .padding(.horizontal, 22)
+        .padding(.vertical, 12)
+        .background(Capsule().fill(Color.muroInk.opacity(0.12)))
+    }
+
+    /// Applied anywhere at all. Just "Applied", in the same box as Set
+    /// Wallpaper (owner, 2026-10-05: keep the old size, it does not need to
+    /// say where); the panel this opens shows where it is, with a green dot.
+    private var appliedFace: some View {
+        ZStack {
+            Text("Set Wallpaper")
+                .font(.system(size: 13, weight: .semibold))
+                .hidden()
+            HStack(spacing: 7) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                Text("Applied")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+        }
+        .fixedSize()
+        .foregroundStyle(Color.muroGreen)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 12)
+        .background(Capsule().fill(Color.muroInk.opacity(0.12)))
+        .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.4), lineWidth: 1))
     }
 
     private func capsuleButton(_ title: String, systemName: String?, action: @escaping () -> Void) -> some View {
