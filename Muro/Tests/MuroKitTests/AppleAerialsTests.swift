@@ -309,18 +309,25 @@ final class AppleAerialsTests: XCTestCase {
     }
 
     /// With nothing to say where it belongs, it still lands last instead of
-    /// stopping Muro at launch, which Muro 6.0 did (#46). Without a
-    /// Dynamic Wallpapers category of Apple's, theirs is ranked after
-    /// Apple's list too.
-    func testAnUndeclaredCategoryWithNoGroupDoesNotStopMuro() throws {
+    /// stopping Muro at launch, which Muro 6.0 did (#46), and under Other
+    /// rather than under Apple's id for a category nobody declared. One with
+    /// no category at all goes there too. Without a Dynamic Wallpapers
+    /// category of Apple's, theirs is ranked after Apple's list as well.
+    func testAnUndeclaredCategoryWithNoGroupShowsUnderOther() throws {
+        var bare = asset(id: "N", nameKey: "K", category: "CAT-LAND")
+        bare.removeValue(forKey: "categories")
         let aerials = try readFromHome(
             assets: [
                 asset(id: "A", nameKey: "K", category: "CAT-LAND"),
-                asset(id: "X", nameKey: "K", category: "CAT-NOWHERE")
+                asset(id: "X", nameKey: "K", category: "CAT-NOWHERE"),
+                bare
             ],
             categories: [landscapes]
         )
-        XCTAssertEqual(aerials.last?.assetID, "X", "an undeclared category sorts after the rest")
+        XCTAssertEqual(Set(aerials.suffix(2).map(\.assetID)), ["X", "N"],
+                       "an undeclared category sorts after the rest")
+        XCTAssertEqual(aerials.suffix(2).map(\.category), ["Other", "Other"])
+        XCTAssertEqual(aerials.first { $0.assetID == "A" }?.category, "AerialCategoryLandscapes")
         let savers = aerials.filter { $0.category == AppleScreenSaverVideos.category }
         XCTAssertFalse(savers.isEmpty)
         for saver in savers {
@@ -343,6 +350,30 @@ final class AppleAerialsTests: XCTestCase {
             categories: [dynamic, landscapes]
         )
         XCTAssertEqual(aerials.last?.assetID, "X")
+        XCTAssertEqual(aerials.last?.category, "Other")
+        XCTAssertTrue(aerials.contains { $0.category == AppleScreenSaverVideos.category })
+    }
+
+    /// Every number in Apple's list is Apple's to get wrong. One too big to
+    /// multiply or add to must not stop Muro either, and the order Apple
+    /// meant still holds.
+    func testHugeNumbersInApplesListDoNotStopMuro() throws {
+        var huge = landscapes
+        huge["preferredOrder"] = Int.max
+        let aerials = try readFromHome(
+            assets: [
+                asset(id: "BIG", nameKey: "K", category: "CAT-CITY", order: Int.max),
+                asset(id: "LOW", nameKey: "K", category: "CAT-CITY", order: Int.min),
+                asset(id: "ONE", nameKey: "K", category: "CAT-CITY", order: 1),
+                asset(id: "L", nameKey: "K", category: "CAT-LAND")
+            ],
+            categories: [huge, cities]
+        )
+        XCTAssertEqual(aerials.filter { $0.category == "AerialCategoryCities" }.map(\.assetID),
+                       ["LOW", "ONE", "BIG"], "still in Apple's order")
+        let land = try XCTUnwrap(aerials.first { $0.assetID == "L" })
+        XCTAssertEqual(land.category, "AerialCategoryLandscapes", "a declared category keeps its name")
+        XCTAssertLessThan(land.categoryOrder, Int.max, "and is never mistaken for an undeclared one")
         XCTAssertTrue(aerials.contains { $0.category == AppleScreenSaverVideos.category })
     }
 

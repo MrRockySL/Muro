@@ -367,9 +367,23 @@ extension AppleAerials {
         where raw["id"] as? String == dynamicCategoryID {
             let key = raw["localizedNameKey"] as? String
             return (key.flatMap { strings[$0] } ?? key ?? dynamicCategoryID,
-                    raw["preferredOrder"] as? Int ?? index)
+                    appleNumber(raw["preferredOrder"], or: index))
         }
         return nil
+    }
+
+    /// Where an aerial goes when nothing in Apple's list says which category
+    /// it belongs to. Apple's id for an undeclared category is a code like
+    /// `A33A55D9-…`, not a name anyone should have to read on a pill.
+    static let otherCategory = "Other"
+
+    /// A number from Apple's list, held to a range no real one comes near.
+    ///
+    /// The list is Apple's file, it differs from Mac to Mac, and a sum or a
+    /// product on a number near the edge of `Int` stops Muro at launch, the
+    /// way issue #46 did. Apple's own numbers run in the tens.
+    static func appleNumber(_ value: Any?, or fallback: Int) -> Int {
+        min(max(value as? Int ?? fallback, -1_000_000), 1_000_000)
     }
 
     /// Split out from `load` so the parsing can be tested against a manifest
@@ -383,7 +397,8 @@ extension AppleAerials {
 
         // Apple's category order, by its own `preferredOrder`. A category the
         // assets mention but the manifest never declares still has to land
-        // somewhere, so unknown ids sort after every declared one.
+        // somewhere, so unknown ids sort after every declared one, under
+        // `otherCategory`.
         var categoryName: [String: String] = [:]
         var categoryRank: [String: Int] = [:]
         // What System Settings calls a group of aerials, like "Golden Gate".
@@ -392,7 +407,7 @@ extension AppleAerials {
             guard let id = raw["id"] as? String else { continue }
             let key = raw["localizedNameKey"] as? String
             categoryName[id] = key.flatMap { strings[$0] } ?? key ?? id
-            categoryRank[id] = raw["preferredOrder"] as? Int ?? index
+            categoryRank[id] = appleNumber(raw["preferredOrder"], or: index)
             for sub in (raw["subcategories"] as? [[String: Any]]) ?? [] {
                 guard let subID = sub["id"] as? String,
                       let subKey = sub["localizedNameKey"] as? String,
@@ -451,9 +466,7 @@ extension AppleAerials {
                 .compactMap({ subcategoryOwner[$0] }).first {
                 categoryID = owner
             }
-            let category = categoryID.flatMap { categoryName[$0] }
-                ?? categoryID.map { categoryName[$0] ?? $0 }
-                ?? "Aerial"
+            let category = categoryID.flatMap { categoryName[$0] } ?? otherCategory
             let rank = categoryID.flatMap { categoryRank[$0] } ?? Int.max
 
             let thumbnail = thumbs.appendingPathComponent("\(assetID).png")
@@ -462,7 +475,7 @@ extension AppleAerials {
             // Light before dark, the way every other light and dark pair on
             // the page reads.
             let appearance = (raw["variant"] as? [String: Any])?["appearance"] as? String
-            let order = (raw["preferredOrder"] as? Int ?? 0) * 10 + (appearance == "dark" ? 1 : 0)
+            let order = appleNumber(raw["preferredOrder"], or: 0) * 10 + (appearance == "dark" ? 1 : 0)
 
             aerials.append(AppleAerial(
                 id: muroID(assetID: assetID),
