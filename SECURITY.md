@@ -344,7 +344,7 @@ You can inspect and compile the tagged source:
 ```bash
 git clone https://github.com/MrRockySL/Muro.git
 cd Muro
-git checkout v6.0.1
+git checkout v6.0.2
 swift build -c release --package-path Muro
 ```
 
