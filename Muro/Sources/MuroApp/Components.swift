@@ -456,9 +456,13 @@ enum MuroWindow {
     static let settings = "Muro Settings"
 }
 
+/// Nil while the app object does not exist yet. On macOS 14 SwiftUI builds
+/// the gallery's content, and `GalleryVisibility` with it, before `NSApp` is
+/// set, and reading it then stopped Muro 6.0 at launch on every Mac running
+/// 14 (issue #49). There is no window to find before then anyway.
 @MainActor
 func window(titled title: String) -> NSWindow? {
-    NSApp.windows.first { $0.title == title }
+    NSApp?.windows.first { $0.title == title }
 }
 
 /// The two windows a person opens and closes: the gallery and Settings.
@@ -469,7 +473,7 @@ func window(titled title: String) -> NSWindow? {
 /// it cannot be hidden at all.
 @MainActor
 var muroDocumentWindows: [NSWindow] {
-    NSApp.orderedWindows.filter {
+    (NSApp?.orderedWindows ?? []).filter {
         $0.title == MuroWindow.gallery || $0.title == MuroWindow.settings
     }
 }
