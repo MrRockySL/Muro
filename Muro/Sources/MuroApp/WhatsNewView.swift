@@ -39,7 +39,7 @@ struct WhatsNewRelease: Identifiable {
 /// release is editing this one list.
 enum WhatsNew {
     static let current = WhatsNewRelease(
-        version: "6.0",
+        version: "6.0.1",
         date: "October 2026",
         headline: "Apple's aerials and screen savers are in Muro now, your playlists can play on the lock screen and the screen saver, and Muro comes in Light and Dark with a new icon.",
         sections: [
@@ -64,6 +64,8 @@ enum WhatsNew {
                               detail: "Six to pick from in Settings, from the classic moon to a ringed planet."),
             ]),
             WhatsNewSection(name: "Fixed", tint: .muroGreen, entries: [
+                WhatsNewEntry(title: "A crash when Muro opened",
+                              detail: "On some Macs, Apple's older aerial list made Muro 6.0 quit the moment it opened."),
                 WhatsNewEntry(title: "The flick at the loop",
                               detail: "Some wallpapers stopped for a moment every time they looped, on the desktop, the lock screen and the screen saver."),
                 WhatsNewEntry(title: "The lock screen and the screen saver on new Macs",
