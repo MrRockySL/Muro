@@ -271,6 +271,81 @@ final class AppleAerialsTests: XCTestCase {
         XCTAssertEqual(aerials.first?.category, "Landscape")
     }
 
+    // MARK: - A category Apple never declares
+
+    /// Apple's list as the app reads it: from a home folder, with Muro's
+    /// Dynamic Wallpapers and screen savers added after Apple's own.
+    private func readFromHome(
+        assets: [[String: Any]], categories: [[String: Any]]
+    ) throws -> [AppleAerial] {
+        let home = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("home-\(UUID().uuidString)", isDirectory: true)
+        let store = try makeStore(assets: assets, categories: categories)
+        let aerials = home.appendingPathComponent(
+            "Library/Application Support/com.apple.wallpaper/aerials", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: aerials.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.moveItem(at: store, to: aerials)
+        let library = home.appendingPathComponent("Muro", isDirectory: true)
+        return try XCTUnwrap(AppleAerials.cachedAerials(home: home, libraryRoot: library))
+    }
+
+    /// Apple's list for macOS 26.0 put its four Tahoe aerials in categories
+    /// it never declares, typos of Landscapes' id that 26.4 corrected. Their
+    /// group, Tahoe, is one Landscapes declares, so that is where they go.
+    func testAnUndeclaredCategoryFallsBackToTheCategoryOwningItsGroup() throws {
+        var landscapesWithTahoe = landscapes
+        landscapesWithTahoe["subcategories"] = [["id": "SUB-TAHOE", "localizedNameKey": "TAHOE"]]
+        var tahoe = asset(id: "T", nameKey: "K", category: "CAT-LAND-TYPO", order: 1)
+        tahoe["subcategories"] = ["SUB-TAHOE"]
+        let aerials = try readFromHome(
+            assets: [asset(id: "C", nameKey: "K", category: "CAT-CITY"), tahoe],
+            categories: [landscapesWithTahoe, cities]
+        )
+        let found = try XCTUnwrap(aerials.first { $0.assetID == "T" })
+        XCTAssertEqual(found.category, "AerialCategoryLandscapes")
+        XCTAssertEqual(found.categoryOrder, 1)
+        XCTAssertEqual(aerials.prefix(2).map(\.assetID), ["T", "C"], "in Apple's order")
+    }
+
+    /// With nothing to say where it belongs, it still lands last instead of
+    /// stopping Muro at launch, which Muro 6.0 did (#46). Without a
+    /// Dynamic Wallpapers category of Apple's, theirs is ranked after
+    /// Apple's list too.
+    func testAnUndeclaredCategoryWithNoGroupDoesNotStopMuro() throws {
+        let aerials = try readFromHome(
+            assets: [
+                asset(id: "A", nameKey: "K", category: "CAT-LAND"),
+                asset(id: "X", nameKey: "K", category: "CAT-NOWHERE")
+            ],
+            categories: [landscapes]
+        )
+        XCTAssertEqual(aerials.last?.assetID, "X", "an undeclared category sorts after the rest")
+        let savers = aerials.filter { $0.category == AppleScreenSaverVideos.category }
+        XCTAssertFalse(savers.isEmpty)
+        for saver in savers {
+            XCTAssertGreaterThan(saver.categoryOrder, 1)
+            XCTAssertLessThan(saver.categoryOrder, Int.max)
+        }
+    }
+
+    /// The same, when Apple does declare a Dynamic Wallpapers category and
+    /// only the screen savers are ranked after the list.
+    func testAnUndeclaredCategoryBesideApplesDynamicOneDoesNotStopMuro() throws {
+        let dynamic: [String: Any] = [
+            "id": "dynamic-aerials", "localizedNameKey": "AerialCategoryDynamic", "preferredOrder": 0
+        ]
+        let aerials = try readFromHome(
+            assets: [
+                asset(id: "A", nameKey: "K", category: "CAT-LAND"),
+                asset(id: "X", nameKey: "K", category: "CAT-NOWHERE")
+            ],
+            categories: [dynamic, landscapes]
+        )
+        XCTAssertEqual(aerials.last?.assetID, "X")
+        XCTAssertTrue(aerials.contains { $0.category == AppleScreenSaverVideos.category })
+    }
+
     func testPreferredLanguagesTryRegionThenBase() {
         XCTAssertEqual(
             AppleAerials.preferredLanguageCodes(preferred: ["en-GB", "fr-FR"]),

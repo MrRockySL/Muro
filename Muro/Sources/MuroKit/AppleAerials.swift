@@ -401,6 +401,21 @@ extension AppleAerials {
                 subcategoryName[subID] = subName
             }
         }
+        // Which declared category each group belongs to. Apple's list for
+        // macOS 26.0 put its four Tahoe aerials in categories it never
+        // declares, typos of Landscapes' id that 26.4 corrected, and Muro 6.0
+        // stopped at launch on every Mac still holding that list (issue #46).
+        // Their group, Tahoe, is one Landscapes declares, so the group is
+        // what says where an aerial like that belongs.
+        var subcategoryOwner: [String: String] = [:]
+        for raw in (top["categories"] as? [[String: Any]]) ?? [] {
+            guard let id = raw["id"] as? String else { continue }
+            for sub in (raw["subcategories"] as? [[String: Any]]) ?? [] {
+                if let subID = sub["id"] as? String, subcategoryOwner[subID] == nil {
+                    subcategoryOwner[subID] = id
+                }
+            }
+        }
 
         let thumbs = thumbnailsDir(root: root)
         let videos = videosDir(root: root)
@@ -430,7 +445,12 @@ extension AppleAerials {
                 name = "\(group) \(name)"
             }
 
-            let categoryID = (raw["categories"] as? [String])?.first
+            var categoryID = (raw["categories"] as? [String])?.first
+            if categoryID.map({ categoryRank[$0] == nil }) ?? true,
+               let owner = (raw["subcategories"] as? [String])?.lazy
+                .compactMap({ subcategoryOwner[$0] }).first {
+                categoryID = owner
+            }
             let category = categoryID.flatMap { categoryName[$0] }
                 ?? categoryID.map { categoryName[$0] ?? $0 }
                 ?? "Aerial"
@@ -657,13 +677,13 @@ extension AppleAerials {
             .flatMap { dynamicCategory(manifest: $0, strings: loadStrings(root: root)) }
         loaded += DynamicWallpapers.found(
             category: dynamic?.name ?? "Dynamic Wallpapers",
-            categoryOrder: dynamic?.rank ?? ((loaded.map(\.categoryOrder).max() ?? 0) + 1),
+            categoryOrder: dynamic?.rank ?? rankAfter(loaded),
             cacheDir: cacheDir(libraryRoot: libraryRoot)
         )
         // Apple's screen savers, recorded by Muro (owner, 2026-09-30). Only
         // the Apple section's Screen Savers page shows them.
         loaded += AppleScreenSaverVideos.found(
-            categoryOrder: (loaded.map(\.categoryOrder).max() ?? 0) + 1,
+            categoryOrder: rankAfter(loaded),
             cacheDir: cacheDir(libraryRoot: libraryRoot)
         )
         loaded.sort(by: appleOrder)
@@ -675,6 +695,16 @@ extension AppleAerials {
         cache = (key, landscape)
         cacheLock.unlock()
         return landscape
+    }
+
+    /// The rank for a category added after every one in `aerials`.
+    ///
+    /// An aerial whose category Apple never declares is ranked `Int.max` so
+    /// it sorts last, and one more than that does not exist: it stopped Muro
+    /// 6.0 at launch (issue #46). Those are left out of the count, so what is
+    /// added still sorts before them and the sum can never overflow.
+    static func rankAfter(_ aerials: [AppleAerial]) -> Int {
+        (aerials.lazy.map(\.categoryOrder).filter { $0 != .max }.max() ?? 0) + 1
     }
 
     /// Forgets the cached manifest, so the next read goes to disk.
