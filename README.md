@@ -284,10 +284,11 @@ going and keep Muro free for everyone.
 
 <table>
 <tr>
-<td align="center" valign="top" width="180"><a href="https://github.com/deimosfr"><img src="assets/sponsors/deimosfr.png" width="72" alt="Pierre Mavro"><br><b>Pierre Mavro</b></a><br><sub>Muro's first sponsor.</sub></td>
-<td align="center" valign="top" width="180"><a href="https://github.com/alexblunck"><img src="assets/sponsors/alexblunck.png" width="72" alt="Alexander Blunck"><br><b>Alexander Blunck</b></a><br><sub>Muro's top sponsor.</sub></td>
-<td align="center" valign="top" width="180"><a href="https://github.com/fleurscreed-gif"><img src="assets/sponsors/fleurscreed-gif.png" width="72" alt="fleurscreed-gif"><br><b>fleurscreed-gif</b></a><br><sub>Muro's sponsor.</sub></td>
-<td align="center" valign="top" width="180"><a href="https://github.com/Cycuszek"><img src="assets/sponsors/cycuszek-2.png" width="72" alt="Cycuszek"><br><b>Cycuszek</b></a><br><sub>Muro's sponsor.</sub></td>
+<td align="center" valign="top" width="160"><a href="https://github.com/deimosfr"><img src="assets/sponsors/deimosfr.png" width="72" alt="Pierre Mavro"><br><b>Pierre Mavro</b></a><br><sub>Muro's first sponsor.</sub></td>
+<td align="center" valign="top" width="160"><a href="https://github.com/alexblunck"><img src="assets/sponsors/alexblunck.png" width="72" alt="Alexander Blunck"><br><b>Alexander Blunck</b></a><br><sub>Muro's top sponsor.</sub></td>
+<td align="center" valign="top" width="160"><a href="https://github.com/fleurscreed-gif"><img src="assets/sponsors/fleurscreed-gif.png" width="72" alt="fleurscreed-gif"><br><b>fleurscreed-gif</b></a><br><sub>Muro's sponsor.</sub></td>
+<td align="center" valign="top" width="160"><a href="https://github.com/Cycuszek"><img src="assets/sponsors/cycuszek-2.png" width="72" alt="Cycuszek"><br><b>Cycuszek</b></a><br><sub>Muro's sponsor.</sub></td>
+<td align="center" valign="top" width="160"><a href="https://github.com/Aladinno"><img src="assets/sponsors/aladinno.png" width="72" alt="Aladinno"><br><b>Aladinno</b></a><br><sub>Muro's sponsor.</sub></td>
 </tr>
 </table>
 
