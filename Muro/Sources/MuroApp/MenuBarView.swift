@@ -185,29 +185,91 @@ struct MenuBarView: View {
 
     // MARK: - Recents
 
+    /// Recents in view at once. Four of 64 points with 6 between them fill
+    /// the panel's 274 exactly; with 8 between them the row was wider than
+    /// the panel and sat 3 points left of everything else.
+    private static let recentsShown = 4
+
+    /// A thumbnail and the gap after it.
+    private static let recentsStride: CGFloat = 64 + 6
+
+    @StateObject private var recentsScroller = RowScroller(stride: MenuBarView.recentsStride)
+    @State private var hoveringRecents = false
+
+    /// Every recent Muro keeps, not only the first four (issue #55). The row
+    /// scrolls with a swipe, and while the pointer is on it arrows float over
+    /// the ends that have more, the way the heart floats over a card. It goes
+    /// back to the newest when the panel opens or a wallpaper is applied.
     private var recents: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("RECENTS")
                 .font(.system(size: 9, weight: .semibold))
                 .tracking(1.4)
                 .foregroundStyle(Color.muroAccent)
-            HStack(spacing: 8) {
-                ForEach(store.recentItems.prefix(4)) { item in
-                    Color.black
-                        .frame(width: 64, height: 38)
-                        .overlay(ThumbImage(item: item))
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1)
-                        )
-                        .onTapGesture {
-                            store.setWallpaper(item, mode: store.defaultMode(for: item))
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(store.recentItems) { item in
+                        Color.black
+                            .frame(width: 64, height: 38)
+                            .overlay(ThumbImage(item: item))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1)
+                            )
+                            .onTapGesture {
+                                store.setWallpaper(item, mode: store.defaultMode(for: item))
+                            }
+                    }
+                }
+                .background(RowScrollerProbe(scroller: recentsScroller))
+            }
+            .frame(height: 38)
+            .overlay(alignment: .leading) {
+                if hoveringRecents, recentsScroller.canGoBack {
+                    recentsArrow("chevron.left") { pageRecents(-1) }
                 }
             }
+            .overlay(alignment: .trailing) {
+                if hoveringRecents, recentsScroller.canGoForward {
+                    recentsArrow("chevron.right") { pageRecents(1) }
+                }
+            }
+            .animation(.spring(response: 0.22, dampingFraction: 0.72), value: hoveringRecents)
+            .animation(.spring(response: 0.22, dampingFraction: 0.72), value: recentsScroller.canGoBack)
+            .animation(.spring(response: 0.22, dampingFraction: 0.72), value: recentsScroller.canGoForward)
+            .onHover { hoveringRecents = $0 }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: store.recentIDs) { recentsScroller.scroll(to: 0, animated: false) }
+        .onReceive(NotificationCenter.default.publisher(for: .muroMenuBarPanelOpening)) { _ in
+            recentsScroller.scroll(to: 0, animated: false)
+            // A panel closed under the pointer never heard it leave.
+            hoveringRecents = false
+        }
+    }
+
+    /// The next four along, lined up on a thumbnail, never past either end.
+    private func pageRecents(_ direction: Int) {
+        let current = (recentsScroller.offset / Self.recentsStride).rounded()
+        let target = current + CGFloat(direction * Self.recentsShown)
+        recentsScroller.scroll(to: target * Self.recentsStride, animated: true)
+    }
+
+    /// The heart's black wash and white glyph, smaller, so it reads on any
+    /// thumbnail, the bright ones included.
+    private func recentsArrow(_ systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Color.black.opacity(0.55)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .transition(.scale(scale: 0.82).combined(with: .opacity))
     }
 
     // MARK: - Playlists & Automations
@@ -447,6 +509,131 @@ struct MenuRowButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(Color.muroInk.opacity(configuration.isPressed ? 0.12 : 0))
             )
+    }
+}
+
+/// The recents row's own `NSScrollView`, read and moved directly.
+///
+/// SwiftUI tells a view where its scroll view is only from macOS 15 on, and
+/// Muro runs on 14, where a geometry reader never hears the clip view move
+/// (Home found the same). So the arrows ask the clip view whether there is
+/// more either way, the way Home's banner watcher and the glass scroller do,
+/// and move it themselves.
+@MainActor
+final class RowScroller: ObservableObject {
+    @Published private(set) var canGoBack = false
+    @Published private(set) var canGoForward = false
+    fileprivate weak var scrollView: NSScrollView?
+    /// What a swipe settles on when it ends: a whole thumbnail, never half of
+    /// one at either edge.
+    let stride: CGFloat
+
+    init(stride: CGFloat) {
+        self.stride = stride
+    }
+
+    /// How far the row is scrolled, in points from its start.
+    var offset: CGFloat { scrollView?.contentView.bounds.origin.x ?? 0 }
+
+    private var maximum: CGFloat {
+        guard let scrollView else { return 0 }
+        let content = scrollView.documentView?.frame.width ?? 0
+        return max(0, content - scrollView.contentView.bounds.width)
+    }
+
+    /// Moves to `x` points from the start, kept inside the row.
+    func scroll(to x: CGFloat, animated: Bool) {
+        guard let scrollView else { return }
+        let clip = scrollView.contentView
+        let target = NSPoint(x: min(max(x, 0), maximum), y: clip.bounds.origin.y)
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.3
+                context.allowsImplicitAnimation = true
+                clip.animator().setBoundsOrigin(target)
+            } completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    scrollView.reflectScrolledClipView(clip)
+                    self?.update()
+                }
+            }
+        } else {
+            clip.setBoundsOrigin(target)
+            scrollView.reflectScrolledClipView(clip)
+            update()
+        }
+    }
+
+    fileprivate func update() {
+        let back = offset > 1
+        let forward = offset < maximum - 1
+        if back != canGoBack { canGoBack = back }
+        if forward != canGoForward { canGoForward = forward }
+    }
+
+    fileprivate func settle() {
+        let aligned = (offset / stride).rounded() * stride
+        guard abs(aligned - offset) > 0.5 else { return }
+        scroll(to: aligned, animated: true)
+    }
+}
+
+/// Finds the `NSScrollView` around it for a `RowScroller`, and tells it when
+/// the row moves, changes length or comes to rest after a swipe. A probe,
+/// never a surface: it takes no clicks.
+private struct RowScrollerProbe: NSViewRepresentable {
+    let scroller: RowScroller
+
+    func makeNSView(context: Context) -> Probe { Probe(scroller: scroller) }
+
+    func updateNSView(_ nsView: Probe, context: Context) {
+        scroller.update()
+    }
+
+    final class Probe: NSView {
+        let scroller: RowScroller
+        private var observers: [NSObjectProtocol] = []
+
+        init(scroller: RowScroller) {
+            self.scroller = scroller
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { fatalError("not used") }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard observers.isEmpty, window != nil else { return }
+            var view = superview
+            while let current = view {
+                if let scrollView = current as? NSScrollView {
+                    scroller.scrollView = scrollView
+                    let clip = scrollView.contentView
+                    clip.postsBoundsChangedNotifications = true
+                    observers.append(NotificationCenter.default.addObserver(
+                        forName: NSView.boundsDidChangeNotification, object: clip, queue: .main
+                    ) { [weak self] _ in MainActor.assumeIsolated { self?.scroller.update() } })
+                    observers.append(NotificationCenter.default.addObserver(
+                        forName: NSScrollView.didEndLiveScrollNotification, object: scrollView, queue: .main
+                    ) { [weak self] _ in MainActor.assumeIsolated { self?.scroller.settle() } })
+                    if let document = scrollView.documentView {
+                        document.postsFrameChangedNotifications = true
+                        observers.append(NotificationCenter.default.addObserver(
+                            forName: NSView.frameDidChangeNotification, object: document, queue: .main
+                        ) { [weak self] _ in MainActor.assumeIsolated { self?.scroller.update() } })
+                    }
+                    scroller.update()
+                    return
+                }
+                view = current.superview
+            }
+        }
+
+        deinit {
+            observers.forEach { NotificationCenter.default.removeObserver($0) }
+        }
     }
 }
 

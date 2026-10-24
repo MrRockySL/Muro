@@ -150,6 +150,8 @@ final class StatusBarController: NSObject {
         // fires on the very first open and never again: a check made on Monday
         // was still saying "Muro is up to date" on Friday.
         store.clearUpdateCheckResult()
+        // Same reason: the recents row is told here to start at the newest.
+        NotificationCenter.default.post(name: .muroMenuBarPanelOpening, object: nil)
         let size = hostingView.fittingSize
         let anchor = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
         var x = anchor.midX - size.width / 2
@@ -215,6 +217,13 @@ final class StatusBarController: NSObject {
 /// need it so buttons and hover react without activating the app.
 final class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
+}
+
+extension Notification.Name {
+    /// Posted as the menu bar panel opens. Its view is built once and only
+    /// ordered back on screen, so `onAppear` hears the first open and no
+    /// other; this hears every one.
+    static let muroMenuBarPanelOpening = Notification.Name("MuroMenuBarPanelOpening")
 }
 
 /// The panel never activates the app, so without this the first click on any
