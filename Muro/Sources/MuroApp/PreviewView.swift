@@ -263,6 +263,9 @@ struct PreviewView: View {
         if item.id.hasPrefix(AppleAerials.drawnPrefix) { return "Drawn by macOS · moves when you unlock" }
         if item.id.hasPrefix(AppleScreenSavers.idPrefix) { return "Screen saver · drawn live by macOS" }
         if item.id.hasPrefix(AppleAerials.picturePrefix) {
+            // The size is unknown until Apple's catalogue is read (issue
+            // #53), and saying none is better than a wrong "0 MB".
+            guard item.sizeBytes > 0 else { return "Still picture · \(item.width)×\(item.height)" }
             // Apple sends every picture of the day in one download, and Muro
             // keeps only the one this card stands for, so the two sizes are
             // far apart. Each is said for what it is.

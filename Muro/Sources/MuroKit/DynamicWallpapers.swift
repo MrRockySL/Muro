@@ -23,7 +23,9 @@ import Foundation
 /// Settings' own: Golden Gate, Tahoe, Sequoia, Macintosh, Sonoma, then the
 /// pictures in the order `.orderedPictures.plist` gives them.
 ///
-/// Nothing here writes anything. It only reads what macOS already keeps.
+/// Nothing here writes into macOS. It reads what macOS already keeps, and the
+/// one thing it writes is Muro's own copy of Apple's picture catalogue, in
+/// Muro's cache, for a Mac that has none (see `publicCatalog`).
 public enum DynamicWallpapers {
 
     static let desktopPictures = URL(
@@ -35,6 +37,23 @@ public enum DynamicWallpapers {
     static let assetCatalog = URL(fileURLWithPath:
         "/System/Library/AssetsV2/com_apple_MobileAsset_DesktopPicture/"
         + "com_apple_MobileAsset_DesktopPicture.xml")
+
+    /// Apple's public copy of that catalogue, the address macOS itself
+    /// downloads it from (`DownloadedFromXml` in the copy on the Mac).
+    ///
+    /// **Why Muro reads it too.** macOS keeps its copy only once it has needed
+    /// one, and on a Mac without it every still picture had no address and no
+    /// size: the cards said 0 MB and Download failed with "no such file"
+    /// (issue #53). Muro's copy only fills in what macOS's copy lacks.
+    public static let publicCatalog = URL(string:
+        "https://mesu.apple.com/assets/macos/com_apple_MobileAsset_DesktopPicture/"
+        + "com_apple_MobileAsset_DesktopPicture.xml")!
+
+    /// Where Muro keeps its copy of `publicCatalog`: with the rest of what it
+    /// has learned from Apple's servers, all of which can be fetched again.
+    static var savedCatalog: URL {
+        AppleAerialInfo.directory.appendingPathComponent("DesktopPictureCatalog.xml")
+    }
 
     /// Where each one sits in the category, after Golden Gate.
     private enum Slot {
@@ -233,10 +252,51 @@ public enum DynamicWallpapers {
     }
 
     /// Where Apple's servers keep each picture, and how big it is, from the
-    /// catalogue macOS itself downloads them with.
-    static func assetDownloads() -> [String: (url: URL, bytes: Int64)] {
-        guard let data = try? Data(contentsOf: assetCatalog),
-              let top = (try? PropertyListSerialization.propertyList(from: data, format: nil))
+    /// catalogue macOS itself downloads them with. Muro's copy of Apple's
+    /// public catalogue fills in any picture macOS's copy lacks, or all of
+    /// them on a Mac that has no copy (issue #53).
+    static func assetDownloads(
+        macOS: URL = assetCatalog, saved: URL = savedCatalog
+    ) -> [String: (url: URL, bytes: Int64)] {
+        downloads(in: saved).merging(downloads(in: macOS)) { _, fromMacOS in fromMacOS }
+    }
+
+    /// A still picture whose address is not known on this Mac. Its
+    /// `videoURL` is then only a placeholder in `Desktop Pictures` that was
+    /// never a real file, so it must never be copied as the download.
+    public static func lacksAddress(_ aerial: AppleAerial) -> Bool {
+        aerial.kind == .picture && aerial.videoURL.isFileURL
+    }
+
+    /// Fetches Apple's public catalogue into `savedCatalog`, and has the list
+    /// read again so every picture gets the address it gives.
+    ///
+    /// Only a real catalogue with pictures in it is kept, so a Wi-Fi sign-in
+    /// page or an error page never replaces a good copy. Throws when the
+    /// catalogue could not be read.
+    public static func fetchPublicCatalog(session: URLSession = .shared) async throws {
+        var request = URLRequest(url: publicCatalog, timeoutInterval: 30)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let (data, response) = try await session.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw URLError(.badServerResponse)
+        }
+        guard !downloads(from: data).isEmpty else { throw URLError(.cannotParseResponse) }
+        let file = savedCatalog
+        try FileManager.default.createDirectory(
+            at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: file, options: .atomic)
+        AppleAerials.forgetCache()
+    }
+
+    /// Every picture in one catalogue file, by its `DesktopPictureID`.
+    static func downloads(in catalog: URL) -> [String: (url: URL, bytes: Int64)] {
+        guard let data = try? Data(contentsOf: catalog) else { return [:] }
+        return downloads(from: data)
+    }
+
+    static func downloads(from data: Data) -> [String: (url: URL, bytes: Int64)] {
+        guard let top = (try? PropertyListSerialization.propertyList(from: data, format: nil))
                 as? [String: Any],
               let assets = top["Assets"] as? [[String: Any]]
         else { return [:] }
