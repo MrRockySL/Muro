@@ -44,6 +44,28 @@ final class AppleAerialModel: ObservableObject {
                 self.aerials = found
                 self.loaded = true
                 if let found { AppleAerialFetcher.shared.prefetchSizes(for: found) }
+                if let found { self.fillMissingAddresses(found) }
+            }
+        }
+    }
+
+    /// Set while Apple's public picture catalogue is being fetched, and after
+    /// it arrived, so it is fetched once a session.
+    private static var askedApple = false
+
+    /// A Mac without macOS's own picture catalogue lists Apple's still
+    /// pictures with no address and no size (issue #53). Apple's public copy
+    /// is fetched, and the list read again with it. Offline, the next load
+    /// asks again, and Download asks by itself.
+    private func fillMissingAddresses(_ found: [AppleAerial]) {
+        guard !Self.askedApple, found.contains(where: DynamicWallpapers.lacksAddress) else { return }
+        Self.askedApple = true
+        Task {
+            do {
+                try await DynamicWallpapers.fetchPublicCatalog()
+                load()
+            } catch {
+                Self.askedApple = false
             }
         }
     }

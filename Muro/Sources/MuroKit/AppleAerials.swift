@@ -710,6 +710,15 @@ extension AppleAerials {
         return landscape
     }
 
+    /// Drops what `cachedAerials` remembers, for when something the list is
+    /// built from changes while Apple's manifest does not: Muro's copy of
+    /// Apple's picture catalogue arriving (issue #53).
+    public static func forgetCache() {
+        cacheLock.lock()
+        cache = nil
+        cacheLock.unlock()
+    }
+
     /// The rank for a category added after every one in `aerials`.
     ///
     /// An aerial whose category Apple never declares is ranked `Int.max` so

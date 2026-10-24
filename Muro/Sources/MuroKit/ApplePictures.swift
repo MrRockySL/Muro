@@ -47,12 +47,20 @@ public enum ApplePictures {
         case unzipFailed
         case noPicture
         case cutFailed
+        /// This Mac has no address for the picture, and Apple's public
+        /// catalogue could not be read either (issue #53).
+        case noCatalog
+        /// Apple's public catalogue was read and has no download for it.
+        case notInCatalog
 
         public var errorDescription: String? {
             switch self {
             case .unzipFailed: return "The picture from Apple could not be opened."
             case .noPicture: return "Apple's download held no picture."
             case .cutFailed: return "The light and dark pictures could not be made."
+            case .noCatalog:
+                return "Apple's list of pictures could not be reached. Check the internet connection and try again."
+            case .notInCatalog: return "Apple's list of pictures has no download for this one."
             }
         }
     }

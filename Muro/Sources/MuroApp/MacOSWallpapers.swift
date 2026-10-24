@@ -529,6 +529,10 @@ extension AppStore {
         guard downloads[aerial.id] == nil else { return }
         downloads[aerial.id] = 0
         defer { downloads[aerial.id] = nil }
+        var aerial = aerial
+        if DynamicWallpapers.lacksAddress(aerial) {
+            aerial = try await addressedPicture(aerial)
+        }
         let root = self.root
         let id = aerial.id
         let directory = AppleAerials.cacheDir(libraryRoot: root)
@@ -547,6 +551,28 @@ extension AppStore {
         }.value
         await makeSharpPictures(for: aerial)
         recomputeSize()
+    }
+
+    /// The same picture with its download address, from Apple's public
+    /// catalogue, for a Mac whose own copy does not have it (issue #53).
+    /// Without one it says why, instead of copying a file that was never
+    /// there.
+    private func addressedPicture(_ aerial: AppleAerial) async throws -> AppleAerial {
+        do {
+            try await DynamicWallpapers.fetchPublicCatalog()
+        } catch {
+            throw ApplePictures.PrepareError.noCatalog
+        }
+        let root = self.root
+        let id = aerial.id
+        // The list is read again with the new addresses, off the main thread.
+        let found = await Task.detached(priority: .userInitiated) {
+            AppleAerials.cachedAerials(libraryRoot: root)?.first { $0.id == id }
+        }.value
+        guard let found, !DynamicWallpapers.lacksAddress(found) else {
+            throw ApplePictures.PrepareError.notInCatalog
+        }
+        return found
     }
 
     /// The cards and the detail view show Apple's small pictures until the
