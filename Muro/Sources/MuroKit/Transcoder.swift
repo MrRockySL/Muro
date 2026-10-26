@@ -7,6 +7,8 @@ public struct TranscodeResult {
     public let height: Int
     public let fps: Double
     public let duration: Double
+    /// Whether the file written carries the source's sound (issue #54).
+    public var hasSound = false
 }
 
 public enum TranscodeError: Error, CustomStringConvertible {
@@ -29,13 +31,39 @@ public enum TranscodeError: Error, CustomStringConvertible {
 /// "Efficient" playback mode. Decoding and encoding are both hardware
 /// (Media Engine) on Apple Silicon.
 ///
+/// `keepAudio` keeps the source's sound as well, as AAC (issue #54). Only a
+/// video the person adds themselves asks for it; every live wallpaper Muro
+/// publishes stays silent. The sound is the extra here and never the reason a
+/// video fails to come in: if writing it fails, the video is written again
+/// without it.
+///
 /// `progress`, when given, is told how far through the video the encode is,
 /// 0 to 1, in steps of about a hundredth, on the encoding queue.
 public func transcodeToHEVC(
     source: URL,
     destination: URL,
     halveFrameRate: Bool = false,
+    keepAudio: Bool = false,
     progress: ((Double) -> Void)? = nil
+) throws -> TranscodeResult {
+    if keepAudio, let result = try? writeHEVC(
+        source: source, destination: destination, halveFrameRate: halveFrameRate,
+        keepAudio: true, progress: progress
+    ) {
+        return result
+    }
+    return try writeHEVC(
+        source: source, destination: destination, halveFrameRate: halveFrameRate,
+        keepAudio: false, progress: progress
+    )
+}
+
+private func writeHEVC(
+    source: URL,
+    destination: URL,
+    halveFrameRate: Bool,
+    keepAudio: Bool,
+    progress: ((Double) -> Void)?
 ) throws -> TranscodeResult {
     let asset = AVURLAsset(url: source)
 
@@ -51,6 +79,17 @@ public func transcodeToHEVC(
     loadDone.wait()
     if let error = loadError { throw TranscodeError.readerFailed("\(error)") }
     guard let track = loadedTrack else { throw TranscodeError.noVideoTrack }
+
+    // The sound, when it is wanted and the video has any.
+    var audioTrack: AVAssetTrack?
+    if keepAudio {
+        let audioLoaded = DispatchSemaphore(value: 0)
+        asset.loadTracks(withMediaType: .audio) { tracks, _ in
+            audioTrack = tracks?.first
+            audioLoaded.signal()
+        }
+        audioLoaded.wait()
+    }
 
     let transformedSize = track.naturalSize.applying(track.preferredTransform)
     let width = Int(abs(transformedSize.width).rounded())
@@ -95,6 +134,47 @@ public func transcodeToHEVC(
     writerInput.transform = track.preferredTransform
     writer.add(writerInput)
 
+    // Decoded to stereo PCM and written as AAC, whatever the source used, so
+    // every video that plays on a Mac comes in with sound a Mac can play.
+    // Both halves are added or neither: an output nobody reads would hold the
+    // reader up.
+    var audioOutput: AVAssetReaderTrackOutput?
+    var audioInput: AVAssetWriterInput?
+    if let audioTrack {
+        var layout = AudioChannelLayout()
+        layout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo
+        let stereo = Data(bytes: &layout, count: MemoryLayout<AudioChannelLayout>.size)
+        let output = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: 48_000,
+            AVNumberOfChannelsKey: 2,
+            AVChannelLayoutKey: stereo,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsFloatKey: false,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false,
+        ])
+        output.alwaysCopiesSampleData = false
+        let input = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: 48_000,
+            AVNumberOfChannelsKey: 2,
+            AVChannelLayoutKey: stereo,
+            AVEncoderBitRateKey: 192_000,
+        ])
+        input.expectsMediaDataInRealTime = false
+        if reader.canAdd(output), writer.canAdd(input) {
+            reader.add(output)
+            writer.add(input)
+            audioOutput = output
+            audioInput = input
+            // No sound past the last frame. A longer sound would make the
+            // file longer than its picture, and the loop would hold the last
+            // frame until the sound ran out.
+            reader.timeRange = track.timeRange
+        }
+    }
+
     guard reader.startReading() else {
         throw TranscodeError.readerFailed(reader.error.map { "\($0)" } ?? "unknown")
     }
@@ -109,9 +189,24 @@ public func transcodeToHEVC(
     var firstTime: CMTime?
     var reported = 0.0
 
+    // With sound, the session starts before either track is fed. A writer
+    // turns away any sample that comes before its session, and the sound can
+    // be ready first; the first frame's time is still where it starts.
+    var firstFrame: CMSampleBuffer?
+    if audioInput != nil {
+        guard let first = readerOutput.copyNextSampleBuffer() else {
+            throw TranscodeError.readerFailed(reader.error.map { "\($0)" } ?? "no frames")
+        }
+        writer.startSession(atSourceTime: CMSampleBufferGetPresentationTimeStamp(first))
+        sessionStarted = true
+        firstFrame = first
+    }
+
     writerInput.requestMediaDataWhenReady(on: queue) {
         while writerInput.isReadyForMoreMediaData {
-            guard let sample = readerOutput.copyNextSampleBuffer() else {
+            let next = firstFrame ?? readerOutput.copyNextSampleBuffer()
+            firstFrame = nil
+            guard let sample = next else {
                 writerInput.markAsFinished()
                 copyDone.signal()
                 return
@@ -144,7 +239,25 @@ public func transcodeToHEVC(
             }
         }
     }
+
+    let audioDone = DispatchSemaphore(value: 0)
+    if let audioInput, let audioOutput {
+        audioInput.requestMediaDataWhenReady(on: queue) {
+            while audioInput.isReadyForMoreMediaData {
+                guard let sample = audioOutput.copyNextSampleBuffer(),
+                      audioInput.append(sample)
+                else {
+                    audioInput.markAsFinished()
+                    audioDone.signal()
+                    return
+                }
+            }
+        }
+    } else {
+        audioDone.signal()
+    }
     copyDone.wait()
+    audioDone.wait()
 
     if reader.status == .failed {
         throw TranscodeError.readerFailed(reader.error.map { "\($0)" } ?? "unknown")
@@ -158,7 +271,10 @@ public func transcodeToHEVC(
     }
     removeSafeSaveLeftovers(for: destination)
 
-    return TranscodeResult(width: width, height: height, fps: outputFPS, duration: duration)
+    return TranscodeResult(
+        width: width, height: height, fps: outputFPS, duration: duration,
+        hasSound: audioInput != nil
+    )
 }
 
 /// With `shouldOptimizeForNetworkUse`, AVAssetWriter produces the faststart

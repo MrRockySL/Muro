@@ -25,6 +25,23 @@ public final class WallpaperWindowController {
         let player: AVQueuePlayer
         let layer: AVPlayerLayer
         let looper: AVPlayerLooper
+        let sound: SoundBuild
+    }
+
+    /// Issue #54. How a looper was built: whether its file has sound, whether
+    /// it plays it, and where its first real frame sits (`LoopRange.Built`).
+    private struct SoundBuild {
+        var hasSound = false
+        var playsSound = false
+        var pictureStart: CMTime = .zero
+
+        init() {}
+
+        init(_ built: LoopRange.Built, sound: Bool) {
+            hasSound = built.hasSound
+            playsSound = sound && built.hasSound
+            pictureStart = built.pictureStart
+        }
     }
 
     private var pending: PendingVideo?
@@ -61,8 +78,14 @@ public final class WallpaperWindowController {
     private var playOnlyOnDesktop = false
     private var replayOnClearDesktop = false
     private var desktopCovered: Bool?
+    /// Issue #54. Whether this screen's live wallpaper plays its sound. The
+    /// engine turns it on for one screen at most (`WallpaperSound`). Every
+    /// other screen plays the picture alone, as every screen always did.
+    private var soundOn = false
+    /// How the looper on screen was built, for the sound.
+    private var soundBuild = SoundBuild()
 
-    public init(screen: NSScreen, videoURL: URL) {
+    public init(screen: NSScreen, videoURL: URL, sound: Bool = false) {
         window = NSWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
@@ -101,7 +124,11 @@ public final class WallpaperWindowController {
         window.contentView = contentView
 
         currentURL = videoURL
-        looper = LoopRange.looper(player: player, url: videoURL)
+        let built = LoopRange.make(player: player, url: videoURL, sound: sound)
+        looper = built.looper
+        soundOn = sound
+        soundBuild = SoundBuild(built, sound: sound)
+        player.isMuted = !soundBuild.playsSound
     }
 
     // MARK: - Changing wallpaper without rebuilding the window
@@ -111,9 +138,10 @@ public final class WallpaperWindowController {
     /// The engine used to answer a wallpaper change by destroying this whole
     /// controller and building a new NSWindow and AVPlayer, which flashed
     /// black and spiked CPU on every switch.
-    public func setVideo(url: URL) {
+    public func setVideo(url: URL, sound: Bool = false) {
         guard url != currentURL else { return }
         currentURL = url
+        soundOn = sound
         discardPendingSwap()
 
         let nextPlayer = AVQueuePlayer()
@@ -131,8 +159,14 @@ public final class WallpaperWindowController {
         window.contentView?.layer?.addSublayer(nextLayer)
         CATransaction.commit()
 
-        let nextLooper = LoopRange.looper(player: nextPlayer, url: url)
-        pending = PendingVideo(player: nextPlayer, layer: nextLayer, looper: nextLooper)
+        let built = LoopRange.make(player: nextPlayer, url: url, sound: sound)
+        pending = PendingVideo(
+            player: nextPlayer, layer: nextLayer, looper: built.looper,
+            sound: SoundBuild(built, sound: sound)
+        )
+        // The outgoing wallpaper's sound stops as the change begins. The
+        // incoming one is heard once it is the one on screen.
+        player.isMuted = true
         // A new wallpaper is a new chance to watch it move, including every
         // automation and playlist step.
         release("settled")
@@ -170,6 +204,8 @@ public final class WallpaperWindowController {
         player = incoming.player
         playerLayer = incoming.layer
         looper = incoming.looper
+        soundBuild = incoming.sound
+        player.isMuted = !soundBuild.playsSound
 
         CATransaction.begin()
         CATransaction.setAnimationDuration(Self.crossfadeSeconds)
@@ -185,6 +221,10 @@ public final class WallpaperWindowController {
         CATransaction.commit()
 
         EngineLog.log("switched to \(currentURL.lastPathComponent)")
+        // The sound was turned on or off while this change was in flight.
+        if soundBuild.hasSound, soundBuild.playsSound != soundOn {
+            DispatchQueue.main.async { [weak self] in self?.rebuildForSound() }
+        }
     }
 
     /// Drops a swap that never completed, e.g. two wallpaper changes in quick
@@ -323,6 +363,66 @@ public final class WallpaperWindowController {
         } else {
             release("desktop-covered")
         }
+    }
+
+    /// Issue #54. Gives this screen's live wallpaper its sound, or takes it
+    /// away. While a change of wallpaper is in flight, the sound waits for the
+    /// incoming one to be on screen (`completeSwap`). A wallpaper without
+    /// sound has nothing to change.
+    public func setSound(_ on: Bool) {
+        guard on != soundOn else { return }
+        soundOn = on
+        guard pending == nil, soundBuild.hasSound else { return }
+        EngineLog.log("sound \(on ? "on" : "off") (\(currentURL.lastPathComponent))")
+        rebuildForSound()
+    }
+
+    /// The same live wallpaper built again, with its sound or with its
+    /// picture alone, and crossfaded in at the frame on screen, so the
+    /// picture does not jump. Muting the player would not do: a muted player
+    /// still runs the Mac's audio output (`LoopRange.make`).
+    private func rebuildForSound() {
+        guard pending == nil, soundBuild.hasSound, soundBuild.playsSound != soundOn else { return }
+
+        let nextPlayer = AVQueuePlayer()
+        nextPlayer.isMuted = true
+        nextPlayer.preventsDisplaySleepDuringVideoPlayback = false
+
+        let nextLayer = AVPlayerLayer(player: nextPlayer)
+        nextLayer.videoGravity = .resizeAspectFill
+        nextLayer.frame = playerLayer.frame
+        nextLayer.autoresizingMask = playerLayer.autoresizingMask
+        nextLayer.opacity = 0
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        window.contentView?.layer?.addSublayer(nextLayer)
+        CATransaction.commit()
+
+        let built = LoopRange.make(player: nextPlayer, url: currentURL, sound: soundOn)
+        let next = SoundBuild(built, sound: soundOn)
+        pending = PendingVideo(player: nextPlayer, layer: nextLayer, looper: built.looper, sound: next)
+        player.isMuted = true
+
+        // The two items count time from different places when the file
+        // opens with a gap, so the frame on screen is found by its distance
+        // from the first real frame.
+        let now = player.currentTime()
+        if now.isNumeric {
+            let target = CMTimeAdd(CMTimeSubtract(now, soundBuild.pictureStart), next.pictureStart)
+            nextPlayer.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+        if holds.isEmpty { nextPlayer.playImmediately(atRate: desiredRate) }
+
+        readyObservation = nextLayer.observe(
+            \.isReadyForDisplay, options: [.initial, .new]
+        ) { [weak self] layer, _ in
+            guard layer.isReadyForDisplay else { return }
+            DispatchQueue.main.async { self?.completeSwap() }
+        }
+        let timeout = DispatchWorkItem { [weak self] in self?.completeSwap() }
+        swapTimeout = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: timeout)
     }
 
     /// Playback speed from Settings (0.5×–1.5×). Applied live when playing.

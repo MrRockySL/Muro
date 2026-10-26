@@ -8,6 +8,13 @@ struct MenuBarView: View {
         store.currentAppliedID.flatMap { store.item(id: $0) }
     }
 
+    /// The live wallpaper being heard, while there is sound (issue #54). The
+    /// header shows it rather than the main display's, so the sound button
+    /// sits on the picture the sound comes from.
+    private var soundItem: WallpaperItem? {
+        store.soundWallpaperID.flatMap { store.item(id: $0) }
+    }
+
     var body: some View {
         VStack(spacing: 12) {
             header
@@ -33,7 +40,7 @@ struct MenuBarView: View {
 
     @ViewBuilder private var header: some View {
         VStack(spacing: 6) {
-            if let item = currentItem {
+            if let item = soundItem ?? currentItem {
                 ZStack(alignment: .bottomLeading) {
                     Color.black
                         .frame(height: 122)
@@ -57,7 +64,12 @@ struct MenuBarView: View {
                                 .foregroundStyle(Color.muroInk.opacity(0.75))
                         }
                     }
+                    // A long name stops short of the sound button.
+                    .padding(.trailing, soundItem != nil ? 40 : 0)
                     .padding(12)
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if soundItem != nil { soundButton }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             } else {
@@ -86,6 +98,27 @@ struct MenuBarView: View {
                     .foregroundStyle(Color.muroSecondary)
             }
         }
+    }
+
+    /// Issue #54. Pauses and plays the sound, never the live wallpaper. Only
+    /// shown while Live Wallpaper Sound is on and a live wallpaper with sound
+    /// is on a display; otherwise the panel is exactly as it was. The heart's
+    /// circle from the cards, a little smaller, in the picture's corner the
+    /// way a video's mute button sits.
+    private var soundButton: some View {
+        Button {
+            store.setSoundMuted(!store.soundMuted)
+        } label: {
+            Image(systemName: store.soundMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color.black.opacity(0.4)))
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, 12)
+        .padding(.bottom, 13)
+        .accessibilityLabel(store.soundMuted ? "Play the sound" : "Pause the sound")
     }
 
     private func statusLine(_ item: WallpaperItem) -> String {

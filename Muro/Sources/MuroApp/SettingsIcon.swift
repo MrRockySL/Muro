@@ -28,6 +28,10 @@ enum SettingsIcon {
     /// Menu Bar Icon (6.0): Muro's own glyph, the moon over the horizon, on
     /// a tile the colour of moonlight. Same grid and rules.
     case menuBarIcon
+    /// Live Wallpaper Sound (issue #54): a speaker with two sound waves on a
+    /// fuchsia tile no other row uses. Same grid and rules, approved from the
+    /// design shown to the owner on 2026-10-26.
+    case sound
 
     /// The tile's colour. Nil for the replay arrow, which has no tile.
     var tint: Color? {
@@ -52,6 +56,7 @@ enum SettingsIcon {
         case .support: return Color(hex: 0xFF6B8E)
         case .appearance: return Color(hex: 0xB9C2D0)
         case .menuBarIcon: return Color(hex: 0xF5C451)
+        case .sound: return Color(hex: 0xE763FF)
         }
     }
 
@@ -78,6 +83,7 @@ enum SettingsIcon {
         case .support: return Color(hex: 0xFFB5C6)
         case .appearance: return Color(hex: 0xDCE1E8)
         case .menuBarIcon: return Color(hex: 0xFAE1A8)
+        case .sound: return Color(hex: 0xF3B1FF)
         }
     }
 
@@ -415,6 +421,32 @@ enum SettingsIcon {
                 p.move(to: pt(1.75, 13.4))
                 p.addCurve(to: pt(9, 12.85), control1: pt(4.25, 11.7), control2: pt(6.35, 13.8))
                 p.addCurve(to: pt(16.25, 13.55), control1: pt(11.65, 11.9), control2: pt(14.15, 12.05))
+            })
+        case .sound:
+            // The speaker, box and cone, soft fill and outline, then two waves
+            // centred on its mouth. The whole runs 1.9 to 16.15 across and
+            // 2.85 to 15.15 down.
+            let speaker = Path { p in
+                p.move(to: pt(3.65, 6.75))
+                p.addLine(to: pt(5.65, 6.75))
+                p.addLine(to: pt(9.4, 3.6))
+                p.addLine(to: pt(9.4, 14.4))
+                p.addLine(to: pt(5.65, 11.25))
+                p.addLine(to: pt(3.65, 11.25))
+                p.addQuadCurve(to: pt(2.65, 10.25), control: pt(2.65, 11.25))
+                p.addLine(to: pt(2.65, 7.75))
+                p.addQuadCurve(to: pt(3.65, 6.75), control: pt(2.65, 6.75))
+                p.closeSubpath()
+            }
+            fill(speaker, soft: true)
+            stroke(speaker)
+            stroke(Path { p in
+                p.addArc(center: pt(9.4, 9), radius: 3.1,
+                         startAngle: .degrees(-42), endAngle: .degrees(42), clockwise: false)
+            })
+            stroke(Path { p in
+                p.addArc(center: pt(9.4, 9), radius: 6.0,
+                         startAngle: .degrees(-46), endAngle: .degrees(46), clockwise: false)
             })
         }
     }

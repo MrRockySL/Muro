@@ -97,7 +97,8 @@ if efficient {
             _ = try transcodeToHEVC(
                 source: root.appendingPathComponent(entry.file),
                 destination: variantURL,
-                halveFrameRate: true
+                halveFrameRate: true,
+                keepAudio: entry.hasSound == true
             )
             entry.efficientFile = variantRelative
             manifest.wallpapers[index] = entry
