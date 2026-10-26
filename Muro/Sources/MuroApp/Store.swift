@@ -343,6 +343,10 @@ final class AppStore: ObservableObject {
     @Published private(set) var catalogRefreshing = false
 
     private var watcher: DispatchSourceFileSystemObject?
+    /// Apple's wallpaper store, watched for a lock screen macOS has replaced.
+    /// See `watchForReplacedLockScreens`.
+    private var appleStoreWatcher: DispatchSourceFileSystemObject?
+    private var replacedLockScreenCheck: DispatchWorkItem?
     private let scheduler = AutomationScheduler()
     /// A playlist or automation played on the lock screen or the screen saver
     /// runs in one of these, beside the desktop's, so each place can play its
@@ -431,6 +435,7 @@ final class AppStore: ObservableObject {
         // A lock screen or screen saver step due at launch writes the same
         // store, so the first one waits for this. See `placeSteps`.
         placeSteps = Task { await heal.value }
+        watchForReplacedLockScreens()
         // A monitor plugged in after Muro started has no desktop picture of
         // its own yet, and one unplugged leaves a record to give back.
         NotificationCenter.default.addObserver(
@@ -830,6 +835,75 @@ final class AppStore: ObservableObject {
         source.setCancelHandler { close(fd) }
         source.resume()
         watcher = source
+    }
+
+    // MARK: - Lock screens macOS replaced
+
+    /// Notices a lock screen macOS has given to something else, so Muro
+    /// stops saying "Applied" for it (#58).
+    ///
+    /// A picture set in System Settings or Finder lands in the same slot as
+    /// Muro's lock screen, and macOS writes it into its wallpaper store, so a
+    /// change there is the moment to look. Coming back to Muro is the other
+    /// one, for anything that happened while the store could not be watched.
+    private func watchForReplacedLockScreens() {
+        guard lockScreen.isAvailable else { return }
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.noticeReplacedLockScreens() }
+        }
+        let fd = open(LockScreenService.wallpaperStoreDirectoryURL.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd, eventMask: [.write], queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            self?.scheduleReplacedLockScreenCheck()
+        }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        appleStoreWatcher = source
+    }
+
+    /// WallpaperAgent writes its store more than once for one change, and
+    /// Muro's own applies write it too, so look once, after it has gone quiet.
+    private func scheduleReplacedLockScreenCheck() {
+        replacedLockScreenCheck?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.noticeReplacedLockScreens() }
+        replacedLockScreenCheck = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2, execute: work)
+    }
+
+    /// Queued behind any lock screen or screen saver step, which writes the
+    /// same store, and never while an apply is running: the store is between
+    /// two answers then.
+    private func noticeReplacedLockScreens() {
+        guard lockScreenAvailable, !applyingLockScreen else { return }
+        let previous = placeSteps
+        placeSteps = Task { [weak self] in
+            await previous?.value
+            await self?.forgetReplacedLockScreens()
+        }
+    }
+
+    private func forgetReplacedLockScreens() async {
+        guard !applyingLockScreen else { return }
+        // What macOS names as each display's desktop picture. While Muro holds
+        // a slot this is a file of the extension's; see LockScreenReplacement.
+        var pictures: [String: URL] = [:]
+        for screen in NSScreen.screens {
+            guard let uuid = displayUUID(for: screen),
+                  let url = NSWorkspace.shared.desktopImageURL(for: screen)
+            else { continue }
+            pictures[uuid] = url
+        }
+        let changed = await lockScreen.forgetReplacedLockScreens(
+            connectedDisplays: Set(displays.map(\.id)),
+            desktopPictures: pictures
+        )
+        if changed { objectWillChange.send() }
     }
 
     func recomputeSize() {
@@ -1580,6 +1654,9 @@ final class AppStore: ObservableObject {
             lockScreen.ownsWallpaperSurface(displayUUID: $0)
                 // An Apple picture set through macOS sits in the same slot.
                 || macOSWallpapers.holdsDesktop(displayUUID: $0)
+                // So does a picture the person set in System Settings or
+                // Finder over Muro's lock screen (#58).
+                || lockScreen.slotTakenByMacOS(displayUUID: $0)
         })
     }
 

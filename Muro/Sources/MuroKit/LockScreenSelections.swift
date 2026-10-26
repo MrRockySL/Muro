@@ -78,4 +78,23 @@ public enum LockScreenSelections {
             key != allKey && value != fixedID && value != removedMarker
         }
     }
+
+    /// The record after macOS gave these displays' slots to something else,
+    /// usually a picture set in System Settings or Finder (#58).
+    ///
+    /// Each display lets go exactly as a remove for that one display does:
+    /// an opt-out while `all` is held, so every other display keeps reading
+    /// it, and no entry at all otherwise. Nothing else changes, so the next
+    /// apply to every display clears the opt-outs the way it always has.
+    public static func afterReplacedByMacOS(
+        current: [String: String],
+        displays: Set<String>,
+        removedMarker: String
+    ) -> [String: String] {
+        var next = current
+        for uuid in displays {
+            next[uuid] = current[allKey] != nil ? removedMarker : nil
+        }
+        return next
+    }
 }
