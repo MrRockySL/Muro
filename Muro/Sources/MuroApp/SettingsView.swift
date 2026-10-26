@@ -159,6 +159,21 @@ struct SettingsView: View {
                         )
                     }
                     divider
+                    // Issue #54. Only a video the person adds keeps its sound;
+                    // every live wallpaper Muro publishes is silent. Off by
+                    // default, and the menu bar's sound button only appears
+                    // while this is on.
+                    row(icon: .sound, title: "Live Wallpaper Sound",
+                        subtitle: store.soundEnabled
+                            ? "Your own videos play with sound"
+                            : "All live wallpapers stay silent") {
+                        Toggle("", isOn: Binding(
+                            get: { store.soundEnabled },
+                            set: { store.setSoundEnabled($0) }
+                        ))
+                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
+                    }
+                    divider
                     row(icon: .pauseAfter, title: "Pause After",
                         subtitle: pauseAfterSubtitle) {
                         GlassDropdown(width: 150, align: .trailing, options: {

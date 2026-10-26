@@ -24,6 +24,10 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
     /// came from, so importing the same file again can be recognised. Nil for
     /// downloads and for imports made before it was kept.
     public var sourceFingerprint: String?
+    /// Issue #54. True for a video the person added that kept its sound.
+    /// Nil for every download, which is always silent, and for imports made
+    /// before Muro kept sound.
+    public var hasSound: Bool?
 
     public init(
         id: String, title: String, category: String, file: String,
@@ -32,7 +36,8 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
         height: Int, fps: Double, duration: Double, sizeBytes: Int64,
         liked: Bool = false, dateAdded: Date = Date(),
         pauseAfterSeconds: Int? = nil,
-        sourceFingerprint: String? = nil
+        sourceFingerprint: String? = nil,
+        hasSound: Bool? = nil
     ) {
         self.id = id
         self.title = title
@@ -50,6 +55,7 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
         self.dateAdded = dateAdded
         self.pauseAfterSeconds = pauseAfterSeconds
         self.sourceFingerprint = sourceFingerprint
+        self.hasSound = hasSound
     }
 
     /// Every file this wallpaper owns inside the library root. Deleting a

@@ -68,6 +68,7 @@ public func importVideo(
     root: URL = LibraryManifest.defaultRoot(),
     preserveOriginal: Bool = false,
     sourceFingerprint: String? = nil,
+    keepAudio: Bool = false,
     progress: ((Double) -> Void)? = nil
 ) throws -> WallpaperEntry {
     let mastersDir = root.appendingPathComponent("Masters", isDirectory: true)
@@ -85,9 +86,13 @@ public func importVideo(
     do {
         // The encode is nearly all of an import's time, so it is most of the
         // bar; the picture and the preview after it are the last few percent.
+        // Only a video the person adds keeps its sound (issue #54). A live
+        // wallpaper published from the catalogue stays silent either way.
         let result = try preserveOriginal
             ? copyVideoStream(source: source, destination: masterURL)
-            : transcodeToHEVC(source: source, destination: masterURL) { progress?($0 * 0.95) }
+            : transcodeToHEVC(
+                source: source, destination: masterURL, keepAudio: keepAudio
+            ) { progress?($0 * 0.95) }
         // A missing thumbnail costs the card its picture and nothing more, so
         // like the preview below it must not fail an import whose master
         // transcoded perfectly well.
@@ -115,7 +120,8 @@ public func importVideo(
             fps: result.fps,
             duration: result.duration,
             sizeBytes: sizeBytes ?? 0,
-            sourceFingerprint: sourceFingerprint
+            sourceFingerprint: sourceFingerprint,
+            hasSound: result.hasSound ? true : nil
         )
         try LibraryWriter.update(root: root) { manifest in
             manifest.wallpapers.append(entry)

@@ -1402,9 +1402,62 @@ final class AppStore: ObservableObject {
         case .display(let uuid):
             config.perDisplay[uuid] = assignment
         }
+        // Issue #54. The live wallpaper applied last with sound is the one
+        // heard, so its display takes the sound; on every display at once,
+        // the main display plays it, once.
+        if manifest.wallpapers.first(where: { $0.id == id })?.hasSound == true {
+            switch target {
+            case .all: config.soundDisplay = displays.first?.id
+            case .display(let uuid): config.soundDisplay = uuid
+            }
+        }
         if resume { config.paused = false }
         saveConfig()
         pushRecent(id)
+    }
+
+    // MARK: - Sound (issue #54)
+
+    var soundEnabled: Bool { config.sound ?? false }
+
+    /// The menu bar's sound button. Pauses the sound, never the live
+    /// wallpaper.
+    var soundMuted: Bool { config.soundMuted ?? false }
+
+    func setSoundEnabled(_ on: Bool) {
+        config.sound = on
+        // Turning the sound on is asking to hear it.
+        if on { config.soundMuted = nil }
+        saveConfig()
+    }
+
+    func setSoundMuted(_ muted: Bool) {
+        config.soundMuted = muted ? true : nil
+        saveConfig()
+    }
+
+    /// The live wallpaper being heard, by the rule the engine plays it by
+    /// (`WallpaperSound`), or nil while there is no sound to hear. The menu
+    /// bar puts it at the top, with the sound button on its picture.
+    var soundWallpaperID: String? {
+        guard soundEnabled else { return nil }
+        var shown: [String] = []
+        var wallpaper: [String: String] = [:]
+        for display in displays {
+            guard let id = config.assignment(forDisplayUUID: display.id)?.wallpaperID else { continue }
+            shown.append(display.id)
+            wallpaper[display.id] = id
+        }
+        let display = WallpaperSound.display(
+            enabled: true,
+            preferred: config.soundDisplay,
+            displays: shown,
+            hasSound: { uuid in
+                guard let id = wallpaper[uuid] else { return false }
+                return self.manifest.wallpapers.first(where: { $0.id == id })?.hasSound == true
+            }
+        )
+        return display.flatMap { wallpaper[$0] }
     }
 
     /// One step of a playlist or automation on the lock screen (`.desktop`,
@@ -1969,8 +2022,12 @@ final class AppStore: ObservableObject {
                     continue
                 }
                 do {
+                    // A video the person adds keeps its sound (issue #54), so
+                    // turning on Live Wallpaper Sound later needs no import
+                    // again. It plays only while that switch is on.
                     library.append(try importVideo(
-                        source: url, root: root, sourceFingerprint: fingerprint
+                        source: url, root: root, sourceFingerprint: fingerprint,
+                        keepAudio: true
                     ) { done in
                         Task { @MainActor in
                             guard AppStore.shared.importProgress != nil else { return }
@@ -2030,9 +2087,14 @@ final class AppStore: ObservableObject {
         let relative = "Masters/\(entry.id)-eff.mov"
         let source = root.appendingPathComponent(entry.file)
         let destination = root.appendingPathComponent(relative)
+        // A video with sound keeps it in its 30 fps copy too (issue #54).
+        let keepAudio = entry.hasSound == true
         do {
             _ = try await Task.detached(priority: .userInitiated) {
-                try transcodeToHEVC(source: source, destination: destination, halveFrameRate: true)
+                try transcodeToHEVC(
+                    source: source, destination: destination, halveFrameRate: true,
+                    keepAudio: keepAudio
+                )
             }.value
             manifest = try LibraryWriter.update(root: root) { fresh in
                 guard let index = fresh.wallpapers.firstIndex(where: { $0.id == entry.id })
