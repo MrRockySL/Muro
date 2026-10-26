@@ -82,6 +82,10 @@ final class LockScreenService {
         /// that id stands for whenever a selection holds it, so the app can
         /// say which wallpaper the lock screen or the screen saver is showing.
         var rotationWallpapers: [String: String] = [:]
+        /// Displays whose lock screen Muro let go of because macOS put
+        /// something else in the slot, usually the person's own picture (#58).
+        /// See `slotTakenByMacOS`.
+        var replacedByMacOS: [String] = []
 
         init() {}
 
@@ -100,6 +104,9 @@ final class LockScreenService {
             rotationWallpapers = try container.decodeIfPresent(
                 [String: String].self, forKey: .rotationWallpapers
             ) ?? [:]
+            replacedByMacOS = try container.decodeIfPresent(
+                [String].self, forKey: .replacedByMacOS
+            ) ?? []
         }
     }
 
@@ -521,6 +528,87 @@ final class LockScreenService {
         }
     }
 
+    // MARK: - When macOS takes the slot back
+
+    /// Lets go of the lock screen on every connected display where macOS now
+    /// shows something else, and says whether anything changed (#58).
+    ///
+    /// Only Muro's own record changes. Apple's stores, the staged videos and
+    /// WallpaperAgent are left exactly as they are: the slot already holds
+    /// what the person chose, and writing to it would take that choice away.
+    /// Muro's records in other Spaces' nodes stay as well, the same as a
+    /// remove for one display has always left them.
+    ///
+    /// The record only changes if nothing else changed it while the store was
+    /// being read. An apply that lands in between has the newer answer, and
+    /// the next look reads the store again.
+    func forgetReplacedLockScreens(
+        connectedDisplays: Set<String>,
+        desktopPictures: [String: URL]
+    ) async -> Bool {
+        // A display Muro's lock screen is back on is Muro's again.
+        let reclaimed = state.replacedByMacOS.filter { ownsWallpaperSurface(displayUUID: $0) }
+        if !reclaimed.isEmpty {
+            state.replacedByMacOS.removeAll { reclaimed.contains($0) }
+            try? Self.saveState(state, root: root)
+        }
+        let before = state.selections
+        let claimed = connectedDisplays.filter { ownsWallpaperSurface(displayUUID: $0) }
+        guard !claimed.isEmpty else { return false }
+        let replaced = await Task.detached(priority: .utility) {
+            // `Index.plist`, the store macOS reads.
+            LockScreenReplacement.replacedDisplays(
+                claimed: claimed,
+                store: Self.wallpaperStoreURLs.first.flatMap { Self.loadWallpaperStore(at: $0) },
+                provider: Self.extensionBundleID,
+                desktopPictures: desktopPictures
+            )
+        }.value
+        guard !replaced.isEmpty, state.selections == before else { return false }
+        state.selections = LockScreenSelections.afterReplacedByMacOS(
+            current: state.selections,
+            displays: replaced,
+            removedMarker: Self.removedSelection
+        )
+        state.replacedByMacOS = Set(state.replacedByMacOS).union(replaced).sorted()
+        try? Self.saveState(state, root: root)
+        Self.recordLetGo(displays: replaced, root: root)
+        return true
+    }
+
+    /// True when macOS put something else in this display's slot after
+    /// Muro's lock screen, and Muro's lock screen has not been set there
+    /// since.
+    ///
+    /// For the desktop still writer, which must leave such a slot alone just
+    /// as it leaves Muro's lock screen alone. The slot holds what the person
+    /// picked in System Settings or Finder, and it is their lock screen now.
+    /// Writing the still there replaced that picture within a second of Muro
+    /// letting go (owner's Mac, 2026-10-26, with a live wallpaper of Muro's
+    /// on the same display's desktop).
+    func slotTakenByMacOS(displayUUID: String) -> Bool {
+        state.replacedByMacOS.contains(displayUUID)
+            && !ownsWallpaperSurface(displayUUID: displayUUID)
+    }
+
+    /// One line in the diagnostics log, so a lock screen that stopped saying
+    /// "Applied" can be traced to macOS replacing it rather than to Muro.
+    private static func recordLetGo(displays: Set<String>, root: URL) {
+        let line = [
+            ISO8601DateFormatter().string(from: Date()),
+            "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)",
+            "replaced-by-macOS=\(displays.sorted().joined(separator: ","))",
+        ].joined(separator: " | ")
+        EngineLog.log("[lockscreen] \(line)")
+        let url = root.appendingPathComponent("lockscreen-diagnostics.log")
+        var text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        text += line + "\n"
+        if text.utf8.count > 32_768 {
+            text = String(text.suffix(400))
+        }
+        try? text.write(to: url, atomically: true, encoding: .utf8)
+    }
+
     /// The extension's side of the handshake. Mirrors the type it writes.
     private struct AcquireReceipt: Codable {
         var id: String
@@ -926,7 +1014,7 @@ final class LockScreenService {
             .appendingPathComponent("Data/Documents", isDirectory: true)
     }
 
-    private static var wallpaperStoreDirectoryURL: URL {
+    static var wallpaperStoreDirectoryURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/com.apple.wallpaper/Store", isDirectory: true)
     }
