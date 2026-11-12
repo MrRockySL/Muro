@@ -436,6 +436,83 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
     }
 }
 
+// MARK: - Telling macOS the list changed (issue #56)
+
+/// macOS asks this extension for its list of live wallpapers once, after a
+/// login, and keeps the answer in a cache of its own. It does not ask again
+/// when Muro stages a different live wallpaper. So System Settings went on
+/// showing the old tiles with their pictures gone, and a "?" in place of the
+/// live wallpaper really on the lock screen, which the old list did not
+/// have. A reinstall did not help, because the cache is macOS's.
+///
+/// An extension is meant to say when its list changes. This sends the list
+/// on every connection macOS opens, and again whenever `library.json` is
+/// rewritten while the extension is running.
+private final class SettingsPusher: @unchecked Sendable {
+    static let shared = SettingsPusher()
+
+    /// Everything below is only touched on this queue.
+    private let queue = DispatchQueue(label: "com.mrrockysl.muro.settings-push")
+    private let connections = NSHashTable<NSXPCConnection>.weakObjects()
+    private var watcher: DispatchSourceFileSystemObject?
+    private var lastSent: String?
+
+    func add(_ connection: NSXPCConnection) {
+        queue.async {
+            self.connections.add(connection)
+            self.watchLibrary()
+            // A new connection has not heard anything yet, so it is sent the
+            // list whether or not it changed. A moment later, once macOS has
+            // finished setting the connection up.
+            self.queue.asyncAfter(deadline: .now() + 1) { self.send(force: true) }
+        }
+    }
+
+    /// `library.json` is replaced, never edited, so it is its folder that
+    /// says when there is a new one.
+    private func watchLibrary() {
+        guard watcher == nil else { return }
+        let descriptor = open(documentsURL.path, O_EVTONLY)
+        guard descriptor >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: descriptor, eventMask: .write, queue: queue
+        )
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            // The log is written in the same folder, so most of these are
+            // nothing. `send` looks at the list itself and stays quiet when
+            // it is the one macOS already has. Twice, because the picture of
+            // a newly staged live wallpaper can land after its entry.
+            self.queue.asyncAfter(deadline: .now() + 0.7) { self.send(force: false) }
+            self.queue.asyncAfter(deadline: .now() + 3) { self.send(force: false) }
+        }
+        source.setCancelHandler { close(descriptor) }
+        source.resume()
+        watcher = source
+    }
+
+    private func send(force: Bool) {
+        let list = settingsSignature()
+        guard force || list != lastSent else { return }
+        guard let models = makeSettingsResponse() else { return }
+        let live = connections.allObjects
+        guard !live.isEmpty else { return }
+        lastSent = list
+        for connection in live {
+            let proxy = connection.remoteObjectProxyWithErrorHandler { error in
+                extensionLog("settings list not delivered: \(error.localizedDescription)")
+            }
+            guard let host = proxy as? WallpaperExtensionProxyXPCProtocol else { continue }
+            host.updateSettingsViewModels(models) { error in
+                if let error {
+                    extensionLog("settings list refused: \(error.localizedDescription)")
+                }
+            }
+        }
+        extensionLog("settings list sent: \(list.isEmpty ? "empty" : list)")
+    }
+}
+
 private struct MuroWallpaperConfiguration: AppExtensionConfiguration {
     func accept(connection: NSXPCConnection) -> Bool {
         extensionTrace("XPC connection from PID \(connection.processIdentifier)")
@@ -491,9 +568,10 @@ private struct MuroWallpaperConfiguration: AppExtensionConfiguration {
         exported.setClasses(classes, for: notification, argumentIndex: 0, ofReply: false)
 
         connection.exportedInterface = exported
-        connection.remoteObjectInterface = NSXPCInterface(
-            with: WallpaperExtensionProxyXPCProtocol.self
-        )
+        let remote = NSXPCInterface(with: WallpaperExtensionProxyXPCProtocol.self)
+        let push = #selector(WallpaperExtensionProxyXPCProtocol.updateSettingsViewModels(_:reply:))
+        remote.setClasses(classes, for: push, argumentIndex: 0, ofReply: false)
+        connection.remoteObjectInterface = remote
         connection.exportedObject = WallpaperXPCHandler()
         connection.invalidationHandler = {
             extensionTrace("XPC connection invalidated")
@@ -502,6 +580,7 @@ private struct MuroWallpaperConfiguration: AppExtensionConfiguration {
             extensionTrace("XPC connection interrupted")
         }
         connection.resume()
+        SettingsPusher.shared.add(connection)
         extensionTrace("XPC accepted with wallpaper protocol")
         return true
     }
