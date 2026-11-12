@@ -1689,5 +1689,18 @@ private struct AnchoredCard<C: View>: ViewModifier {
                     presenter.dismiss()
                 }
             }
+            // The view the card hangs from has gone: a wallpaper's page left
+            // with Back or Esc. The card is drawn by the window, not by that
+            // view, so it used to stay over the Library, still working, and a
+            // click on it set the wallpaper of a page nobody was looking at.
+            .onDisappear {
+                guard isPresented else { return }
+                isPresented = false
+                if let presenter {
+                    presenter.dismiss()
+                } else {
+                    MenuBarMenuPanel.shared.close()
+                }
+            }
     }
 }
