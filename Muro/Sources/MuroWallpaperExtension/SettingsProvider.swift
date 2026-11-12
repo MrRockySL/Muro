@@ -74,6 +74,13 @@ func soleStagedChoiceID() -> String? {
     stagedEntries().first?.0.id
 }
 
+/// The list `makeSettingsResponse` would build, as one line: each live
+/// wallpaper's id and name. Tells a list that changed from one that was only
+/// written again.
+func settingsSignature() -> String {
+    stagedEntries().map { "\($0.0.id) \($0.0.title)" }.joined(separator: ", ")
+}
+
 func makeSettingsResponse() -> AnyObject? {
     let provider = ChoiceProviderID(rawValue: extensionDomain)
     let items = stagedEntries().enumerated().map { offset, staged in
@@ -110,7 +117,7 @@ func makeSettingsResponse() -> AnyObject? {
     let group = SettingsGroup(
         id: GroupID(id: "muro-live-wallpapers"),
         items: items,
-        localizedName: settingsText("Muro — Live Wallpapers"),
+        localizedName: settingsText("Muro Live Wallpapers"),
         disposability: .none,
         sortOrder: -90,
         sortID: GroupSortID(id: "com.apple.wallpaper.aerials"),
