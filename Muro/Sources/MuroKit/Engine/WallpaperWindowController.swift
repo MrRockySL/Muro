@@ -79,8 +79,8 @@ public final class WallpaperWindowController {
     private var replayOnClearDesktop = false
     private var desktopCovered: Bool?
     /// Issue #54. Whether this screen's live wallpaper plays its sound. The
-    /// engine turns it on for one screen at most (`WallpaperSound`). Every
-    /// other screen plays the picture alone, as every screen always did.
+    /// engine decides it for each screen (`WallpaperSound`). A screen that is
+    /// not heard plays the picture alone, as every screen always did.
     private var soundOn = false
     /// How the looper on screen was built, for the sound.
     private var soundBuild = SoundBuild()

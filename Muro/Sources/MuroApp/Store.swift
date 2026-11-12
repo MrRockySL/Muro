@@ -1428,14 +1428,19 @@ final class AppStore: ObservableObject {
         case .display(let uuid):
             config.perDisplay[uuid] = assignment
         }
-        // Issue #54. The live wallpaper applied last with sound is the one
-        // heard, so its display takes the sound; on every display at once,
-        // the main display plays it, once.
-        if manifest.wallpapers.first(where: { $0.id == id })?.hasSound == true {
-            switch target {
-            case .all: config.soundDisplay = displays.first?.id
-            case .display(let uuid): config.soundDisplay = uuid
-            }
+        // Issue #54. A live wallpaper with sound chosen by hand is the one
+        // heard: its sound comes on wherever it shows, and the other
+        // displays' go quiet. A playlist or automation step leaves every
+        // sound as it was.
+        if resume, hasSound(id) {
+            let off = WallpaperSound.off(
+                afterApplying: id,
+                off: Set(config.soundOff ?? []),
+                displays: displays.map(\.id),
+                wallpaper: { self.wallpaperID(onDisplay: $0) },
+                hasSound: { uuid in self.wallpaperID(onDisplay: uuid).map(self.hasSound) ?? false }
+            )
+            config.soundOff = off.isEmpty ? nil : off.sorted()
         }
         if resume { config.paused = false }
         saveConfig()
@@ -1446,44 +1451,61 @@ final class AppStore: ObservableObject {
 
     var soundEnabled: Bool { config.sound ?? false }
 
-    /// The menu bar's sound button. Pauses the sound, never the live
-    /// wallpaper.
-    var soundMuted: Bool { config.soundMuted ?? false }
-
     func setSoundEnabled(_ on: Bool) {
         config.sound = on
         // Turning the sound on is asking to hear it.
-        if on { config.soundMuted = nil }
+        if on { config.soundOff = nil }
         saveConfig()
     }
 
-    func setSoundMuted(_ muted: Bool) {
-        config.soundMuted = muted ? true : nil
-        saveConfig()
+    /// Whether a live wallpaper is a video the person added that kept its
+    /// sound. Every live wallpaper from the catalogue is silent.
+    func hasSound(_ id: String) -> Bool {
+        manifest.wallpapers.first(where: { $0.id == id })?.hasSound == true
     }
 
-    /// The live wallpaper being heard, by the rule the engine plays it by
-    /// (`WallpaperSound`), or nil while there is no sound to hear. The menu
-    /// bar puts it at the top, with the sound button on its picture.
-    var soundWallpaperID: String? {
-        guard soundEnabled else { return nil }
-        var shown: [String] = []
-        var wallpaper: [String: String] = [:]
-        for display in displays {
-            guard let id = config.assignment(forDisplayUUID: display.id)?.wallpaperID else { continue }
-            shown.append(display.id)
-            wallpaper[display.id] = id
-        }
-        let display = WallpaperSound.display(
+    /// The live wallpaper on a display, the way the engine resolves it.
+    func wallpaperID(onDisplay uuid: String) -> String? {
+        config.assignment(forDisplayUUID: uuid)?.wallpaperID
+    }
+
+    /// Whether a display's page in the menu bar gets a sound button: Live
+    /// Wallpaper Sound is on and the live wallpaper there has sound.
+    func hasSoundButton(display uuid: String) -> Bool {
+        guard soundEnabled, let id = wallpaperID(onDisplay: uuid) else { return false }
+        return hasSound(id)
+    }
+
+    /// Whether the live wallpaper on a display is being heard, by the rule
+    /// the engine plays it by (`WallpaperSound`). One live wallpaper on
+    /// several displays plays its sound once, so every display showing it
+    /// says the same.
+    func soundIsOn(display uuid: String) -> Bool {
+        guard soundEnabled, let id = wallpaperID(onDisplay: uuid) else { return false }
+        let shown = displays.map(\.id).filter { wallpaperID(onDisplay: $0) != nil }
+        let heard = WallpaperSound.displays(
             enabled: true,
-            preferred: config.soundDisplay,
+            off: Set(config.soundOff ?? []),
             displays: shown,
-            hasSound: { uuid in
-                guard let id = wallpaper[uuid] else { return false }
-                return self.manifest.wallpapers.first(where: { $0.id == id })?.hasSound == true
-            }
+            wallpaper: { self.wallpaperID(onDisplay: $0) },
+            hasSound: { uuid in self.wallpaperID(onDisplay: uuid).map(self.hasSound) ?? false }
         )
-        return display.flatMap { wallpaper[$0] }
+        return heard.contains { wallpaperID(onDisplay: $0) == id }
+    }
+
+    /// A display's sound button in the menu bar. Turns the sound of the live
+    /// wallpaper there on or off, never the live wallpaper itself. The same
+    /// live wallpaper on other displays is the same sound, so it goes with
+    /// it.
+    func setSound(_ on: Bool, display uuid: String) {
+        var showing: Set<String> = [uuid]
+        if let id = wallpaperID(onDisplay: uuid) {
+            showing.formUnion(displays.map(\.id).filter { wallpaperID(onDisplay: $0) == id })
+        }
+        var off = Set(config.soundOff ?? [])
+        if on { off.subtract(showing) } else { off.formUnion(showing) }
+        config.soundOff = off.isEmpty ? nil : off.sorted()
+        saveConfig()
     }
 
     /// One step of a playlist or automation on the lock screen (`.desktop`,

@@ -1,35 +1,69 @@
 import Foundation
 
-/// Issue #54: which display's live wallpaper plays its sound.
+/// Issue #54: which displays' live wallpapers play their sound.
 ///
-/// One sound at a time, however many displays there are. Two live wallpapers
-/// with sound would play over each other, and one live wallpaper on every
-/// display would play twice, a moment out of step. So exactly one display
-/// plays: the one a live wallpaper with sound was applied to last. When that
-/// display's live wallpaper has none, the sound comes from the next display
-/// that has some, the main display first, and the others stay silent.
+/// Every display has a sound of its own, turned off and on by the sound
+/// button on that display's page in the menu bar. A live wallpaper with sound
+/// is heard as it is applied, and the other displays' go quiet, so the one
+/// applied last is the one heard. Another display's can be turned back on
+/// from its page, and then both play.
+///
+/// One live wallpaper on several displays is one sound: played from every one
+/// of them it would be heard twice, a moment out of step. So it plays from
+/// the first display showing it whose sound is on, the main display first.
 ///
 /// Only a video the person added keeps its sound. Every live wallpaper Muro
 /// publishes is silent, so none of this changes anything for them.
 public enum WallpaperSound {
-    /// The display whose live wallpaper plays its sound, or nil for silence.
+    /// The displays whose live wallpaper plays its sound. Empty is silence.
     ///
     /// - Parameters:
     ///   - enabled: "Live Wallpaper Sound" in Settings.
-    ///   - preferred: `EngineConfig.soundDisplay`, where a live wallpaper with
-    ///     sound was applied last.
+    ///   - off: `EngineConfig.soundOff`, the displays whose sound button in
+    ///     the menu bar is off.
     ///   - displays: the displays showing a live wallpaper, main first.
+    ///   - wallpaper: the live wallpaper on a display.
     ///   - hasSound: whether a display's live wallpaper has sound.
-    public static func display(
+    public static func displays(
         enabled: Bool,
-        preferred: String?,
+        off: Set<String>,
         displays: [String],
+        wallpaper: (String) -> String?,
         hasSound: (String) -> Bool
-    ) -> String? {
-        guard enabled else { return nil }
-        if let preferred, displays.contains(preferred), hasSound(preferred) {
-            return preferred
+    ) -> Set<String> {
+        guard enabled else { return [] }
+        var heard: Set<String> = []
+        var playing: Set<String> = []
+        for display in displays where hasSound(display) && !off.contains(display) {
+            guard let id = wallpaper(display) else { continue }
+            if playing.insert(id).inserted { heard.insert(display) }
         }
-        return displays.first(where: hasSound)
+        return heard
+    }
+
+    /// `EngineConfig.soundOff` after a live wallpaper with sound is applied by
+    /// hand. It is heard wherever it shows, and every other display with
+    /// sound goes quiet, so two never start playing over each other.
+    ///
+    /// - Parameters:
+    ///   - id: the live wallpaper applied, already on its displays.
+    ///   - off: the displays whose sound was off before.
+    ///   - displays: the displays showing a live wallpaper.
+    public static func off(
+        afterApplying id: String,
+        off: Set<String>,
+        displays: [String],
+        wallpaper: (String) -> String?,
+        hasSound: (String) -> Bool
+    ) -> Set<String> {
+        var off = off
+        for display in displays {
+            if wallpaper(display) == id {
+                off.remove(display)
+            } else if hasSound(display) {
+                off.insert(display)
+            }
+        }
+        return off
     }
 }

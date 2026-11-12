@@ -146,7 +146,7 @@ public final class EngineController {
         let config = EngineConfig.load(root: root)
 
         var desired: [String: (screen: NSScreen, url: URL, frame: String,
-                               video: String, pauseAfter: Int?, hasSound: Bool)] = [:]
+                               video: String, pauseAfter: Int?, id: String, hasSound: Bool)] = [:]
         for screen in NSScreen.screens {
             guard let uuid = displayUUID(for: screen) else { continue }
             guard let assignment = config.assignment(forDisplayUUID: uuid),
@@ -170,6 +170,7 @@ public final class EngineController {
                     wallpaper: entry.pauseAfterSeconds,
                     global: config.pauseAfterSeconds
                 ),
+                entry.id,
                 entry.hasSound == true
             )
         }
@@ -186,12 +187,16 @@ public final class EngineController {
 
         // Issue #54. Decided before any player is built, so each one is built
         // with its sound or without it rather than built again a moment later.
-        let heard = heardDisplay(config: config, hasSound: desired.mapValues(\.hasSound))
+        let heard = heardDisplays(
+            config: config,
+            wallpapers: desired.mapValues(\.id),
+            hasSound: desired.mapValues(\.hasSound)
+        )
 
         // Bring up displays that need a (new) wallpaper.
         for (uuid, want) in desired where controllers[uuid] == nil {
             let controller = WallpaperWindowController(
-                screen: want.screen, videoURL: want.url, sound: uuid == heard
+                screen: want.screen, videoURL: want.url, sound: heard.contains(uuid)
             )
             controller.onSettledChange = { [weak self] isSettled in self?.noteSettled(uuid, isSettled) }
             controller.start()
@@ -204,7 +209,7 @@ public final class EngineController {
         // Same window, different wallpaper: crossfade to it in place.
         for (uuid, want) in desired {
             guard let controller = controllers[uuid], videos[uuid] != want.video else { continue }
-            controller.setVideo(url: want.url, sound: uuid == heard)
+            controller.setVideo(url: want.url, sound: heard.contains(uuid))
             videos[uuid] = want.video
         }
 
@@ -222,24 +227,26 @@ public final class EngineController {
             controller.setPauseAfter(desired[uuid]?.pauseAfter)
         }
         for (uuid, controller) in controllers {
-            controller.setSound(uuid == heard)
+            controller.setSound(heard.contains(uuid))
         }
         applyPowerState(config: config)
         applyDesktopRules(config: config)
     }
 
-    /// Issue #54. The one display whose live wallpaper is heard, picked by
-    /// `WallpaperSound` among the displays showing one, or nil for silence:
-    /// the setting off, nothing with sound, or the sound paused from the menu
-    /// bar.
-    private func heardDisplay(config: EngineConfig, hasSound: [String: Bool]) -> String? {
-        guard !(config.soundMuted ?? false) else { return nil }
+    /// Issue #54. The displays whose live wallpaper is heard, picked by
+    /// `WallpaperSound` among the displays showing one. Empty for silence:
+    /// the setting off, nothing with sound, or every sound turned off from
+    /// the menu bar.
+    private func heardDisplays(
+        config: EngineConfig, wallpapers: [String: String], hasSound: [String: Bool]
+    ) -> Set<String> {
         let shown = NSScreen.screens.compactMap { displayUUID(for: $0) }
             .filter { hasSound[$0] != nil }
-        return WallpaperSound.display(
+        return WallpaperSound.displays(
             enabled: config.sound ?? false,
-            preferred: config.soundDisplay,
+            off: Set(config.soundOff ?? []),
             displays: shown,
+            wallpaper: { wallpapers[$0] },
             hasSound: { hasSound[$0] ?? false }
         )
     }

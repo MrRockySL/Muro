@@ -293,6 +293,10 @@
 "Version %@" = "Версия %@";
 "Play the sound" = "Включить звук";
 "Pause the sound" = "Приостановить звук";
+"SOUND" = "СО ЗВУКОМ";
+"NO SOUND" = "БЕЗ ЗВУКА";
+"Previous display" = "Предыдущий дисплей";
+"Next display" = "Следующий дисплей";
 "PAUSED" = "ПРИОСТАНОВЛЕНО";
 "%@ DISPLAYS#one" = "%@ ДИСПЛЕЙ";
 "%@ DISPLAYS#few" = "%@ ДИСПЛЕЯ";

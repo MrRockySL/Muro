@@ -47,13 +47,10 @@ public struct EngineConfig: Codable {
     /// wallpaper plays silent, as it always has. On, a video the person added
     /// with sound in it plays that sound. See `WallpaperSound`.
     public var sound: Bool?
-    /// Issue #54. The display a live wallpaper with sound was last applied to.
-    /// Only one sound plays at a time, and this is where it comes from while
-    /// that display's wallpaper still has sound.
-    public var soundDisplay: String?
-    /// Issue #54. The sound button in the menu bar: true while the person has
-    /// paused the sound. The live wallpaper keeps moving either way.
-    public var soundMuted: Bool?
+    /// Issue #54. The displays whose sound button in the menu bar is off.
+    /// Every other display's live wallpaper plays its sound, when it has one.
+    /// The live wallpaper keeps moving either way.
+    public var soundOff: [String]?
 
     public init(allDisplays: Assignment? = nil, perDisplay: [String: Assignment] = [:]) {
         self.allDisplays = allDisplays
