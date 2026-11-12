@@ -1,2 +1,9 @@
 /* Finder's Get Info and the About panel. */
 "NSHumanReadableCopyright" = "由 MrRockySL 設計與開發";
+
+/* What macOS shows if it asks whether Muro may read a folder. One sentence for every folder. */
+"NSDesktopFolderUsageDescription" = "Muro 會讀取這裡的桌面圖片，讓它在鎖定畫面使用動態背景圖片時繼續顯示在桌面上，並播放你存放在這裡的動態背景圖片。";
+"NSDocumentsFolderUsageDescription" = "Muro 會讀取這裡的桌面圖片，讓它在鎖定畫面使用動態背景圖片時繼續顯示在桌面上，並播放你存放在這裡的動態背景圖片。";
+"NSDownloadsFolderUsageDescription" = "Muro 會讀取這裡的桌面圖片，讓它在鎖定畫面使用動態背景圖片時繼續顯示在桌面上，並播放你存放在這裡的動態背景圖片。";
+"NSRemovableVolumesUsageDescription" = "Muro 會讀取這裡的桌面圖片，讓它在鎖定畫面使用動態背景圖片時繼續顯示在桌面上，並播放你存放在這裡的動態背景圖片。";
+"NSNetworkVolumesUsageDescription" = "Muro 會讀取這裡的桌面圖片，讓它在鎖定畫面使用動態背景圖片時繼續顯示在桌面上，並播放你存放在這裡的動態背景圖片。";

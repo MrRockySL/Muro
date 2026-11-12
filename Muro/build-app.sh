@@ -141,6 +141,13 @@ else
     exit 1
 fi
 
+# What macOS shows if it asks whether Muro may read one of the folders it
+# guards. Muro reads a file there in two cases: the desktop picture of somebody
+# who uses Muro only for the lock screen, wherever they keep it, and the live
+# wallpapers of somebody who moved their download folder there. Each language
+# has the same sentence in its InfoPlist.strings.
+FOLDER_USE="Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here."
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -162,6 +169,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSHumanReadableCopyright</key> <string>Designed &amp; developed by MrRockySL</string>
     <key>CFBundleDevelopmentRegion</key> <string>en</string>
     <key>CFBundleLocalizations</key>   <array>$LOCALIZATIONS</array>
+    <key>NSDesktopFolderUsageDescription</key>    <string>$FOLDER_USE</string>
+    <key>NSDocumentsFolderUsageDescription</key>  <string>$FOLDER_USE</string>
+    <key>NSDownloadsFolderUsageDescription</key>  <string>$FOLDER_USE</string>
+    <key>NSRemovableVolumesUsageDescription</key> <string>$FOLDER_USE</string>
+    <key>NSNetworkVolumesUsageDescription</key>   <string>$FOLDER_USE</string>
 </dict>
 </plist>
 PLIST

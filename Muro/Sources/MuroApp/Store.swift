@@ -411,6 +411,22 @@ final class AppStore: ObservableObject {
     /// The still frame behind the video, so the desktop still shows the right
     /// wallpaper when Muro is not running. See DesktopStillService.
     private lazy var desktopStill = DesktopStillService(root: root)
+    /// The person's own desktop picture, for a display where Muro is only the
+    /// lock screen (#58). See `OwnDesktopPicture`.
+    private lazy var ownDesktop = OwnDesktopPictureStore(root: root)
+    /// Displays a lock screen is being set on right now. Their slot is as
+    /// good as Muro's already, so the picture kept for them is not tidied
+    /// away before the lock screen lands.
+    private var lockScreensComing: Set<String> = []
+    /// When Muro last put its lock screen back under a picture on each
+    /// display, and how often macOS has undone that since. See
+    /// `keepLockScreens(under:)`.
+    private var takenBack: [String: (at: Date, undone: Int)] = [:]
+    /// Originals already tried as a display's own picture and not readable,
+    /// so they are not tried again on every look.
+    private var unadoptable = Set<String>()
+    private var adopting = Set<String>()
+    private var stillsRefresh: DispatchWorkItem?
     /// Apple's pictures and drawn wallpapers, which only macOS can show.
     /// See MacOSWallpaperService.
     lazy var macOSWallpapers = MacOSWallpaperService(root: root)
@@ -444,9 +460,14 @@ final class AppStore: ObservableObject {
         // Installs that applied a wallpaper before this shipped have never had
         // a still written, and a display plugged in while Muro was closed has
         // no still either.
-        desktopStill.reconcile(
-            config: config, manifest: stillManifest, lockScreenDisplays: lockScreenOwnedDisplays
-        )
+        reconcileDesktopStills()
+        // Every way a lock screen comes or goes ends here, so the desktop's
+        // picture is looked at again after each of them. A moment later, not
+        // at once: WallpaperAgent has just been restarted, and what it names
+        // as a display's picture is only true once it is back.
+        lockScreen.onLockScreensChanged = { [weak self] in
+            DispatchQueue.main.async { self?.reconcileDesktopStillsSoon() }
+        }
         if !lockScreen.isAvailable { applySurface = .desktop }
         // Seed the default so the Settings field shows the real URL instead
         // of an empty placeholder (getter also falls back when cleared).
@@ -492,11 +513,7 @@ final class AppStore: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.rememberDisplays()
-                self.desktopStill.reconcile(
-                    config: self.config,
-                    manifest: self.stillManifest,
-                    lockScreenDisplays: self.lockScreenOwnedDisplays
-                )
+                self.reconcileDesktopStills()
             }
         }
         // Newly published wallpapers should show up without quitting the app,
@@ -834,9 +851,7 @@ final class AppStore: ObservableObject {
         // the desktop picture too. Cheap when nothing changed: a still that is
         // already on disk is set in this same turn, and a screen already
         // showing it is left alone.
-        desktopStill.reconcile(
-            config: config, manifest: stillManifest, lockScreenDisplays: lockScreenOwnedDisplays
-        )
+        reconcileDesktopStills()
     }
 
     /// The scheduler owns the running schedule; the store owns what is on
@@ -946,11 +961,18 @@ final class AppStore: ObservableObject {
             else { continue }
             pictures[uuid] = url
         }
+        // First the displays where Muro is only the lock screen and the
+        // person set a picture: Muro keeps the picture on the desktop and
+        // goes back into the slot. Whatever is still replaced after that is
+        // let go below, exactly as before.
+        let kept = await keepLockScreens(under: pictures)
+        guard !applyingLockScreen else { return }
         let changed = await lockScreen.forgetReplacedLockScreens(
             connectedDisplays: Set(displays.map(\.id)),
             desktopPictures: pictures
         )
-        if changed { objectWillChange.send() }
+        if changed || !kept.isEmpty { objectWillChange.send() }
+        if changed { reconcileDesktopStills() }
     }
 
     func recomputeSize() {
@@ -1402,6 +1424,12 @@ final class AppStore: ObservableObject {
 
             applyingLockScreen = true
             defer { applyingLockScreen = false }
+            // The lock screen is about to take the slot the desktop's picture
+            // is in. The picture is kept first, so the desktop keeps it.
+            if surface.coversLockScreen {
+                await keepDesktopPictures(under: target)
+            }
+            defer { if surface.coversLockScreen { lockScreensArrived() } }
             do {
                 // One pass per role. They write different keys in Apple's
                 // store, so the screen saver does not displace the lock screen
@@ -1560,6 +1588,10 @@ final class AppStore: ObservableObject {
         guard FileManager.default.fileExists(atPath: videoURL.path),
               FileManager.default.fileExists(atPath: thumbnailURL.path)
         else { return }
+        // A playlist's first step on the lock screen takes every display's
+        // slot, like a lock screen set by hand.
+        if role == .desktop { await keepDesktopPictures(under: .all) }
+        defer { if role == .desktop { lockScreensArrived() } }
         do {
             let outcome = try await lockScreen.showInRotation(
                 entry: entry,
@@ -1750,9 +1782,286 @@ final class AppStore: ObservableObject {
         // Every apply, remove and clear lands here, including every playlist
         // and automation step, so this is the one place the desktop picture
         // has to be kept in step with.
+        reconcileDesktopStills()
+    }
+
+    /// Brings every display's desktop picture into step with what Muro shows
+    /// there. The one call every caller makes, so each of them hands over the
+    /// same facts.
+    private func reconcileDesktopStills() {
+        let holding = muroLockScreenDisplays
+        // A picture is kept only while Muro's lock screen is in that display's
+        // slot. Once it is off, macOS shows the person's picture itself.
+        // Not asked of a Muro that cannot see its lock screens at all (a
+        // build run without its extension): no answer is not "none".
+        if lockScreenAvailable { ownDesktop.forget(ownDesktop.displays.subtracting(holding)) }
         desktopStill.reconcile(
-            config: config, manifest: stillManifest, lockScreenDisplays: lockScreenOwnedDisplays
+            config: config,
+            manifest: stillManifest,
+            lockScreenDisplays: lockScreenOwnedDisplays,
+            muroLockScreens: holding,
+            ownPictures: ownPictureFiles(holding: holding)
         )
+    }
+
+    private func reconcileDesktopStillsSoon() {
+        stillsRefresh?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.reconcileDesktopStills() }
+        stillsRefresh = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
+    }
+
+    /// Displays whose slot Muro's own lock screen holds, or is about to.
+    /// Any display Muro has seen, so one that is only unplugged keeps the
+    /// picture kept for it.
+    private var muroLockScreenDisplays: Set<String> {
+        guard lockScreenAvailable else { return [] }
+        return Set(knownDisplayIDs.filter { lockScreen.ownsWallpaperSurface(displayUUID: $0) })
+            .union(lockScreensComing)
+    }
+
+    /// The person's own picture for each display where Muro is the lock
+    /// screen and plays nothing on the desktop (#58).
+    ///
+    /// A display with no picture kept yet may still have one on record from
+    /// before: the picture Muro's first still went over, when Muro also
+    /// played on that desktop. That is the person's desktop too, so it is
+    /// taken up here, once.
+    ///
+    /// While Muro still plays on that desktop, a file of the person's own is
+    /// not opened: Muro has no use for it yet, and opening it can make macOS
+    /// ask them for permission, which somebody who uses Muro for the desktop
+    /// too would be asked for nothing. It is taken up the moment the desktop
+    /// wallpaper comes off. A picture that came with macOS can be read
+    /// without asking anybody, so that one is made ready early and is
+    /// already there to show.
+    private func ownPictureFiles(holding: Set<String>) -> [String: URL] {
+        var out: [String: URL] = [:]
+        for uuid in holding {
+            let muroPlaysHere = config.assignment(forDisplayUUID: uuid) != nil
+            if let file = ownDesktop.picture(forDisplay: uuid) {
+                if !muroPlaysHere { out[uuid] = file }
+            } else if let original = desktopStill.originalPicture(forDisplay: uuid),
+                      !muroPlaysHere || Self.cameWithMacOS(original) {
+                adoptOriginal(original, forDisplay: uuid)
+            }
+        }
+        return out
+    }
+
+    /// Whether this file came with macOS, so reading it never makes macOS ask
+    /// the person whether Muro may.
+    private static func cameWithMacOS(_ file: URL) -> Bool {
+        let path = file.standardizedFileURL.path
+        return path.hasPrefix("/System/") || path.hasPrefix("/Library/")
+    }
+
+    private func adoptOriginal(_ original: URL, forDisplay uuid: String) {
+        let key = uuid + "|" + original.path
+        guard !unadoptable.contains(key), !adopting.contains(key),
+              let screen = screenPixels(forDisplay: uuid)
+        else { return }
+        adopting.insert(key)
+        Task { [weak self] in
+            guard let self else { return }
+            let kept = await self.ownDesktop.remember(original, displayUUID: uuid, screen: screen)
+            self.adopting.remove(key)
+            if kept { self.reconcileDesktopStills() } else { self.unadoptable.insert(key) }
+        }
+    }
+
+    private func screenPixels(forDisplay uuid: String) -> CGSize? {
+        NSScreen.screens.first { displayUUID(for: $0) == uuid }.map {
+            CGSize(
+                width: $0.frame.width * $0.backingScaleFactor,
+                height: $0.frame.height * $0.backingScaleFactor
+            )
+        }
+    }
+
+    /// Keeps the picture that is on each display's desktop, just before
+    /// Muro's lock screen takes that display's slot (#58).
+    ///
+    /// Setting a lock screen used to change the desktop too, to a frame of
+    /// the live wallpaper, because macOS has one slot for both. The picture
+    /// is read here, while macOS still holds it, and handed to the extension
+    /// before the lock screen is written, so the desktop goes on showing it.
+    ///
+    /// A display Muro's lock screen already holds is left as it is: what is
+    /// in its slot is Muro, and the picture kept for it still stands. One
+    /// whose slot holds a still of Muro's own is given the picture that still
+    /// went over. Anything that is not one picture file (an aerial, a
+    /// shuffling folder) is not kept, and that desktop falls back to a frame
+    /// of the live wallpaper as before.
+    private func keepDesktopPictures(under target: ApplyTarget) async {
+        let wanted: [String]
+        switch target {
+        case .all: wanted = displays.map(\.id)
+        case .display(let uuid): wanted = [uuid]
+        }
+        let fresh = Set(wanted.filter { !lockScreen.ownsWallpaperSurface(displayUUID: $0) })
+        guard !fresh.isEmpty else { return }
+        let occupants = await lockScreen.desktopOccupants(displays: fresh)
+        for screen in NSScreen.screens {
+            guard let uuid = displayUUID(for: screen), fresh.contains(uuid) else { continue }
+            var source: URL?
+            switch occupants[uuid] {
+            case .picture(let file)?:
+                source = desktopStill.isMuroStill(file)
+                    ? desktopStill.originalPicture(forDisplay: uuid)
+                    : file
+            case .macOSDefault?:
+                // macOS names the file of its own default wallpaper.
+                source = NSWorkspace.shared.desktopImageURL(for: screen)
+            default:
+                source = nil
+            }
+            let pixels = CGSize(
+                width: screen.frame.width * screen.backingScaleFactor,
+                height: screen.frame.height * screen.backingScaleFactor
+            )
+            if let file = source,
+               !desktopStill.isMuroStill(file),
+               !file.path.contains(LockScreenService.extensionBundleID),
+               // Not a file of the person's own while Muro plays on this
+               // desktop: see `ownPictureFiles`.
+               config.assignment(forDisplayUUID: uuid) == nil || Self.cameWithMacOS(file),
+               await keepPicture(file, forDisplay: uuid, screen: pixels, patience: 4) {
+                continue
+            }
+            ownDesktop.forget([uuid])
+        }
+        lockScreensComing = fresh
+        LockScreenService.prepareExtensionFolder()
+        reconcileDesktopStills()
+    }
+
+    /// Keeps one picture for one display, waiting only so long for it.
+    ///
+    /// The picture is the person's own file, and it can sit in a folder macOS
+    /// guards (Desktop, Documents, Downloads, a drive). The first time Muro
+    /// reads from one, macOS asks the person whether it may, and the read
+    /// waits for their answer for as long as that takes. Nothing that is
+    /// waiting on Muro may wait on that: the read runs off the main thread,
+    /// and whoever asked moves on after `patience` seconds without the
+    /// picture. If the answer comes later and it is yes, the picture is kept
+    /// then, and the desktop is looked at again so it shows.
+    private func keepPicture(
+        _ file: URL, forDisplay uuid: String, screen: CGSize, patience: Double
+    ) async -> Bool {
+        let wait = Flag()
+        let kept = await firstResult(within: patience) { [weak self] () -> Bool in
+            guard let self else { return false }
+            let kept = await self.ownDesktop.remember(file, displayUUID: uuid, screen: screen)
+            if kept, wait.raised { self.reconcileDesktopStills() }
+            return kept
+        }
+        wait.raised = true
+        return kept ?? false
+    }
+
+    /// What `work` returns, or `nil` when it takes longer than `seconds`.
+    /// The work is not stopped: it finishes by itself, unheard.
+    private func firstResult<T>(
+        within seconds: Double, of work: @escaping @MainActor () async -> T
+    ) async -> T? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
+            let answered = Flag()
+            Task { @MainActor in
+                let value = await work()
+                guard !answered.raised else { return }
+                answered.raised = true
+                continuation.resume(returning: value)
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(seconds))
+                guard !answered.raised else { return }
+                answered.raised = true
+                continuation.resume(returning: nil)
+            }
+        }
+    }
+
+    /// After the lock screen apply that `keepDesktopPictures` came before,
+    /// whether it worked or not.
+    private func lockScreensArrived() {
+        lockScreensComing = []
+        reconcileDesktopStills()
+    }
+
+    /// Puts Muro's lock screen back on each display where the person has just
+    /// set a picture of their own over it, and keeps that picture on the
+    /// desktop (#58). Returns the displays it did that for.
+    ///
+    /// Somebody who uses Muro only for the lock screen sets their desktop
+    /// picture in System Settings or Finder, like on any Mac. macOS has one
+    /// slot for both, so that picture pushed Muro's lock screen out. Now Muro
+    /// takes the picture, shows it on the desktop itself, and goes back into
+    /// the slot. Remove in Muro is how the lock screen comes off.
+    ///
+    /// Only where Muro plays nothing on that display's desktop. Where it
+    /// does, its own window covers the desktop, so the lock screen is the
+    /// only thing a picture set in System Settings can change, and taking it
+    /// back would leave that choice doing nothing at all. There the lock
+    /// screen is let go as before.
+    ///
+    /// **It must not fight macOS.** WallpaperAgent can write its own answer
+    /// back over Muro's, and then this would run again, and again, with the
+    /// screens blinking each time. A picture set after Muro last went back
+    /// in is the person choosing again, and always counts. The same picture
+    /// showing up again is macOS undoing the write: twice, and Muro lets go.
+    private func keepLockScreens(under desktopPictures: [String: URL]) async -> Set<String> {
+        guard lockScreenAvailable else { return [] }
+        // Only the displays where Muro plays nothing on the desktop are
+        // looked at, so on every other one nothing changes and no file of
+        // the person's is opened.
+        let connected = Set(displays.map(\.id).filter { config.assignment(forDisplayUUID: $0) == nil })
+        guard !connected.isEmpty else { return [] }
+        // Finding out whether it is a picture means reading the file, and
+        // macOS may ask the person first (see `keepPicture`). A minute is
+        // long enough to answer; after that the lock screen is let go, as it
+        // would be had they said no.
+        let found = await firstResult(within: 60) { [weak self] () -> [String: OwnDesktopPicture.Pick] in
+            guard let self else { return [:] }
+            return await self.lockScreen.picturesOverLockScreens(
+                connectedDisplays: connected, desktopPictures: desktopPictures
+            )
+        } ?? [:]
+        var wanted: [String: URL] = [:]
+        for (uuid, pick) in found {
+            guard config.assignment(forDisplayUUID: uuid) == nil,
+                  // One of Muro's own files there is Muro's doing, not a
+                  // picture the person set.
+                  !OwnDesktopPicture.isInside(pick.file, root)
+            else { continue }
+            if let last = takenBack[uuid] {
+                if let setAt = pick.setAt, setAt > last.at {
+                    takenBack[uuid] = (last.at, 0)
+                } else if last.undone >= 2 {
+                    continue
+                } else {
+                    takenBack[uuid] = (last.at, last.undone + 1)
+                }
+            }
+            wanted[uuid] = pick.file
+        }
+        for (uuid, file) in wanted {
+            guard let screen = screenPixels(forDisplay: uuid),
+                  await keepPicture(file, forDisplay: uuid, screen: screen, patience: 20)
+            else {
+                wanted[uuid] = nil
+                continue
+            }
+        }
+        guard !wanted.isEmpty, !applyingLockScreen else { return [] }
+        // The extension has the picture before macOS asks it for the desktop.
+        reconcileDesktopStills()
+        applyingLockScreen = true
+        defer { applyingLockScreen = false }
+        let held = await lockScreen.takeBack(displays: Set(wanted.keys))
+        let now = Date()
+        for uuid in held { takenBack[uuid] = (now, takenBack[uuid]?.undone ?? 0) }
+        return held
     }
 
     /// The library as the desktop picture sees it: Muro's own wallpapers and
@@ -2877,6 +3186,12 @@ final class AppStore: ObservableObject {
         }
         return nil
     }
+}
+
+/// One yes or no shared between two pieces of work on the main actor.
+@MainActor
+private final class Flag {
+    var raised = false
 }
 
 /// Readable reason for a failed import. The engine's own descriptions carry a

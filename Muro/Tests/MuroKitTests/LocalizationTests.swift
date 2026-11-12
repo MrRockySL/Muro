@@ -135,6 +135,18 @@ final class LocalizationTests: XCTestCase {
                 try? PropertyListSerialization.propertyList(from: $0, format: nil) as? [String: String]
             }
             XCTAssertNotNil(plist?["NSHumanReadableCopyright"], "\(language.rawValue) InfoPlist.strings")
+            // The sentence macOS shows if it asks whether Muro may read a
+            // guarded folder: there for every folder, and one sentence.
+            let folders = [
+                "NSDesktopFolderUsageDescription",
+                "NSDocumentsFolderUsageDescription",
+                "NSDownloadsFolderUsageDescription",
+                "NSRemovableVolumesUsageDescription",
+                "NSNetworkVolumesUsageDescription",
+            ].map { plist?[$0] ?? "" }
+            XCTAssertFalse(folders.contains(""), "\(language.rawValue) folder sentence")
+            XCTAssertEqual(Set(folders).count, 1, "\(language.rawValue) folder sentence")
+            XCTAssertTrue(folders[0].contains("Muro"), "\(language.rawValue) folder sentence")
             let ext = Self.tables.appendingPathComponent("Extension/\(language.rawValue).lproj/Localizable.strings")
             let lines = (try? Data(contentsOf: ext)).flatMap {
                 try? PropertyListSerialization.propertyList(from: $0, format: nil) as? [String: String]

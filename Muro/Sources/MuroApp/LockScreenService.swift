@@ -125,7 +125,16 @@ final class LockScreenService {
     }
 
     private let root: URL
-    private var state: SelectionState
+    private var state: SelectionState {
+        didSet {
+            if state.selections != oldValue.selections { onLockScreensChanged?() }
+        }
+    }
+
+    /// Told whenever the record of which display holds which lock screen
+    /// changes, by any path: an apply, a remove, a playlist, macOS taking a
+    /// slot. May be called on any thread.
+    var onLockScreensChanged: (() -> Void)?
 
     /// Cheap half only: read Muro's own small state file. Everything
     /// expensive moved to `healIfNeeded()`.
@@ -583,6 +592,145 @@ final class LockScreenService {
     func slotTakenByMacOS(displayUUID: String) -> Bool {
         state.replacedByMacOS.contains(displayUUID)
             && !ownsWallpaperSurface(displayUUID: displayUUID)
+    }
+
+    // MARK: - The person's own picture on the desktop
+
+    /// What each of these displays' desktop role holds now, read from
+    /// `Index.plist`, the store macOS reads. Asked just before a lock screen
+    /// is set, so the picture that is there can stay on the desktop (#58).
+    func desktopOccupants(displays: Set<String>) async -> [String: OwnDesktopPicture.Occupant] {
+        await Task.detached(priority: .userInitiated) {
+            let store = Self.wallpaperStoreURLs.first.flatMap { Self.loadWallpaperStore(at: $0) }
+            var out: [String: OwnDesktopPicture.Occupant] = [:]
+            for uuid in displays {
+                out[uuid] = OwnDesktopPicture.occupant(forDisplay: uuid, in: store)
+            }
+            return out
+        }.value
+    }
+
+    /// The displays among Muro's own whose slot macOS has given to a still
+    /// picture, each with that picture and when it was set (#58).
+    ///
+    /// The same two witnesses as `forgetReplacedLockScreens`, and then one
+    /// more question: is what replaced Muro one picture file that can be
+    /// read. Only that is something Muro can show on the desktop itself.
+    func picturesOverLockScreens(
+        connectedDisplays: Set<String>,
+        desktopPictures: [String: URL]
+    ) async -> [String: OwnDesktopPicture.Pick] {
+        let claimed = connectedDisplays.filter { ownsWallpaperSurface(displayUUID: $0) }
+        guard !claimed.isEmpty else { return [:] }
+        return await Task.detached(priority: .utility) {
+            let store = Self.wallpaperStoreURLs.first.flatMap { Self.loadWallpaperStore(at: $0) }
+            let replaced = LockScreenReplacement.replacedDisplays(
+                claimed: claimed,
+                store: store,
+                provider: Self.extensionBundleID,
+                desktopPictures: desktopPictures
+            )
+            var out: [String: OwnDesktopPicture.Pick] = [:]
+            for uuid in replaced {
+                guard let pick = OwnDesktopPicture.pick(forDisplay: uuid, in: store),
+                      OwnDesktopPicture.isStillPicture(pick.file)
+                else { continue }
+                out[uuid] = pick
+            }
+            return out
+        }.value
+    }
+
+    /// Writes Muro's lock screen back into these displays' slots, after the
+    /// person set a picture there, and says which of them hold it again.
+    ///
+    /// Muro's record is not touched: it still names the lock screen each of
+    /// these displays had, and its video is still staged. Only Apple's store
+    /// is written, the same write an apply makes, and the backup learns the
+    /// new picture on the way (`updateWallpaperStores`), so taking the lock
+    /// screen off later gives that picture back.
+    ///
+    /// Three passes for the reason an apply makes three: WallpaperAgent
+    /// rewrites the store from its own memory when it restarts, and a write
+    /// that lands in between is lost. A display the store still refuses after
+    /// that is left out of the answer, and the caller lets it go.
+    func takeBack(displays: Set<String>) async -> Set<String> {
+        guard (try? validateAvailability()) != nil else { return [] }
+        var wanted: [String: String] = [:]
+        for uuid in displays {
+            guard let id = state.selections[uuid] ?? state.selections[LockScreenSelections.allKey],
+                  id != Self.removedSelection
+            else { continue }
+            wanted[uuid] = id
+        }
+        guard !wanted.isEmpty else { return [] }
+        let root = root
+        let lockScreens = wanted
+        return await Task.detached(priority: .userInitiated) { () -> Set<String> in
+            let staged = lockScreens.filter {
+                FileManager.default.fileExists(atPath: Self.stagedVideoURL(id: $0.value).path)
+            }
+            guard let anyID = staged.values.first else { return [] }
+            var held = Set<String>()
+            let start = Date()
+            for _ in 1...3 {
+                do {
+                    for (uuid, id) in staged where !held.contains(uuid) {
+                        try await Self.updateWallpaperStores(
+                            wallpaperID: id,
+                            videoURL: Self.stagedVideoURL(id: id),
+                            targetKey: uuid,
+                            surface: .desktop,
+                            root: root
+                        )
+                    }
+                } catch {
+                    break
+                }
+                Self.restartWallpaperAgent()
+                // macOS coming to collect the wallpaper is the sign the agent
+                // has read the store again. Looking sooner would only read
+                // back what was just written.
+                _ = await Self.awaitAcknowledgement(wallpaperID: anyID, since: start, timeout: 3)
+                held = Set(staged.keys.filter {
+                    Self.storesMissingRole(targetKey: $0, surface: .desktop).isEmpty
+                })
+                if held.count == staged.count { break }
+            }
+            Self.recordKept(displays: held, tried: Set(staged.keys), root: root)
+            return held
+        }.value
+    }
+
+    /// The extension's folder, made before anything is handed to it.
+    ///
+    /// A picture for the desktop is staged before the lock screen is written,
+    /// so the desktop never shows anything else in between. On the first lock
+    /// screen ever there is no folder yet to stage it in; `stage` makes the
+    /// same folder a moment later.
+    static func prepareExtensionFolder() {
+        try? FileManager.default.createDirectory(
+            at: extensionDocumentsURL, withIntermediateDirectories: true
+        )
+    }
+
+    /// One line in the diagnostics log, so a lock screen that came back by
+    /// itself after a picture was set can be traced to this.
+    private static func recordKept(displays: Set<String>, tried: Set<String>, root: URL) {
+        let line = [
+            ISO8601DateFormatter().string(from: Date()),
+            "macOS \(ProcessInfo.processInfo.operatingSystemVersionString)",
+            "kept-under-picture=\(displays.sorted().joined(separator: ","))",
+            "tried=\(tried.sorted().joined(separator: ","))",
+        ].joined(separator: " | ")
+        EngineLog.log("[lockscreen] \(line)")
+        let url = root.appendingPathComponent("lockscreen-diagnostics.log")
+        var text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        text += line + "\n"
+        if text.utf8.count > 32_768 {
+            text = String(text.suffix(400))
+        }
+        try? text.write(to: url, atomically: true, encoding: .utf8)
     }
 
     /// One line in the diagnostics log, so a lock screen that stopped saying
@@ -1427,10 +1575,12 @@ final class LockScreenService {
             let backup = backupURL(root: root, storeName: storeName)
             let missingMarker = missingStoreMarkerURL(root: root, storeName: storeName)
             let existed = manager.fileExists(atPath: storeURL.path)
+            var backupIsNew = false
             if !manager.fileExists(atPath: backup.path),
                !manager.fileExists(atPath: missingMarker.path) {
                 if existed {
                     try manager.copyItem(at: storeURL, to: backup)
+                    backupIsNew = true
                 } else {
                     try Data().write(to: missingMarker, options: .atomic)
                 }
@@ -1443,6 +1593,19 @@ final class LockScreenService {
             // separate, so that Mac is switched to Custom first; a Mac already
             // on Custom is left exactly as it is.
             AppleWallpaperStore.unlinkNodes(in: &store)
+            // The backup was taken once, before Muro's first write, so a
+            // picture the person set since is not in it. It learns that
+            // picture here, just before the lock screen covers it, so taking
+            // the lock screen off gives back the picture they have now (#58).
+            // The lock screen's role only, and only a picture of their own:
+            // see `OwnDesktopPicture.isOwnPicture`. A backup made a moment ago
+            // already holds everything this would teach it.
+            if surface == .desktop, !backupIsNew, var saved = loadWallpaperStore(at: backup) {
+                let learned = AppleWallpaperStore.rememberSurfaces(
+                    of: store, in: &saved, targetKey: targetKey, surface: surface
+                ) { OwnDesktopPicture.isOwnPicture($0, muroFolders: [root]) }
+                if learned > 0 { try? writePropertyList(saved, to: backup) }
+            }
             // Each node says which surface it keeps its wallpaper under, and
             // that is the one to write. Writing `Desktop` on a node whose
             // desktop and lock screen are linked put the wallpaper somewhere

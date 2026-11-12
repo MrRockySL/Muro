@@ -1,2 +1,9 @@
 /* Finder's Get Info and the About panel. */
 "NSHumanReadableCopyright" = "디자인 및 개발: MrRockySL";
+
+/* What macOS shows if it asks whether Muro may read a folder. One sentence for every folder. */
+"NSDesktopFolderUsageDescription" = "Muro는 잠금 화면에 라이브 배경화면이 있는 동안에도 데스크탑에 사용자의 사진을 그대로 두기 위해 이곳에 있는 데스크탑 사진을 읽고, 이곳에 보관된 라이브 배경화면을 재생합니다.";
+"NSDocumentsFolderUsageDescription" = "Muro는 잠금 화면에 라이브 배경화면이 있는 동안에도 데스크탑에 사용자의 사진을 그대로 두기 위해 이곳에 있는 데스크탑 사진을 읽고, 이곳에 보관된 라이브 배경화면을 재생합니다.";
+"NSDownloadsFolderUsageDescription" = "Muro는 잠금 화면에 라이브 배경화면이 있는 동안에도 데스크탑에 사용자의 사진을 그대로 두기 위해 이곳에 있는 데스크탑 사진을 읽고, 이곳에 보관된 라이브 배경화면을 재생합니다.";
+"NSRemovableVolumesUsageDescription" = "Muro는 잠금 화면에 라이브 배경화면이 있는 동안에도 데스크탑에 사용자의 사진을 그대로 두기 위해 이곳에 있는 데스크탑 사진을 읽고, 이곳에 보관된 라이브 배경화면을 재생합니다.";
+"NSNetworkVolumesUsageDescription" = "Muro는 잠금 화면에 라이브 배경화면이 있는 동안에도 데스크탑에 사용자의 사진을 그대로 두기 위해 이곳에 있는 데스크탑 사진을 읽고, 이곳에 보관된 라이브 배경화면을 재생합니다.";

@@ -1,2 +1,9 @@
 /* Finder's Get Info and the About panel. */
 "NSHumanReadableCopyright" = "デザインと開発：MrRockySL";
+
+/* What macOS shows if it asks whether Muro may read a folder. One sentence for every folder. */
+"NSDesktopFolderUsageDescription" = "Muro は、ロック画面にライブ壁紙があるあいだもデスクトップにあなたのピクチャを表示し続けるために、ここにあるデスクトップピクチャを読み込みます。また、ここに保存されているライブ壁紙を再生します。";
+"NSDocumentsFolderUsageDescription" = "Muro は、ロック画面にライブ壁紙があるあいだもデスクトップにあなたのピクチャを表示し続けるために、ここにあるデスクトップピクチャを読み込みます。また、ここに保存されているライブ壁紙を再生します。";
+"NSDownloadsFolderUsageDescription" = "Muro は、ロック画面にライブ壁紙があるあいだもデスクトップにあなたのピクチャを表示し続けるために、ここにあるデスクトップピクチャを読み込みます。また、ここに保存されているライブ壁紙を再生します。";
+"NSRemovableVolumesUsageDescription" = "Muro は、ロック画面にライブ壁紙があるあいだもデスクトップにあなたのピクチャを表示し続けるために、ここにあるデスクトップピクチャを読み込みます。また、ここに保存されているライブ壁紙を再生します。";
+"NSNetworkVolumesUsageDescription" = "Muro は、ロック画面にライブ壁紙があるあいだもデスクトップにあなたのピクチャを表示し続けるために、ここにあるデスクトップピクチャを読み込みます。また、ここに保存されているライブ壁紙を再生します。";

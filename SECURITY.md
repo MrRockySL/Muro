@@ -152,6 +152,29 @@ Before Muro sets one of those places on such a Mac, it switches it to **Custom**
 in the same stores, keeping what is on screen, so each place keeps its own
 wallpaper. Muro does not switch it back to Automatic.
 
+A lock screen set from Muro leaves your own picture on the desktop. macOS keeps
+one wallpaper per display for the desktop and the lock screen together, so Muro
+stays in that place and shows your picture on the desktop itself. To do that it
+reads the picture file macOS names as that display's desktop picture, wherever
+you keep it, and keeps a screen-sized copy in
+`~/Library/Application Support/Muro/OwnDesktop`, recorded in
+`own-desktop.json`. The copy is handed to Muro's extension, which draws it on
+the desktop, and it is deleted when the lock screen comes off. If the picture
+is in Desktop, Documents, Downloads or on another drive, macOS may ask you
+first whether Muro may read it. Only one still picture is read this way, never
+a folder, and a picture of your own only for a display where Muro plays nothing
+on the desktop.
+
+If you then set another picture in System Settings or Finder on a display where
+Muro is only the lock screen, Muro notices, copies the new picture the same
+way, and writes its lock screen back into the wallpaper stores, restarting
+`WallpaperAgent` once. The backup of those stores learns your newest picture,
+so removing the lock screen gives that one back. Where Muro also plays on that
+display's desktop, a picture you set in System Settings takes the lock screen
+and Muro lets it go. This is disclosed because it reads a file of yours outside
+Muro's own data directories and writes macOS's wallpaper stores again without a
+click in Muro.
+
 The extension also answers macOS when it asks what the lock wallpaper looks
 like as a still picture. macOS keeps that picture on the Preboot volume and
 draws it on the login screen, before anything of Muro's is running. The image

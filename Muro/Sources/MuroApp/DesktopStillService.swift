@@ -50,7 +50,9 @@ final class DesktopStillService {
     private var pending: (
         config: EngineConfig,
         manifest: LibraryManifest,
-        lockScreenDisplays: Set<String>
+        lockScreenDisplays: Set<String>,
+        muroLockScreens: Set<String>,
+        ownPictures: [String: URL]
     )?
 
     private var stillsDir: URL { root.appendingPathComponent("DesktopStills", isDirectory: true) }
@@ -79,17 +81,28 @@ final class DesktopStillService {
     /// Only the first time a wallpaper is ever shown is there a frame to
     /// decode, and that happens off the main thread rather than holding the
     /// interface while a 4K frame is pulled out of the file.
+    ///
+    /// - Parameters:
+    ///   - muroLockScreens: the displays whose slot Muro's own lock screen
+    ///     holds, or is about to. Narrower than `lockScreenDisplays`, which
+    ///     also names slots macOS has taken.
+    ///   - ownPictures: the person's own desktop picture for a display where
+    ///     Muro is only the lock screen (#58), by display UUID. It is what
+    ///     the extension draws there while Muro plays nothing on that desktop.
     func reconcile(
         config: EngineConfig,
         manifest: LibraryManifest,
-        lockScreenDisplays: Set<String>
+        lockScreenDisplays: Set<String>,
+        muroLockScreens: Set<String> = [],
+        ownPictures: [String: URL] = [:]
     ) {
         generation += 1
-        pending = (config, manifest, lockScreenDisplays)
+        pending = (config, manifest, lockScreenDisplays, muroLockScreens, ownPictures)
         let token = generation
 
         let missing = applyCachedStills(
-            config: config, manifest: manifest, lockScreenDisplays: lockScreenDisplays
+            config: config, manifest: manifest, lockScreenDisplays: lockScreenDisplays,
+            muroLockScreens: muroLockScreens, ownPictures: ownPictures
         )
         pruneStills(manifest: manifest)
         guard !missing.isEmpty else { return }
@@ -104,7 +117,9 @@ final class DesktopStillService {
                 _ = self.applyCachedStills(
                     config: pending.config,
                     manifest: pending.manifest,
-                    lockScreenDisplays: pending.lockScreenDisplays
+                    lockScreenDisplays: pending.lockScreenDisplays,
+                    muroLockScreens: pending.muroLockScreens,
+                    ownPictures: pending.ownPictures
                 )
             }
         }
@@ -115,7 +130,9 @@ final class DesktopStillService {
     private func applyCachedStills(
         config: EngineConfig,
         manifest: LibraryManifest,
-        lockScreenDisplays: Set<String>
+        lockScreenDisplays: Set<String>,
+        muroLockScreens: Set<String>,
+        ownPictures: [String: URL]
     ) -> [(id: String, video: URL)] {
         var missing: [(id: String, video: URL)] = []
         var stillForExtension: URL?
@@ -130,7 +147,23 @@ final class DesktopStillService {
                 let assignment = config.assignment(forDisplayUUID: uuid),
                 let entry = manifest.wallpapers.first(where: { $0.id == assignment.wallpaperID })
             else {
-                restore(screen: screen, uuid: uuid)
+                // While Muro's lock screen holds this display's slot there is
+                // nowhere to put the person's picture back, so the record of
+                // it is kept instead of dropped. It goes back when the lock
+                // screen comes off, and until then it is what the desktop
+                // shows (see `originalPicture`).
+                if !muroLockScreens.contains(uuid) { restore(screen: screen, uuid: uuid) }
+                // Muro plays nothing on this desktop and its lock screen sits
+                // in the slot, so the extension is what the desktop shows.
+                // Handed the person's own picture, it shows that (#58).
+                // Without one it falls back to a frame of the lock screen's
+                // live wallpaper, as it always has.
+                if let own = ownPictures[uuid] {
+                    if stillForExtension == nil || screen == NSScreen.screens.first {
+                        stillForExtension = own
+                    }
+                    if let id = directDisplayID(for: screen) { perDisplay[id] = own }
+                }
                 continue
             }
             anyWallpaper = true
@@ -251,6 +284,16 @@ final class DesktopStillService {
 
     private func isOurs(_ url: URL) -> Bool {
         url.standardizedFileURL.path.hasPrefix(stillsDir.standardizedFileURL.path)
+    }
+
+    /// Whether this file is one of the stills written here, for a caller
+    /// reading what macOS holds as a display's desktop picture.
+    func isMuroStill(_ url: URL) -> Bool { isOurs(url) }
+
+    /// The picture this display had before Muro's first still went over it,
+    /// while that is still on record.
+    func originalPicture(forDisplay uuid: String) -> URL? {
+        state.originals[uuid].map { URL(fileURLWithPath: $0) }
     }
 
     /// A wallpaper staged by Muro's own lock-screen extension. Recording one
