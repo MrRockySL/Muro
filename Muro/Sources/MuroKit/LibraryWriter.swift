@@ -26,11 +26,7 @@ public enum LibraryWriter {
         public var errorDescription: String? {
             switch self {
             case .manifestUnreadable:
-                return """
-                Muro could not read your wallpaper list, so it stopped rather \
-                than overwrite it. Your wallpaper files are untouched. The list \
-                is library.json in Muro's Application Support folder.
-                """
+                return L("Muro could not read your wallpaper list, so it stopped rather than overwrite it. Your wallpaper files are untouched. The list is library.json in Muro's Application Support folder.")
             }
         }
     }

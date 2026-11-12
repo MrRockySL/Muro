@@ -1,0 +1,576 @@
+/* Muro, 日本語. Same keys as en.lproj. Terms follow macOS: 壁紙, ロック画面,
+   スクリーンセーバ, ライブラリ, システム設定. */
+
+/* Apple section: names */
+"Dynamic Wallpapers" = "ダイナミックの壁紙";
+
+/* Apple section: still pictures */
+"The picture from Apple could not be opened." = "Apple からのピクチャを開けませんでした。";
+"Apple's download held no picture." = "Apple からダウンロードした内容にピクチャがありませんでした。";
+"The light and dark pictures could not be made." = "ライトとダークのピクチャを作成できませんでした。";
+"Apple's list of pictures could not be reached. Check the internet connection and try again." = "Apple のピクチャのリストに接続できませんでした。インターネット接続を確認してから、もう一度お試しください。";
+"Apple's list of pictures has no download for this one." = "Apple のピクチャのリストに、このピクチャのダウンロードがありません。";
+
+/* Lengths of time */
+"%@ s" = "%@ 秒";
+"%@ min" = "%@ 分";
+"%@ min %@ s" = "%@ 分 %@ 秒";
+"%@ h" = "%@ 時間";
+"%@ h %@ min" = "%@ 時間 %@ 分";
+
+/* Download folder: problems */
+"That is not a folder Muro can use." = "Muro はそのフォルダを使用できません。";
+"Pick a folder outside the one Muro uses now." = "Muro が現在使用しているフォルダ以外のフォルダを選択してください。";
+"Muro already keeps your wallpapers there." = "Muro はすでにそこに壁紙を保存しています。";
+"A folder called %@ is already there and holds other files. Pick another place." = "そこには“%@”という名前のフォルダがすでにあり、ほかのファイルが入っています。別の場所を選択してください。";
+"Connect %@ first. Your wallpapers are on it." = "先に“%@”を接続してください。壁紙はそこに保存されています。";
+"There is not enough space there. Your wallpapers need %@ and %@ is free." = "そこには十分な空き領域がありません。壁紙には %@ が必要ですが、空き領域は %@ です。";
+"%@ could not be copied. Nothing was moved." = "“%@”をコピーできませんでした。何も移動されていません。";
+"The move was cancelled. Your wallpapers stayed where they were." = "移動はキャンセルされました。壁紙は元の場所のままです。";
+
+/* Apple section: light and dark */
+"Light@@look" = "ライト";
+"Dark@@look" = "ダーク";
+
+/* Library file */
+"Muro could not read your wallpaper list, so it stopped rather than overwrite it. Your wallpaper files are untouched. The list is library.json in Muro's Application Support folder." = "Muro は壁紙のリストを読み込めなかったため、上書きせずに停止しました。壁紙のファイルはそのままです。リストは Muro の Application Support フォルダにある library.json です。";
+
+/* Catalog: connection problems */
+"Muro cannot reach the internet" = "Muro がインターネットに接続できません";
+"The wallpaper catalog is not answering" = "壁紙のカタログが応答していません";
+"Something is blocking the wallpaper catalog" = "壁紙のカタログへの接続が何かにブロックされています";
+"Check that you are online, then try again. A VPN, a firewall or a DNS filter can also stop Muro reaching its wallpapers." = "オンラインになっていることを確認してから、もう一度お試しください。VPN、ファイアウォール、DNS フィルタによって Muro が壁紙に接続できなくなることもあります。";
+"The server answered with an error (%@). This is usually temporary, so try again in a minute." = "サーバからエラーが返されました（%@）。通常は一時的なものなので、1 分ほどしてからもう一度お試しください。";
+"Muro reached the catalog but what came back was not the wallpaper list. A VPN, a company network or a DNS filter can do this." = "Muro はカタログに接続しましたが、返ってきた内容は壁紙のリストではありませんでした。VPN、会社のネットワーク、DNS フィルタが原因の場合があります。";
+"%@. %@" = "%@。%@";
+
+/* Screen saver delay */
+"System default" = "システムのデフォルト";
+"Never" = "しない";
+
+/* Apple section: problems */
+"That aerial could not be downloaded from Apple. %@" = "その空撮映像を Apple からダウンロードできませんでした。%@";
+"%@ could not be added. %@" = "“%@”を追加できませんでした。%@";
+"%@ could not be deleted. %@" = "“%@”を削除できませんでした。%@";
+
+/* Apple section */
+"Aerials" = "空撮";
+"Screen Savers" = "スクリーンセーバ";
+"All@@filter" = "すべて";
+"%@ wallpapers from Apple#other" = "Apple の壁紙 %@ 枚";
+"%@ wallpapers in %@#other" = "%2$@：%1$@ 枚の壁紙";
+"%@ on this Mac" = "この Mac に %@ 個";
+"Reading Apple's wallpapers…" = "Apple の壁紙を読み込み中…";
+"Apple's wallpapers are not on this Mac yet" = "この Mac にはまだ Apple の壁紙がありません";
+"Open System Settings and look at Wallpaper once. macOS writes its list of aerials then, and Muro reads the same list." = "“システム設定”を開いて、“壁紙”を一度表示してください。そのときに macOS が空撮映像のリストを書き出し、Muro は同じリストを読み込みます。";
+"Look Again" = "もう一度確認";
+"Nothing matches that" = "一致するものがありません";
+"Try another category." = "別のカテゴリをお試しください。";
+"No screen saver called %@. Try another word." = "“%@”という名前のスクリーンセーバはありません。別の言葉をお試しください。";
+"No aerial called %@. Try another word." = "“%@”という名前の空撮映像はありません。別の言葉をお試しください。";
+
+/* Apple section: notice card */
+"It brings Apple's own live wallpapers and screen savers into Muro:" = "Apple 純正のライブ壁紙とスクリーンセーバを Muro で使えるようにします：";
+"About this section" = "このセクションについて";
+"This section was added by community request." = "このセクションはコミュニティからの要望で追加されました。";
+"Apple's videos of landscapes, cities, oceans and space" = "Apple が撮影した風景、都市、海、宇宙のビデオ";
+"Videos, still pictures, and a few drawn live by macOS" = "ビデオ、静止画、そして macOS がリアルタイムで描くいくつかの壁紙";
+"8 of Apple's own, like Hello and Flurry" = "“ハロー”や“Flurry”など、Apple 純正の 8 種類";
+"These are Apple's, not made for Muro, so some of them can use *more CPU, RAM and power* than Muro's own live wallpapers." = "これらは Apple のもので Muro 用に作られていないため、一部は Muro のライブ壁紙より*多くの CPU、メモリ、電力*を使うことがあります。";
+"Do not show this message again" = "このメッセージを今後表示しない";
+"Got it" = "了解";
+
+/* Automation editor */
+"Name already in use" = "この名前はすでに使用されています";
+"New Automation" = "新規オートメーション";
+"Edit Automation" = "オートメーションを編集";
+"NAME" = "名前";
+"Automation name" = "オートメーション名";
+"CHOOSE WALLPAPERS" = "壁紙を選択";
+"%@ in this schedule" = "このスケジュールに %@ 個";
+"HOW LONG EACH ONE PLAYS" = "それぞれの再生時間";
+"WHEN EACH ONE PLAYS" = "それぞれの再生時刻";
+"Drag the handle to reorder" = "ハンドルをドラッグして並べ替え";
+"Drag an edge to change a time" = "端をドラッグして時刻を変更";
+"Nothing scheduled yet" = "まだ何もスケジュールされていません";
+"Pick a wallpaper above and it plays for ten minutes. Every one you add gets its own length." = "上で壁紙を選ぶと、10 分間再生されます。追加した壁紙ごとに再生時間を設定できます。";
+"Pick a wallpaper above and it takes the whole day. Add another and the day splits between them." = "上で壁紙を選ぶと、1 日中表示されます。さらに追加すると、1 日がそれらで分けられます。";
+"Timer" = "タイマー";
+"Clock" = "時計";
+"Each wallpaper plays for its own length of time, then the next one takes over and it loops." = "各壁紙がそれぞれの時間だけ再生され、次の壁紙に切り替わりながら繰り返されます。";
+"Each wallpaper owns a slot on the clock, and the same schedule repeats every day." = "各壁紙が時計の時間帯をひとつずつ受け持ち、同じスケジュールが毎日繰り返されます。";
+"No wallpapers downloaded yet. Download some from Explore, or import your own with the + button in the Library." = "まだ壁紙がダウンロードされていません。“見つける”からダウンロードするか、ライブラリの + ボタンで自分のビデオを読み込んでください。";
+"Missing wallpaper" = "見つからない壁紙";
+"Remove from this automation" = "このオートメーションから取り除く";
+"Set every step at once" = "すべてのステップをまとめて設定";
+"to@@range" = "〜";
+"Delete" = "削除";
+"Cancel" = "キャンセル";
+"Create Automation" = "オートメーションを作成";
+"Save" = "保存";
+"Pick the wallpapers this automation should use" = "このオートメーションで使う壁紙を選択してください";
+"Cycle: %2$@ across %1$@ wallpapers#other" = "サイクル：%1$@ 枚の壁紙で %2$@";
+"Covers the whole day across %@ wallpapers#other" = "%@ 枚の壁紙で 1 日すべてをカバー";
+"Covers %2$@ of the day across %1$@ wallpapers#other" = "%1$@ 枚の壁紙で 1 日のうち %2$@ をカバー";
+"%2$@ to %3$@ is not covered, and %1$@ other gaps. Whatever is playing stays.#other" = "%2$@〜%3$@ がカバーされていません。ほかにも空き時間が %1$@ か所あります。再生中のものはそのままです。";
+"%@ to %@ is not covered. Whatever is playing stays." = "%@〜%@ がカバーされていません。再生中のものはそのままです。";
+"Pick at least one to get started." = "始めるには少なくとも 1 枚選んでください。";
+"It loops back to the first wallpaper and starts again." = "最後まで来ると最初の壁紙に戻って繰り返します。";
+"The same schedule repeats every day." = "同じスケジュールが毎日繰り返されます。";
+"Custom" = "カスタム";
+"Custom duration" = "カスタムの時間";
+"Set %@" = "%@ に設定";
+"sec" = "秒";
+"min" = "分";
+"hr" = "時間";
+
+/* Top bar and cards */
+"made by %@" = "制作：%@";
+"Search wallpapers" = "壁紙を検索";
+"Settings" = "設定";
+"A new version of Muro is available" = "Muro の新しいバージョンがあります";
+"What's New in Muro" = "Muro の新機能";
+"New update available" = "新しいアップデートがあります";
+"Import your own video" = "自分のビデオを読み込む";
+"NEW" = "新着";
+"Delete wallpaper" = "壁紙を削除";
+"Remove Download (%@)" = "ダウンロードを削除（%@）";
+"Delete Wallpaper (%@)" = "壁紙を削除（%@）";
+"Search wallpapers…" = "壁紙を検索…";
+
+/* Delete sheet */
+"Remove %@#=1" = "削除";
+"Remove %@#other" = "%@ 件を削除";
+"Delete %@#=1" = "削除";
+"Delete %@#other" = "%@ 件を削除";
+"Remove %@ downloads?#=1" = "このダウンロードを削除しますか？";
+"Remove %@ downloads?#other" = "%@ 件のダウンロードを削除しますか？";
+"Delete %@ screen savers?#=1" = "このスクリーンセーバを削除しますか？";
+"Delete %@ screen savers?#other" = "%@ 個のスクリーンセーバを削除しますか？";
+"Delete %@ wallpapers?#=1" = "この壁紙を削除しますか？";
+"Delete %@ wallpapers?#other" = "%@ 枚の壁紙を削除しますか？";
+"It goes to the Trash." = "ゴミ箱に入れられます。";
+"They go to the Trash." = "ゴミ箱に入れられます。";
+"Screen savers go to the Trash. The others you can download again." = "スクリーンセーバはゴミ箱に入れられます。それ以外はもう一度ダウンロードできます。";
+"You can download it again any time." = "いつでももう一度ダウンロードできます。";
+"You can download them again any time." = "いつでももう一度ダウンロードできます。";
+"This is your own video. Deleting it is permanent." = "これは自分のビデオです。削除すると元に戻せません。";
+"These are your own videos. Deleting them is permanent." = "これらは自分のビデオです。削除すると元に戻せません。";
+"%@ are your own videos, and those are permanent.#other" = "そのうち %@ 本は自分のビデオで、削除すると元に戻せません。";
+"LOCK SCREEN" = "ロック画面";
+"SCREEN SAVER" = "スクリーンセーバ";
+"SHOWING NOW" = "表示中";
+"PLAYING ON %@" = "%@ で再生中";
+"PLAYING NOW" = "再生中";
+"%@ playlists and automations#other" = "%@ 個のプレイリストとオートメーション";
+"It also comes out of %@." = "%@ からも取り除かれます。";
+"They also come out of %@." = "%@ からも取り除かれます。";
+
+/* Day timeline */
+"Not covered" = "カバーされていない時間";
+
+/* Download folder */
+"Cancelling…" = "キャンセル中…";
+"Moving your wallpapers…" = "壁紙を移動中…";
+"Moving %@ of %@ wallpapers…" = "壁紙を移動中（%@/%@）…";
+"On this Mac, in Muro's own folder" = "この Mac 上の Muro 専用フォルダ";
+"%@ is not connected" = "“%@”が接続されていません";
+"Move Here" = "ここに移動";
+"Muro moves your downloaded wallpapers into a folder called %@ here. New downloads go there too." = "Muro はダウンロードした壁紙を、ここにある“%@”という名前のフォルダに移動します。新しくダウンロードしたものもそこに保存されます。";
+"Home@@folder" = "ホーム";
+
+/* Explore */
+"Resolution" = "解像度";
+"FPS" = "フレームレート";
+"%@ wallpapers#other" = "%@ 枚の壁紙";
+"Clear filters" = "フィルタを消去";
+"Loading wallpapers…" = "壁紙を読み込み中…";
+"Try another category, or widen the resolution and frame rate." = "別のカテゴリを試すか、解像度とフレームレートの条件を広げてください。";
+"No wallpaper called %@. Try another word." = "“%@”という名前の壁紙はありません。別の言葉をお試しください。";
+"Only the wallpapers you have already downloaded are showing." = "ダウンロード済みの壁紙だけが表示されています。";
+"Checking…" = "確認中…";
+"Try Again" = "再試行";
+
+/* Shared pieces */
+"PLAYING" = "再生中";
+"Enter a number" = "数値を入力";
+
+/* Home */
+"FEATURED" = "おすすめ";
+"%@ FPS" = "%@ FPS";
+"APPLIED · %@" = "適用済み · %@";
+"View Wallpaper" = "壁紙を見る";
+"Your library is empty" = "ライブラリは空です";
+"Import your own videos with the + button, or browse Explore to download wallpapers." = "+ ボタンで自分のビデオを読み込むか、“見つける”で壁紙をダウンロードしてください。";
+"New Live Wallpapers" = "新しいライブ壁紙";
+"The latest wallpapers added to the catalog" = "カタログに追加された最新の壁紙";
+"Muro's Pick" = "Muro のおすすめ";
+"A different twelve every day" = "毎日違う 12 枚";
+
+/* Language */
+"Same as macOS" = "macOS と同じ";
+
+/* Library */
+"Downloaded" = "ダウンロード済み";
+"Liked" = "お気に入り";
+"Playlists & Automations" = "プレイリストとオートメーション";
+"Done" = "完了";
+"Select" = "選択";
+"Select None" = "すべての選択を解除";
+"Select All" = "すべてを選択";
+"%@ selected" = "%@ 個を選択中";
+"Clear" = "消去";
+"Drop videos or screen savers here, or click to import" = "ビデオやスクリーンセーバをここにドロップするか、クリックして読み込みます";
+"MP4, MOV and M4V videos, and .saver screen savers" = "MP4、MOV、M4V のビデオと .saver のスクリーンセーバ";
+"%@ added." = "“%@”を追加しました。";
+"%@ screen savers added." = "%@ 個のスクリーンセーバを追加しました。";
+"%@ is already added." = "“%@”はすでに追加されています。";
+"Those screen savers are already added." = "それらのスクリーンセーバはすでに追加されています。";
+"YOUR SCREEN SAVERS" = "自分のスクリーンセーバ";
+"FROM APPLE" = "Apple から";
+"Playlists" = "プレイリスト";
+"Automations" = "オートメーション";
+"New Playlist" = "新規プレイリスト";
+"Pick wallpapers and cycle them on a schedule" = "壁紙を選んで、スケジュールに沿って切り替えます";
+"Give each wallpaper its own time of day, or its own length" = "壁紙ごとに 1 日の時間帯や再生時間を決めます";
+"Every %@ min" = "%@ 分ごと";
+"Every hour" = "1 時間ごと";
+"Every %@ hr" = "%@ 時間ごと";
+"Shuffle on" = "シャッフル：オン";
+"Shuffle off" = "シャッフル：オフ";
+"Edit Playlist" = "プレイリストを編集";
+"Shuffle Off" = "シャッフルをオフにする";
+"Shuffle On" = "シャッフルをオンにする";
+"Delete Playlist" = "プレイリストを削除";
+"Nothing to play" = "再生するものがありません";
+"%@ cycle" = "%@ のサイクル";
+"Covers the whole day" = "1 日すべてをカバー";
+"%@ gaps#other" = "空き時間 %@ か所";
+"Now: %@ until %@" = "現在：%@（%@ まで）";
+"CLOCK" = "時計";
+"TIMER" = "タイマー";
+"No wallpapers in this automation yet" = "このオートメーションにはまだ壁紙がありません";
+"Delete Automation" = "オートメーションを削除";
+"%@ hr" = "%@ 時間";
+"Playlist name" = "プレイリスト名";
+"CHANGE WALLPAPER EVERY" = "壁紙を変更する間隔";
+"Create Playlist" = "プレイリストを作成";
+"Shuffle" = "シャッフル";
+"Every %@ hr %@ min" = "%@ 時間 %@ 分ごと";
+"Custom interval" = "カスタムの間隔";
+"Delete “%@”?" = "“%@”を削除しますか？";
+"This playlist is deleted for good. Its wallpapers stay in your Library." = "このプレイリストは完全に削除されます。その壁紙はライブラリに残ります。";
+"This automation is deleted for good. Its wallpapers stay in your Library." = "このオートメーションは完全に削除されます。その壁紙はライブラリに残ります。";
+
+/* Lock screen: problems */
+"Lock-screen live wallpapers require macOS 26 or later." = "ロック画面のライブ壁紙には macOS 26 以降が必要です。";
+"Muro’s lock-screen extension is missing. Reinstall this build of Muro." = "Muro のロック画面用機能拡張が見つかりません。このビルドの Muro をインストールし直してください。";
+"macOS would not load Muro’s lock-screen extension. Move Muro to your Applications folder, open it once from there, and try again." = "macOS が Muro のロック画面用機能拡張を読み込みませんでした。Muro を“アプリケーション”フォルダに移動し、そこから一度開いてから、もう一度お試しください。";
+"macOS is running Muro from a temporary copy, so the lock screen cannot be set. Drag Muro into your Applications folder, then open it from there." = "macOS が Muro を一時的なコピーから実行しているため、ロック画面を設定できません。Muro を“アプリケーション”フォルダにドラッグしてから、そこから開いてください。";
+"The macOS wallpaper store could not be found." = "macOS の壁紙の保存場所が見つかりませんでした。";
+
+/* Menu bar icons */
+"Default@@icon" = "デフォルト";
+"Outline" = "アウトライン";
+"Glass Moon" = "ガラスの月";
+"Planet" = "惑星";
+"Peaks" = "山並み";
+"Display@@icon" = "ディスプレイ";
+
+/* Menu bar */
+"No wallpaper applied" = "壁紙が適用されていません";
+"Muro %@ available" = "Muro %@ があります";
+"Version %@" = "バージョン %@";
+"Play the sound" = "サウンドを再生";
+"Pause the sound" = "サウンドを一時停止";
+"PAUSED" = "一時停止中";
+"%@ DISPLAYS#other" = "%@ 台のディスプレイ";
+"RECENTS" = "最近の項目";
+"PLAYLISTS & AUTOMATIONS" = "プレイリストとオートメーション";
+"Off" = "オフ";
+"Open Muro" = "Muro を開く";
+"Quit Muro" = "Muro を終了";
+"Language" = "言語";
+"Check for Updates" = "アップデートを確認";
+"New Update Available" = "新しいバージョン";
+"Muro is up to date" = "Muro は最新です";
+"Could not check. Try again" = "確認できませんでした。もう一度お試しください";
+"Muro %@ is available" = "Muro %@ を入手できます";
+"Download" = "ダウンロード";
+
+/* Alerts */
+"Settings…" = "設定…";
+"Couldn’t set wallpaper" = "壁紙を設定できませんでした";
+"OK" = "OK";
+"Unknown error" = "不明なエラー";
+"Couldn’t import video" = "ビデオを読み込めませんでした";
+"One more step" = "あと 1 ステップです";
+"Open System Settings" = "システム設定を開く";
+"Later" = "あとで";
+"Muro set your lock screen wallpaper but macOS has not picked it up yet. Open System Settings, go to Wallpaper, and choose Muro to finish it." = "Muro はロック画面の壁紙を設定しましたが、macOS にまだ反映されていません。“システム設定”を開き、“壁紙”で Muro を選択すると完了します。";
+"Muro cannot read your wallpaper list" = "Muro が壁紙のリストを読み込めません";
+"Show the File" = "ファイルを表示";
+"Your wallpapers are safe on disk, and Muro has stopped rather than overwrite the list with an empty one. Liking, importing and downloading will not work until library.json is repaired or moved out of Muro's folder." = "壁紙はディスク上に安全に残っています。Muro はリストを空のリストで上書きしないよう停止しました。library.json を修復するか Muro のフォルダから移動するまで、お気に入り、読み込み、ダウンロードは使えません。";
+
+/* Now Playing */
+"Desktop" = "デスクトップ";
+"Lock screen" = "ロック画面";
+"Screen saver" = "スクリーンセーバ";
+"desktop@@short" = "デスクトップ";
+"lock@@short" = "ロック画面";
+"saver@@short" = "スクリーンセーバ";
+"PLAYING EVERYWHERE" = "すべての場所で再生中";
+"No playlists or automations yet" = "まだプレイリストもオートメーションもありません";
+"Everywhere" = "すべての場所";
+"On %@" = "%@で再生中";
+"PLAYLISTS" = "プレイリスト";
+"AUTOMATIONS" = "オートメーション";
+"NOW PLAYING" = "再生中";
+
+/* Wallpaper page */
+"Drawn by macOS · moves when you unlock" = "macOS が描画 · ロック解除時に動きます";
+"Screen saver · drawn live by macOS" = "スクリーンセーバ · macOS がリアルタイムで描画";
+"Still picture · %@×%@" = "静止画 · %@×%@";
+"%@ download" = "ダウンロード：%@";
+"Still picture · %@×%@ · %@" = "静止画 · %@×%@ · %@";
+"Video file missing · %@" = "ビデオファイルが見つかりません · %@";
+"Vertical video · zoomed in to fill the screen" = "縦向きのビデオ · 画面に合わせて拡大されます";
+"Low resolution · may look soft on the screen" = "低解像度 · 画面ではぼやけて見えることがあります";
+"Higher CPU" = "CPU 使用率：高め";
+"Lower CPU" = "CPU 使用率：低め";
+"%@ fps · %@" = "%@ fps · %@";
+"Use setting (%@)" = "設定に従う（%@）";
+"Never pause" = "一時停止しない";
+"Pause after: how long this wallpaper moves before holding on a frame" = "一時停止までの時間：この壁紙が動いてから 1 コマで止まるまでの時間";
+"%@% of %@" = "%@%（%@ 中）";
+"Preview" = "プレビュー";
+"Preparing 30 fps…" = "30 fps を準備中…";
+"Set Wallpaper" = "壁紙に設定";
+"Setting…" = "設定中…";
+"Applied" = "適用済み";
+"This needs macOS 26" = "macOS 26 が必要です";
+"The lock screen and the screen saver use a part of macOS that arrived in macOS 26. This Mac runs %@, so Muro can set your desktop but not those." = "ロック画面とスクリーンセーバには、macOS 26 で加わった機能が使われています。この Mac は %@ なので、Muro はデスクトップは設定できますが、それらは設定できません。";
+"Set my desktop instead" = "代わりにデスクトップを設定";
+"Every display" = "すべてのディスプレイ";
+"Choose display" = "ディスプレイを選択";
+"macOS can't use a still picture as the screen saver." = "macOS では静止画をスクリーンセーバにできません。";
+"All Screens" = "すべての画面";
+"Remove %@ from the screen saver" = "“%@”をスクリーンセーバから解除";
+"Apply %@ to the screen saver" = "“%@”をスクリーンセーバに適用";
+"Remove" = "解除";
+"Apply to %@" = "%@に適用";
+"Selected" = "選択済み";
+"Not selected" = "未選択";
+"The lock screen and screen saver require macOS 26 or later" = "ロック画面とスクリーンセーバには macOS 26 以降が必要です";
+"Remove all" = "すべて解除";
+"All displays" = "すべてのディスプレイ";
+"Remove from all displays" = "すべてのディスプレイから解除";
+"Apply to all displays" = "すべてのディスプレイに適用";
+"Remove %@ from %@" = "“%1$@”を %2$@ から解除";
+"Apply %@ to %@" = "“%1$@”を %2$@ に適用";
+
+/* Settings */
+"GENERAL" = "一般";
+"Launch at Login" = "ログイン時に開く";
+"Starts quietly in the background" = "バックグラウンドで静かに起動します";
+"Show Menu Bar Icon" = "メニューバーにアイコンを表示";
+"Show Dock Icon" = "Dock にアイコンを表示";
+"Off keeps Muro in the menu bar only" = "オフにすると Muro はメニューバーにだけ表示されます";
+"Appearance" = "外観";
+"Default, Light or Dark" = "デフォルト、ライト、ダーク";
+"Menu Bar Icon" = "メニューバーのアイコン";
+"The icon Muro shows in the menu bar" = "Muro がメニューバーに表示するアイコン";
+"The language Muro is in" = "Muro で使う言語";
+"PLAYBACK" = "再生";
+"Playback Speed" = "再生速度";
+"How fast wallpapers play" = "壁紙を再生する速さ";
+"Default Quality" = "デフォルトの画質";
+"Efficient caps at 30 fps for lower CPU" = "“省電力”は 30 fps で CPU を節約します";
+"Smooth" = "なめらか";
+"Efficient" = "省電力";
+"Live Wallpaper Sound" = "ライブ壁紙のサウンド";
+"Your own videos play with sound" = "自分のビデオはサウンド付きで再生されます";
+"All live wallpapers stay silent" = "すべてのライブ壁紙は消音のままです";
+"Pause After" = "一時停止までの時間";
+"Replay on Clear Desktop" = "デスクトップが空いたら再生";
+"Start Screen Saver" = "スクリーンセーバを開始";
+"ENERGY" = "エネルギー";
+"Auto-pause in Low Power Mode" = "低電力モードで自動的に一時停止";
+"Freeze while saving energy" = "省エネ中は静止します";
+"Auto-pause below 20% battery" = "バッテリー残量 20% 未満で自動的に一時停止";
+"Resumes automatically on power" = "電源に接続すると自動的に再開します";
+"Auto-pause when covered" = "隠れているときは自動的に一時停止";
+"Freeze when a window or full screen app covers it" = "ウインドウやフルスクリーンのアプリで隠れると静止します";
+"Play only on desktop" = "デスクトップが見えるときだけ再生";
+"Freeze while a window is open on that screen" = "その画面でウインドウが開いている間は静止します";
+"DISPLAYS" = "ディスプレイ";
+"STORAGE" = "ストレージ";
+"Library & Cache" = "ライブラリとキャッシュ";
+"Keeps the wallpaper in use" = "使用中の壁紙は残します";
+"Apple Downloads" = "Apple のダウンロード";
+"Aerials and pictures from the Apple section" = "Apple セクションの空撮映像とピクチャ";
+"Download Folder" = "ダウンロードフォルダ";
+"Default@@folder" = "デフォルト";
+"Change" = "変更";
+"ABOUT" = "情報";
+"Software Update" = "ソフトウェアアップデート";
+"Support Muro" = "Muro を支援";
+"Muro is free. Sponsoring keeps it that way." = "Muro は無料です。支援が無料を支えます。";
+"Clear the library?" = "ライブラリを消去しますか？";
+"Wallpapers keep playing" = "壁紙は再生を続けます";
+"Plays for %@, then holds on a frame" = "%@ 再生したあと 1 コマで静止します";
+"Saved. macOS uses it after the current wait ends, or now if you lock the screen." = "保存しました。今の待ち時間のあと、または画面をロックするとすぐに反映されます。";
+"macOS is deciding. Pick a time to set it." = "macOS が決めます。時間を選んでください。";
+"The screen saver never starts" = "スクリーンセーバは開始しません";
+"Starts after %@ with no activity" = "操作がない状態が %@ 続くと開始します";
+"Nothing to clear. Every wallpaper here is playing, or in a playlist or an automation." = "消去するものはありません。ここにある壁紙はすべて再生中か、プレイリストまたはオートメーションに入っています。";
+"Nothing to clear. The only wallpapers here are the ones in use." = "消去するものはありません。ここにあるのは使用中の壁紙だけです。";
+"This removes %@ wallpapers and frees about %@.#other" = "%@ 枚の壁紙を削除し、約 %@ を解放します。";
+"%@ of them are from the Apple section and can be downloaded again.#other" = "そのうち %@ 枚は Apple セクションのもので、もう一度ダウンロードできます。";
+"The %@ in use stay.#=1" = "再生中の 1 枚は残ります。";
+"The %@ in use stay.#other" = "使用中の %@ 枚は残ります。";
+"The %@ in your playlists and automations stay.#=1" = "プレイリストとオートメーションに入っている 1 枚は残ります。";
+"The %@ in your playlists and automations stay.#other" = "プレイリストとオートメーションに入っている %@ 枚は残ります。";
+"%@ of them are your own videos and cannot be recovered.#other" = "そのうち %@ 本は自分のビデオで、元に戻せません。";
+"Muro %@ is available. See what's new." = "Muro %@ を入手できます。新機能をご覧ください。";
+"Designed & developed by %@" = "デザインと開発：%@";
+"Works with a Pause After time" = "“一時停止までの時間”を設定すると使えます";
+"Plays %@ again each time the desktop clears" = "デスクトップが空くたびに、もう一度 %@ 再生します";
+"Checking GitHub…" = "GitHub を確認中…";
+"Muro %@ is the latest version" = "Muro %@ は最新バージョンです";
+"Version %@ is available on GitHub" = "GitHub でバージョン %@ を入手できます";
+"Couldn't check. Check your connection." = "確認できませんでした。接続を確認してください。";
+"Download ↗" = "ダウンロード ↗";
+"Check Now" = "今すぐ確認";
+"Quick controls from the menu bar" = "メニューバーからすばやく操作できます";
+"Open Muro from Launchpad or Spotlight" = "Launchpad または Spotlight から Muro を開きます";
+
+/* Places, imports and messages */
+"All@@places" = "すべて";
+"Lockscreen" = "ロック画面";
+"Screensaver" = "スクリーンセーバ";
+"Built-in" = "内蔵";
+"ALL DISPLAYS" = "すべてのディスプレイ";
+"%@ LOCK" = "%@ のロック画面";
+"Applied on %@" = "%@ に適用済み";
+"Applied on all displays" = "すべてのディスプレイに適用済み";
+"Applied on the %@ lock screen" = "%@ のロック画面に適用済み";
+"Applied on all lock screens" = "すべてのロック画面に適用済み";
+"Applied on the screen saver" = "スクリーンセーバに適用済み";
+"Main display" = "メインディスプレイ";
+"Built-in display" = "内蔵ディスプレイ";
+"External display" = "外部ディスプレイ";
+"Home" = "ホーム";
+"Explore" = "見つける";
+"Library" = "ライブラリ";
+"Muro can't find the video for “%@”. It was moved or deleted outside Muro. Delete it in the Library, then download or import it again." = "Muro は“%@”のビデオを見つけられません。Muro 以外で移動または削除されました。ライブラリで削除してから、もう一度ダウンロードするか読み込んでください。";
+"The downloaded wallpaper files could not be found." = "ダウンロードした壁紙のファイルが見つかりませんでした。";
+"EVERYWHERE" = "すべての場所";
+"ALL LOCK SCREENS" = "すべてのロック画面";
+"%@ PLACES#other" = "%@ か所";
+"Applied everywhere" = "すべての場所に適用済み";
+"Applied in %@ places#other" = "%@ か所に適用済み";
+"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro が読み込めるのは MP4、MOV、M4V のビデオと .saver のスクリーンセーバです。何も追加されませんでした。";
+"Importing" = "読み込み中";
+"Importing %@ of %@" = "読み込み中（%@/%@）";
+"%@ is already in your Library." = "“%@”はすでにライブラリにあります。";
+"%@ of those videos are already in your Library." = "そのうち %@ 本のビデオはすでにライブラリにあります。";
+"This video could not be imported." = "このビデオを読み込めませんでした。";
+"%@ of %@ videos could not be imported." = "%2$@ 本中 %1$@ 本のビデオを読み込めませんでした。";
+"%@ files were skipped. Muro imports MP4, MOV and M4V videos.#other" = "%@ 個のファイルはスキップされました。Muro が読み込めるのは MP4、MOV、M4V のビデオです。";
+"The playlist" = "そのプレイリスト";
+"Playlist stopped" = "プレイリストが停止しました";
+"%@ has no wallpapers left, so it stopped." = "%@ に壁紙がなくなったため、停止しました。";
+"The automation" = "そのオートメーション";
+"Automation stopped" = "オートメーションが停止しました";
+"%@ wallpapers removed#other" = "%@ 枚の壁紙を削除";
+"about %@ freed" = "約 %@ を解放";
+"%@ of leftovers swept" = "残りのファイル %@ を整理";
+"Nothing to clear" = "消去するものはありません";
+"It has no video track." = "ビデオトラックがありません。";
+"It could not be read. The file may be damaged, or in a format macOS cannot open." = "読み込めませんでした。ファイルが壊れているか、macOS で開けないフォーマットの可能性があります。";
+"It could not be converted to HEVC." = "HEVC に変換できませんでした。";
+"A picture could not be taken from it." = "そこから画像を取り出せませんでした。";
+
+/* Looks and sizes */
+"Default@@look" = "デフォルト";
+"%@ GB" = "%@ GB";
+"%@ MB" = "%@ MB";
+
+/* What's New */
+"October 2026" = "2026 年 10 月";
+"Apple's aerials and screen savers are in Muro now, your playlists can play on the lock screen and the screen saver, and Muro comes in Light and Dark with a new icon." = "Apple の空撮映像とスクリーンセーバが Muro に加わり、プレイリストをロック画面やスクリーンセーバで再生できるようになりました。さらに Muro にライトとダークの外観と新しいアイコンが加わりました。";
+"New" = "新機能";
+"The Apple section" = "Apple セクション";
+"Apple's aerials and Dynamic Wallpapers, in a tab of their own." = "Apple の空撮映像とダイナミックの壁紙を、専用のタブで。";
+"Apple's screen savers in 4K" = "Apple のスクリーンセーバを 4K で";
+"Flurry, Hello, Drift and five more as seamless 4K videos, for the desktop, the lock screen or the screen saver." = "Flurry、ハロー、ドリフトなど 8 種類を、つなぎ目のない 4K ビデオにしました。デスクトップ、ロック画面、スクリーンセーバで使えます。";
+"Playlists on the lock screen and the screen saver" = "ロック画面とスクリーンセーバでもプレイリスト";
+"The desktop, the lock screen and the screen saver can each play their own, and Off brings back what was there before." = "デスクトップ、ロック画面、スクリーンセーバでそれぞれ別のものを再生できます。“オフ”にすると元の状態に戻ります。";
+"Default, Light and Dark" = "デフォルト、ライト、ダーク";
+"Choose how Muro looks in Settings: the classic midnight blue, clean white or true black." = "“設定”で Muro の外観を選べます：おなじみのミッドナイトブルー、すっきりした白、真っ黒。";
+"A new icon" = "新しいアイコン";
+"The Glass Moon. In the Dock it follows your Mac's icon style, light or dark." = "ガラスの月。Dock では Mac のアイコンのスタイルに合わせて、ライトまたはダークで表示されます。";
+"Your own screen savers" = "自分のスクリーンセーバ";
+"Add .saver files like XScreenSaver from the Library, and set them from Muro." = "XScreenSaver などの .saver ファイルをライブラリから追加して、Muro から設定できます。";
+"Keep your wallpapers on any drive" = "壁紙を好きなドライブに保存";
+"Pick their folder in Settings. A move shows how far it is and can be cancelled." = "保存するフォルダを“設定”で選べます。移動中は進み具合が表示され、キャンセルもできます。";
+"A new look for Settings" = "“設定”の新しいデザイン";
+"Each setting has a glass icon of its own." = "各設定に専用のガラスのアイコンが付きました。";
+"Choose your menu bar icon" = "メニューバーのアイコンを選べます";
+"Six to pick from in Settings, from the classic moon to a ringed planet." = "“設定”で、おなじみの月から輪のある惑星まで 6 種類から選べます。";
+"Fixed" = "修正";
+"A crash on macOS 14" = "macOS 14 でのクラッシュ";
+"Muro 6.0 and 6.0.1 quit the moment they opened on macOS 14." = "macOS 14 で Muro 6.0 と 6.0.1 が開いた直後に終了していました。";
+"A crash when Muro opened" = "Muro を開いたときのクラッシュ";
+"On some Macs, Apple's older aerial list made Muro 6.0 quit the moment it opened." = "一部の Mac で、Apple の古い空撮映像のリストが原因で Muro 6.0 が開いた直後に終了していました。";
+"The flick at the loop" = "ループ時のちらつき";
+"Some wallpapers stopped for a moment every time they looped, on the desktop, the lock screen and the screen saver." = "一部の壁紙が、デスクトップ、ロック画面、スクリーンセーバでループするたびに一瞬止まっていました。";
+"The lock screen and the screen saver on new Macs" = "新しい Mac でのロック画面とスクリーンセーバ";
+"Setting one also changed the other." = "一方を設定すると、もう一方も変わっていました。";
+"The lock screen on some Macs" = "一部の Mac でのロック画面";
+"It stayed on Apple's wallpaper because macOS never switched Muro on for it. Muro now does that itself." = "macOS が Muro をロック画面で有効にしなかったため、Apple の壁紙のままになっていました。今は Muro が自分で有効にします。";
+"Playlists keep your choices" = "プレイリストが選択を保持";
+"A wallpaper you set by hand, or a pause, was undone at the next step." = "手動で設定した壁紙や一時停止が、次のステップで取り消されていました。";
+"Clear keeps playlist wallpapers" = "消去してもプレイリストの壁紙は残ります";
+"Clearing the library deleted wallpapers your playlists and automations use." = "ライブラリを消去すると、プレイリストやオートメーションで使っている壁紙まで削除されていました。";
+"A crash in the Custom boxes" = "“カスタム”の入力欄でのクラッシュ";
+"A very long number made Muro quit." = "とても長い数値を入力すると Muro が終了していました。";
+"Lighter" = "より軽く";
+"The gallery lets go of its pictures when it is closed, so Muro uses less memory." = "ギャラリーを閉じると画像を解放するため、Muro のメモリ使用量が減りました。";
+"Some other major bug fixes and improvements" = "そのほかの主なバグ修正と改善";
+"Across the gallery, the Library, the menu bar and Settings." = "ギャラリー、ライブラリ、メニューバー、“設定”全体にわたります。";
+"IN THE VERSION YOU HAVE" = "お使いのバージョンの内容";
+"What's New" = "新機能";
+"UPDATE AVAILABLE" = "アップデートがあります";
+"The notes for this release are on the release page." = "このリリースの説明はリリースページにあります。";
+"Download Muro %@" = "Muro %@ をダウンロード";
+"Release Notes" = "リリースノート";
+"The notes for this update are on the way" = "このアップデートの説明はまもなく公開されます";
+"Everything that changed will be listed right here: what is new, what got better, and what was fixed." = "変更点はすべてここに表示されます：新しくなったこと、よくなったこと、修正されたこと。";
+"You are running Muro %@, the latest version" = "最新バージョンの Muro %@ をお使いです";
+"You are running Muro %@" = "Muro %@ をお使いです";
+"Earlier releases" = "以前のリリース";
+
+/* Categories (stored in English, shown in the chosen language) */
+"Abstract@@category" = "アブストラクト";
+"Anime@@category" = "アニメ";
+"Cars@@category" = "クルマ";
+"Movies@@category" = "映画";
+"Nature@@category" = "自然";
+"Sci-fi@@category" = "SF";
+"Video Games@@category" = "ゲーム";
+"My Videos@@category" = "マイビデオ";
+"Other@@category" = "その他";
+"Yours@@category" = "自分のもの";
+"Screen Savers@@category" = "スクリーンセーバ";
+
+/* Apple's screen savers (Apple's own names) */
+"Arabesque@@saver" = "Arabesque";
+"Drift@@saver" = "ドリフト";
+"Flurry@@saver" = "Flurry";
+"Hello@@saver" = "ハロー";
+"Monterey@@saver" = "Monterey";
+"Shell@@saver" = "Shell";
+"Ventura@@saver" = "Ventura";
+"Word of the Day@@saver" = "今日の一言";

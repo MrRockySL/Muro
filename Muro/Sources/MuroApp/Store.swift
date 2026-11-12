@@ -33,7 +33,7 @@ struct WallpaperItem: Identifiable, Equatable {
         width >= 3200 ? "4K" : (width >= 2200 ? "1440p" : "1080p")
     }
     var metaLine: String {
-        "\(category) · \(width)×\(height) · \(formatDuration(duration)) · \(formatSize(sizeBytes))"
+        "\(categoryTitle(category)) · \(width)×\(height) · \(formatDuration(duration)) · \(formatSize(sizeBytes))"
     }
 
     /// When this wallpaper became available to look at, which is what Explore
@@ -85,6 +85,17 @@ enum ApplySurface: String, CaseIterable {
 
     /// Whether macOS 26 is needed for this choice.
     var needsAppleExtension: Bool { self != .desktop }
+
+    /// The name to show for it. The raw value is what gets saved, so it stays
+    /// in English whatever language Muro is in.
+    var title: String {
+        switch self {
+        case .all: return L("All", ctx: "places")
+        case .desktop: return L("Desktop")
+        case .lockscreen: return L("Lockscreen")
+        case .screensaver: return L("Screensaver")
+        }
+    }
 }
 
 /// What to call the screen built into this Mac.
@@ -112,8 +123,12 @@ enum MacHardware {
         // A Mac mini, Studio or Pro has no built-in screen, so this is only
         // reached when the built-in test itself guessed. Say the honest thing
         // rather than name a machine this might not be.
-        return "Built-in"
+        return ""
     }()
+
+    /// The name to show, read each time so the honest fallback is in the
+    /// language Muro is in now.
+    static var builtInLabel: String { builtInName.isEmpty ? L("Built-in") : builtInName }
 
     private static func deviceTreeProductName() -> String? {
         let entry = IORegistryEntryFromPath(kIOMainPortDefault, "IODeviceTree:/product")
@@ -176,18 +191,22 @@ struct AppliedPlace: Identifiable, Equatable {
     /// card corner to fit into.
     var chipLabel: String {
         switch kind {
-        case .desktop: return display?.chipLabel ?? "ALL DISPLAYS"
-        case .lockScreen: return (display?.chipLabel ?? "ALL DISPLAYS") + " LOCK"
-        case .screenSaver: return "SCREEN SAVER"
+        case .desktop: return display?.chipLabel ?? L("ALL DISPLAYS")
+        case .lockScreen: return L("%@ LOCK", display?.chipLabel ?? L("ALL DISPLAYS"))
+        case .screenSaver: return L("SCREEN SAVER")
         }
     }
 
-    /// For anywhere there is room to read a sentence.
-    var fullLabel: String {
+    /// For anywhere there is room to read a sentence. One whole sentence for
+    /// each place, so every language can order its own words.
+    var appliedLabel: String {
         switch kind {
-        case .desktop: return display?.displayName ?? "all displays"
-        case .lockScreen: return "\(display?.displayName ?? "all displays") lock screen"
-        case .screenSaver: return "the screen saver"
+        case .desktop:
+            return display.map { L("Applied on %@", $0.displayName) } ?? L("Applied on all displays")
+        case .lockScreen:
+            return display.map { L("Applied on the %@ lock screen", $0.displayName) }
+                ?? L("Applied on all lock screens")
+        case .screenSaver: return L("Applied on the screen saver")
         }
     }
 }
@@ -206,7 +225,7 @@ struct DisplayInfo: Identifiable, Equatable {
     /// applies, since that is the more useful thing to know about a display
     /// you are choosing between; otherwise say what it actually is.
     var kindLabel: String {
-        isMain ? "Main" : (isBuiltIn ? "Built-in" : "External")
+        isMain ? L("Main display") : (isBuiltIn ? L("Built-in display") : L("External display"))
     }
 
     var symbolName: String { isBuiltIn ? "laptopcomputer" : "display" }
@@ -218,7 +237,7 @@ struct DisplayInfo: Identifiable, Equatable {
     /// monitor of any brand without Muro knowing a single brand name.
     var displayName: String {
         isBuiltIn || name.localizedCaseInsensitiveContains("built-in")
-            ? MacHardware.builtInName
+            ? MacHardware.builtInLabel
             : name
     }
 
@@ -245,6 +264,15 @@ final class AppStore: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
         case home = "Home", explore = "Explore", apple = "Apple", library = "Library"
         var id: String { rawValue }
+        /// The name on the tab. Apple is a name, so it is the same everywhere.
+        var title: String {
+            switch self {
+            case .home: return L("Home")
+            case .explore: return L("Explore")
+            case .apple: return "Apple"
+            case .library: return L("Library")
+            }
+        }
     }
 
     @Published var tab: Tab = .home
@@ -1277,9 +1305,7 @@ final class AppStore: ObservableObject {
         // pick does not stop a playlist either. A playlist step just skips.
         if let missing = missingVideo(item) {
             if !fromSchedule {
-                applyError = "Muro can't find the video for “\(missing)”. "
-                    + "It was moved or deleted outside Muro. "
-                    + "Delete it in the Library, then download or import it again."
+                applyError = L("Muro can't find the video for “%@”. It was moved or deleted outside Muro. Delete it in the Library, then download or import it again.", missing)
             }
             return
         }
@@ -1351,7 +1377,7 @@ final class AppStore: ObservableObject {
             guard FileManager.default.fileExists(atPath: videoURL.path),
                   FileManager.default.fileExists(atPath: thumbnailURL.path)
             else {
-                applyError = "The downloaded wallpaper files could not be found."
+                applyError = L("The downloaded wallpaper files could not be found.")
                 return
             }
 
@@ -1861,10 +1887,10 @@ final class AppStore: ObservableObject {
         guard let only = places.first else { return nil }
         if places.count == 1 { return only.chipLabel }
         switch appliedSpread(places) {
-        case .everywhere: return "EVERYWHERE"
-        case .allDisplays: return "ALL DISPLAYS"
-        case .allLockScreens: return "ALL LOCK SCREENS"
-        case .some(let count): return "\(count) PLACES"
+        case .everywhere: return L("EVERYWHERE")
+        case .allDisplays: return L("ALL DISPLAYS")
+        case .allLockScreens: return L("ALL LOCK SCREENS")
+        case .some(let count): return LN("%@ PLACES", count)
         }
     }
 
@@ -1876,13 +1902,27 @@ final class AppStore: ObservableObject {
     func appliedFullLabel(for id: String) -> String? {
         let places = appliedPlaces(for: id)
         guard let only = places.first else { return nil }
-        if places.count == 1 { return "Applied on \(only.fullLabel)" }
+        if places.count == 1 { return only.appliedLabel }
         switch appliedSpread(places) {
-        case .everywhere: return "Applied everywhere"
-        case .allDisplays: return "Applied on all displays"
-        case .allLockScreens: return "Applied on all lock screens"
-        case .some(let count): return "Applied in \(count) places"
+        case .everywhere: return L("Applied everywhere")
+        case .allDisplays: return L("Applied on all displays")
+        case .allLockScreens: return L("Applied on all lock screens")
+        case .some(let count): return LN("Applied in %@ places", count)
         }
+    }
+
+    // MARK: - Language
+
+    /// Puts Muro into another language, everywhere and at once (issue #62).
+    /// Nil follows the Mac's own language.
+    ///
+    /// The words themselves change through `Localization`, which every view
+    /// that shows text is watching. What is done here is the rest: the lists
+    /// that were built with the old language's names in them.
+    func setLanguage(_ language: MuroLanguage?) {
+        Localization.shared.choose(language)
+        invalidateItemCache()
+        objectWillChange.send()
     }
 
     // MARK: - Likes
@@ -1991,7 +2031,7 @@ final class AppStore: ObservableObject {
             // Dropping a folder, an image or an unsupported video used to do
             // nothing whatsoever, with no hint as to why.
             if !urls.isEmpty {
-                importError = "Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added."
+                importError = L("Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added.")
             }
             return
         }
@@ -2008,7 +2048,7 @@ final class AppStore: ObservableObject {
                 // are the whole of what they need while they wait; a big file
                 // used to sit at "Importing 1 of 4..." for most of a minute
                 // with nothing moving (full check, 2026-10-01).
-                let label = videos.count == 1 ? "Importing" : "Importing \(index + 1) of \(videos.count)"
+                let label = videos.count == 1 ? L("Importing") : L("Importing %@ of %@", index + 1, videos.count)
                 await MainActor.run {
                     AppStore.shared.importStatus = label + "…"
                     AppStore.shared.importProgress = 0
@@ -2048,22 +2088,21 @@ final class AppStore: ObservableObject {
                 AppStore.shared.recomputeSize()
                 if !duplicates.isEmpty {
                     AppStore.shared.showImportNote(duplicates.count == 1
-                        ? "\(duplicates[0]) is already in your Library."
-                        : "\(duplicates.count) of those videos are already in your Library.")
+                        ? L("%@ is already in your Library.", duplicates[0])
+                        : L("%@ of those videos are already in your Library.", duplicates.count))
                 }
                 // Silence here is what made a failed import look like a
                 // no-op: the spinner stopped, nothing appeared, and the user
                 // was told nothing at all.
                 if !report.isEmpty {
                     let heading = report.count == 1
-                        ? "This video could not be imported."
-                        : "\(report.count) of \(videos.count) videos could not be imported."
+                        ? L("This video could not be imported.")
+                        : L("%@ of %@ videos could not be imported.", report.count, videos.count)
                     AppStore.shared.importError =
                         ([heading] + report).joined(separator: "\n\n")
                 } else if skipped > 0 {
                     AppStore.shared.importError =
-                        "\(skipped) file\(skipped == 1 ? " was" : "s were") skipped. "
-                        + "Muro imports MP4, MOV and M4V videos."
+                        LN("%@ files were skipped. Muro imports MP4, MOV and M4V videos.", skipped)
                 }
             }
         }
@@ -2515,11 +2554,11 @@ final class AppStore: ObservableObject {
             savePlaylists()
         }
         if let running = activePlaylistID, emptied.contains(running) {
-            let name = playlists.first { $0.id == running }?.name ?? "The playlist"
+            let name = playlists.first { $0.id == running }?.name ?? L("The playlist")
             stopPlaylist()
             deleteNotice = StopNotice(
-                title: "Playlist stopped",
-                message: "\(name) has no wallpapers left, so it stopped."
+                title: L("Playlist stopped"),
+                message: L("%@ has no wallpapers left, so it stopped.", name)
             )
         }
         let (prunedAutomations, emptiedAutomations) =
@@ -2529,11 +2568,11 @@ final class AppStore: ObservableObject {
             saveAutomations()
         }
         if let running = activeAutomationID, emptiedAutomations.contains(running) {
-            let name = automations.first { $0.id == running }?.name ?? "The automation"
+            let name = automations.first { $0.id == running }?.name ?? L("The automation")
             stopAutomation()
             deleteNotice = StopNotice(
-                title: "Automation stopped",
-                message: "\(name) has no wallpapers left, so it stopped."
+                title: L("Automation stopped"),
+                message: L("%@ has no wallpapers left, so it stopped.", name)
             )
         }
 
@@ -2749,12 +2788,12 @@ final class AppStore: ObservableObject {
         var parts: [String] = []
         let count = plan.removed.count + plan.apple.count
         if count > 0 {
-            parts.append("\(count) \(count == 1 ? "wallpaper" : "wallpapers") removed")
-            parts.append("about \(formatSize(plan.bytes + plan.appleBytes + swept)) freed")
+            parts.append(LN("%@ wallpapers removed", count))
+            parts.append(L("about %@ freed", formatSize(plan.bytes + plan.appleBytes + swept)))
         } else if swept > 0 {
-            parts.append("\(formatSize(swept)) of leftovers swept")
+            parts.append(L("%@ of leftovers swept", formatSize(swept)))
         }
-        return parts.isEmpty ? "Nothing to clear" : parts.joined(separator: " · ")
+        return parts.isEmpty ? L("Nothing to clear") : parts.joined(separator: " · ")
     }
 
     /// Manual per-wallpaper space control: delete the local copy of one
@@ -2806,14 +2845,14 @@ func importFailureReason(_ error: Error) -> String {
     if let transcode = error as? TranscodeError {
         switch transcode {
         case .noVideoTrack:
-            return "It has no video track."
+            return L("It has no video track.")
         case .readerFailed:
-            return "It could not be read. The file may be damaged, or in a format macOS cannot open."
+            return L("It could not be read. The file may be damaged, or in a format macOS cannot open.")
         case .writerFailed:
-            return "It could not be converted to HEVC."
+            return L("It could not be converted to HEVC.")
         }
     }
-    if error is ThumbnailError { return "A picture could not be taken from it." }
+    if error is ThumbnailError { return L("A picture could not be taken from it.") }
     return error.localizedDescription
 }
 

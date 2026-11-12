@@ -32,6 +32,9 @@ enum SettingsIcon {
     /// fuchsia tile no other row uses. Same grid and rules, approved from the
     /// design shown to the owner on 2026-10-26.
     case sound
+    /// Language (issue #62): a globe, its equator and one meridian, on the
+    /// blue macOS itself uses for language. Same grid and rules.
+    case language
 
     /// The tile's colour. Nil for the replay arrow, which has no tile.
     var tint: Color? {
@@ -57,6 +60,7 @@ enum SettingsIcon {
         case .appearance: return Color(hex: 0xB9C2D0)
         case .menuBarIcon: return Color(hex: 0xF5C451)
         case .sound: return Color(hex: 0xE763FF)
+        case .language: return Color(hex: 0x3F9BFF)
         }
     }
 
@@ -84,6 +88,7 @@ enum SettingsIcon {
         case .appearance: return Color(hex: 0xDCE1E8)
         case .menuBarIcon: return Color(hex: 0xFAE1A8)
         case .sound: return Color(hex: 0xF3B1FF)
+        case .language: return Color(hex: 0x9FCDFF)
         }
     }
 
@@ -447,6 +452,16 @@ enum SettingsIcon {
             stroke(Path { p in
                 p.addArc(center: pt(9.4, 9), radius: 6.0,
                          startAngle: .degrees(-46), endAngle: .degrees(46), clockwise: false)
+            })
+        case .language:
+            // The globe fills the set's 2.25 to 15.75 circle. One meridian,
+            // 2.9 wide either side of the middle, and the equator across it.
+            fill(circle(9, 9, 6.75), soft: true)
+            stroke(circle(9, 9, 6.75))
+            stroke(Path(ellipseIn: CGRect(x: 6.1, y: 2.25, width: 5.8, height: 13.5)))
+            stroke(Path { p in
+                p.move(to: pt(2.25, 9))
+                p.addLine(to: pt(15.75, 9))
             })
         }
     }

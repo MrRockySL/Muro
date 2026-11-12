@@ -194,7 +194,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Over the playing wallpaper, so these keep the dark look's
             // colours whatever the look is (6.0).
-            Text("FEATURED")
+            Text(L("FEATURED"))
                 .font(.system(size: 11, weight: .semibold))
                 .tracking(2.4)
                 .foregroundStyle(Color.muroAccentOnMedia)
@@ -206,9 +206,9 @@ struct HomeView: View {
                 Text(item.metaLine)
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(Color.muroSecondaryOnMedia)
-                FPSChip(text: item.fps > 40 ? "\(standardFrameRate(item.fps)) FPS" : "\(item.resolutionLabel) · \(standardFrameRate(item.fps))")
+                FPSChip(text: item.fps > 40 ? L("%@ FPS", standardFrameRate(item.fps)) : "\(item.resolutionLabel) · \(standardFrameRate(item.fps))")
                 if let label = store.appliedChipLabel(for: item.id) {
-                    AppliedChip(label: "APPLIED · " + label)
+                    AppliedChip(label: L("APPLIED · %@", label))
                 }
             }
             .padding(.top, 14)
@@ -217,7 +217,7 @@ struct HomeView: View {
                     store.openPreview(item)
                 } label: {
                     HStack(spacing: 8) {
-                        Text("View Wallpaper")
+                        Text(L("View Wallpaper"))
                             .font(.system(size: 13, weight: .semibold))
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 11, weight: .semibold))
@@ -239,10 +239,10 @@ struct HomeView: View {
             Image(systemName: "sparkles.rectangle.stack")
                 .font(.system(size: 42))
                 .foregroundStyle(Color.muroSecondary)
-            Text("Your library is empty")
+            Text(L("Your library is empty"))
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Color.muroInk)
-            Text("Import your own videos with the + button, or browse Explore to download wallpapers.")
+            Text(L("Import your own videos with the + button, or browse Explore to download wallpapers."))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Color.muroSecondary)
         }
@@ -286,8 +286,8 @@ struct HomeView: View {
     /// place to find what is new long after the badges have gone.
     private var dropSection: some View {
         cardRow(
-            title: "New Live Wallpapers",
-            subtitle: "The latest wallpapers added to the catalog",
+            title: L("New Live Wallpapers"),
+            subtitle: L("The latest wallpapers added to the catalog"),
             items: dropItems,
             page: $dropPage,
             shift: $dropShift
@@ -300,8 +300,8 @@ struct HomeView: View {
     /// random draw.
     private var pickSection: some View {
         cardRow(
-            title: "Muro's Pick",
-            subtitle: "A different twelve every day",
+            title: L("Muro's Pick"),
+            subtitle: L("A different twelve every day"),
             items: pickItems,
             page: $pickPage,
             shift: $pickShift

@@ -314,7 +314,7 @@ struct MetaChip: View {
 /// The green "PLAYING" marker on a running playlist or automation. A card
 /// says where it is playing too: "PLAYING ON DESKTOP".
 struct PlayingChip: View {
-    var text = "PLAYING"
+    var text = L("PLAYING")
 
     var body: some View {
         HStack(spacing: 5) {
@@ -1269,7 +1269,7 @@ struct CustomValueCard<Unit: View>: View {
             }
             .frame(maxWidth: .infinity, alignment: .center)
             Button(action: apply) {
-                Text(canApply ? applyLabel : "Enter a number")
+                Text(canApply ? applyLabel : L("Enter a number"))
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(Color.muroOnInk)
                     .frame(maxWidth: .infinity)

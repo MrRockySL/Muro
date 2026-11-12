@@ -55,12 +55,12 @@ public enum ApplePictures {
 
         public var errorDescription: String? {
             switch self {
-            case .unzipFailed: return "The picture from Apple could not be opened."
-            case .noPicture: return "Apple's download held no picture."
-            case .cutFailed: return "The light and dark pictures could not be made."
+            case .unzipFailed: return L("The picture from Apple could not be opened.")
+            case .noPicture: return L("Apple's download held no picture.")
+            case .cutFailed: return L("The light and dark pictures could not be made.")
             case .noCatalog:
-                return "Apple's list of pictures could not be reached. Check the internet connection and try again."
-            case .notInCatalog: return "Apple's list of pictures has no download for this one."
+                return L("Apple's list of pictures could not be reached. Check the internet connection and try again.")
+            case .notInCatalog: return L("Apple's list of pictures has no download for this one.")
             }
         }
     }

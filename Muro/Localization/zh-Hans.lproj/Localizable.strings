@@ -1,0 +1,576 @@
+/* Muro, 简体中文. Same keys as en.lproj. Terms follow macOS: 墙纸, 锁屏,
+   屏幕保护程序, 资料库, 程序坞, 系统设置. */
+
+/* Apple section: names */
+"Dynamic Wallpapers" = "动态墙纸";
+
+/* Apple section: still pictures */
+"The picture from Apple could not be opened." = "无法打开来自 Apple 的图片。";
+"Apple's download held no picture." = "Apple 的下载内容中没有图片。";
+"The light and dark pictures could not be made." = "无法生成浅色和深色图片。";
+"Apple's list of pictures could not be reached. Check the internet connection and try again." = "无法访问 Apple 的图片列表。请检查互联网连接，然后重试。";
+"Apple's list of pictures has no download for this one." = "Apple 的图片列表中没有这张图片的下载。";
+
+/* Lengths of time */
+"%@ s" = "%@ 秒";
+"%@ min" = "%@ 分钟";
+"%@ min %@ s" = "%@ 分钟 %@ 秒";
+"%@ h" = "%@ 小时";
+"%@ h %@ min" = "%@ 小时 %@ 分钟";
+
+/* Download folder: problems */
+"That is not a folder Muro can use." = "Muro 无法使用这个文件夹。";
+"Pick a folder outside the one Muro uses now." = "请选择 Muro 当前所用文件夹以外的文件夹。";
+"Muro already keeps your wallpapers there." = "Muro 已经把你的墙纸存放在那里。";
+"A folder called %@ is already there and holds other files. Pick another place." = "那里已有一个名为“%@”的文件夹，其中还有其他文件。请选择其他位置。";
+"Connect %@ first. Your wallpapers are on it." = "请先连接“%@”。你的墙纸存放在上面。";
+"There is not enough space there. Your wallpapers need %@ and %@ is free." = "那里的空间不足。你的墙纸需要 %@，可用空间为 %@。";
+"%@ could not be copied. Nothing was moved." = "无法拷贝“%@”。没有移动任何文件。";
+"The move was cancelled. Your wallpapers stayed where they were." = "移动已取消。你的墙纸仍在原来的位置。";
+
+/* Apple section: light and dark */
+"Light@@look" = "浅色";
+"Dark@@look" = "深色";
+
+/* Library file */
+"Muro could not read your wallpaper list, so it stopped rather than overwrite it. Your wallpaper files are untouched. The list is library.json in Muro's Application Support folder." = "Muro 无法读取你的墙纸列表，为免覆盖它已停止操作。你的墙纸文件没有受到影响。该列表是 Muro 的 Application Support 文件夹中的 library.json。";
+
+/* Catalog: connection problems */
+"Muro cannot reach the internet" = "Muro 无法连接到互联网";
+"The wallpaper catalog is not answering" = "墙纸目录没有响应";
+"Something is blocking the wallpaper catalog" = "有东西阻止了墙纸目录";
+"Check that you are online, then try again. A VPN, a firewall or a DNS filter can also stop Muro reaching its wallpapers." = "请检查网络连接，然后重试。VPN、防火墙或 DNS 过滤器也可能阻止 Muro 获取墙纸。";
+"The server answered with an error (%@). This is usually temporary, so try again in a minute." = "服务器返回了错误（%@）。这通常是暂时的，请过一分钟再试。";
+"Muro reached the catalog but what came back was not the wallpaper list. A VPN, a company network or a DNS filter can do this." = "Muro 连接到了目录，但收到的内容不是墙纸列表。VPN、公司网络或 DNS 过滤器可能会导致这种情况。";
+"%@. %@" = "%@。%@";
+
+/* Screen saver delay */
+"System default" = "系统默认";
+"Never" = "永不";
+
+/* Apple section: problems */
+"That aerial could not be downloaded from Apple. %@" = "无法从 Apple 下载这段航拍。%@";
+"%@ could not be added. %@" = "无法添加“%@”。%@";
+"%@ could not be deleted. %@" = "无法删除“%@”。%@";
+
+/* Apple section */
+"Aerials" = "航拍";
+"Screen Savers" = "屏幕保护程序";
+"All@@filter" = "全部";
+"%@ wallpapers from Apple#other" = "%@ 个来自 Apple 的墙纸";
+"%@ wallpapers in %@#other" = "%2$@：%1$@ 个墙纸";
+"%@ on this Mac" = "此 Mac 上有 %@ 个";
+"Reading Apple's wallpapers…" = "正在读取 Apple 的墙纸…";
+"Apple's wallpapers are not on this Mac yet" = "此 Mac 上还没有 Apple 的墙纸";
+"Open System Settings and look at Wallpaper once. macOS writes its list of aerials then, and Muro reads the same list." = "打开“系统设置”，查看一次“墙纸”。macOS 会在那时写入它的航拍列表，Muro 读取的就是这份列表。";
+"Look Again" = "重新查找";
+"Nothing matches that" = "没有匹配的结果";
+"Try another category." = "试试其他类别。";
+"No screen saver called %@. Try another word." = "没有名为“%@”的屏幕保护程序。试试其他关键词。";
+"No aerial called %@. Try another word." = "没有名为“%@”的航拍。试试其他关键词。";
+
+/* Apple section: notice card */
+"It brings Apple's own live wallpapers and screen savers into Muro:" = "它把 Apple 自己的动态墙纸和屏幕保护程序带进 Muro：";
+"About this section" = "关于这个栏目";
+"This section was added by community request." = "这个栏目是应社区的要求添加的。";
+"Apple's videos of landscapes, cities, oceans and space" = "Apple 拍摄的风景、城市、海洋和太空视频";
+"Videos, still pictures, and a few drawn live by macOS" = "视频、静态图片，以及几款由 macOS 实时绘制的墙纸";
+"8 of Apple's own, like Hello and Flurry" = "8 款 Apple 自带的，比如“你好”和“光舞”";
+"These are Apple's, not made for Muro, so some of them can use *more CPU, RAM and power* than Muro's own live wallpapers." = "这些是 Apple 的内容，并非为 Muro 制作，所以其中一些会比 Muro 自己的动态墙纸占用*更多的 CPU、内存和电量*。";
+"Do not show this message again" = "不再显示此信息";
+"Got it" = "知道了";
+
+/* Automation editor */
+"Name already in use" = "名称已被使用";
+"New Automation" = "新建自动化";
+"Edit Automation" = "编辑自动化";
+"NAME" = "名称";
+"Automation name" = "自动化名称";
+"CHOOSE WALLPAPERS" = "选择墙纸";
+"%@ in this schedule" = "此日程中有 %@ 个";
+"HOW LONG EACH ONE PLAYS" = "每个播放多久";
+"WHEN EACH ONE PLAYS" = "每个何时播放";
+"Drag the handle to reorder" = "拖移把手以重新排序";
+"Drag an edge to change a time" = "拖移边缘以更改时间";
+"Nothing scheduled yet" = "尚未安排任何内容";
+"Pick a wallpaper above and it plays for ten minutes. Every one you add gets its own length." = "在上方选择一个墙纸，它会播放十分钟。你添加的每个墙纸都有自己的时长。";
+"Pick a wallpaper above and it takes the whole day. Add another and the day splits between them." = "在上方选择一个墙纸，它会占满一整天。再添加一个，这一天就会在它们之间分配。";
+"Timer" = "计时器";
+"Clock" = "时钟";
+"Each wallpaper plays for its own length of time, then the next one takes over and it loops." = "每个墙纸按自己的时长播放，然后由下一个接上，循环往复。";
+"Each wallpaper owns a slot on the clock, and the same schedule repeats every day." = "每个墙纸占用时钟上的一个时段，同样的日程每天重复。";
+"No wallpapers downloaded yet. Download some from Explore, or import your own with the + button in the Library." = "还没有下载任何墙纸。可以从“探索”下载，或在资料库中用 + 按钮导入你自己的视频。";
+"Missing wallpaper" = "墙纸已丢失";
+"Remove from this automation" = "从此自动化中移除";
+"Set every step at once" = "一次设置所有步骤";
+"to@@range" = "至";
+"Delete" = "删除";
+"Cancel" = "取消";
+"Create Automation" = "创建自动化";
+"Save" = "保存";
+"Pick the wallpapers this automation should use" = "选择此自动化要使用的墙纸";
+"Cycle: %2$@ across %1$@ wallpapers#other" = "循环：%1$@ 个墙纸，共 %2$@";
+"Covers the whole day across %@ wallpapers#other" = "%@ 个墙纸覆盖全天";
+"Covers %2$@ of the day across %1$@ wallpapers#other" = "%1$@ 个墙纸覆盖一天中的 %2$@";
+"%2$@ to %3$@ is not covered, and %1$@ other gaps. Whatever is playing stays.#other" = "%2$@ 至 %3$@ 未覆盖，另有 %1$@ 个空档。正在播放的内容会保留。";
+"%@ to %@ is not covered. Whatever is playing stays." = "%@ 至 %@ 未覆盖。正在播放的内容会保留。";
+"Pick at least one to get started." = "至少选择一个即可开始。";
+"It loops back to the first wallpaper and starts again." = "播完后会回到第一个墙纸重新开始。";
+"The same schedule repeats every day." = "同样的日程每天重复。";
+"Custom" = "自定义";
+"Custom duration" = "自定义时长";
+"Set %@" = "设为 %@";
+"sec" = "秒";
+"min" = "分钟";
+"hr" = "小时";
+
+/* Top bar and cards */
+"made by %@" = "由 %@ 制作";
+"Search wallpapers" = "搜索墙纸";
+"Settings" = "设置";
+"A new version of Muro is available" = "Muro 有新版本可用";
+"What's New in Muro" = "Muro 新功能";
+"New update available" = "有新的更新可用";
+"Import your own video" = "导入你自己的视频";
+"NEW" = "新";
+"Delete wallpaper" = "删除墙纸";
+"Remove Download (%@)" = "移除下载项（%@）";
+"Delete Wallpaper (%@)" = "删除墙纸（%@）";
+"Search wallpapers…" = "搜索墙纸…";
+
+/* Delete sheet */
+"Remove %@#=1" = "移除";
+"Remove %@#other" = "移除 %@ 个";
+"Delete %@#=1" = "删除";
+"Delete %@#other" = "删除 %@ 个";
+"Remove %@ downloads?#=1" = "移除这个下载项？";
+"Remove %@ downloads?#other" = "移除 %@ 个下载项？";
+"Delete %@ screen savers?#=1" = "删除这个屏幕保护程序？";
+"Delete %@ screen savers?#other" = "删除 %@ 个屏幕保护程序？";
+"Delete %@ wallpapers?#=1" = "删除这个墙纸？";
+"Delete %@ wallpapers?#other" = "删除 %@ 个墙纸？";
+"It goes to the Trash." = "它会被移到废纸篓。";
+"They go to the Trash." = "它们会被移到废纸篓。";
+"Screen savers go to the Trash. The others you can download again." = "屏幕保护程序会被移到废纸篓。其他的可以重新下载。";
+"You can download it again any time." = "你可以随时重新下载它。";
+"You can download them again any time." = "你可以随时重新下载它们。";
+"This is your own video. Deleting it is permanent." = "这是你自己的视频。删除后无法恢复。";
+"These are your own videos. Deleting them is permanent." = "这些是你自己的视频。删除后无法恢复。";
+"%@ are your own videos, and those are permanent.#other" = "其中 %@ 个是你自己的视频，删除后无法恢复。";
+"LOCK SCREEN" = "锁屏";
+"SCREEN SAVER" = "屏幕保护程序";
+"SHOWING NOW" = "正在显示";
+"PLAYING ON %@" = "正在 %@ 上播放";
+"PLAYING NOW" = "正在播放";
+"%@ playlists and automations#other" = "%@ 个播放列表和自动化";
+"It also comes out of %@." = "它也会从 %@ 中移除。";
+"They also come out of %@." = "它们也会从 %@ 中移除。";
+
+/* Day timeline */
+"Not covered" = "未覆盖";
+
+/* Download folder */
+"Cancelling…" = "正在取消…";
+"Moving your wallpapers…" = "正在移动你的墙纸…";
+"Moving %@ of %@ wallpapers…" = "正在移动第 %@ 个墙纸，共 %@ 个…";
+"On this Mac, in Muro's own folder" = "在此 Mac 上，位于 Muro 自己的文件夹中";
+"%@ is not connected" = "“%@”未连接";
+"Move Here" = "移到这里";
+"Muro moves your downloaded wallpapers into a folder called %@ here. New downloads go there too." = "Muro 会把你下载的墙纸移到这里一个名为“%@”的文件夹中。新的下载也会存放在那里。";
+"Home@@folder" = "个人";
+
+/* Explore */
+"Resolution" = "分辨率";
+"FPS" = "帧率";
+"%@ wallpapers#other" = "%@ 个墙纸";
+"Clear filters" = "清除筛选";
+"Loading wallpapers…" = "正在载入墙纸…";
+"Try another category, or widen the resolution and frame rate." = "试试其他类别，或放宽分辨率和帧率。";
+"No wallpaper called %@. Try another word." = "没有名为“%@”的墙纸。试试其他关键词。";
+"Only the wallpapers you have already downloaded are showing." = "仅显示你已下载的墙纸。";
+"Checking…" = "正在检查…";
+"Try Again" = "重试";
+
+/* Shared pieces */
+"PLAYING" = "正在播放";
+"Enter a number" = "输入一个数字";
+
+/* Home */
+"FEATURED" = "精选";
+"%@ FPS" = "%@ FPS";
+"APPLIED · %@" = "已应用 · %@";
+"View Wallpaper" = "查看墙纸";
+"Your library is empty" = "你的资料库是空的";
+"Import your own videos with the + button, or browse Explore to download wallpapers." = "用 + 按钮导入你自己的视频，或浏览“探索”下载墙纸。";
+"New Live Wallpapers" = "最新动态墙纸";
+"The latest wallpapers added to the catalog" = "最近加入目录的墙纸";
+"Muro's Pick" = "Muro 精选";
+"A different twelve every day" = "每天换一组十二个";
+
+/* Language */
+"Same as macOS" = "与 macOS 相同";
+
+/* Library */
+"Downloaded" = "已下载";
+"Liked" = "喜欢";
+"Playlists & Automations" = "播放列表和自动化";
+"Done" = "完成";
+"Select" = "选择";
+"Select None" = "全不选";
+"Select All" = "全选";
+"%@ selected" = "已选择 %@ 个";
+"Clear" = "清除";
+"Drop videos or screen savers here, or click to import" = "将视频或屏幕保护程序拖到这里，或点按以导入";
+"MP4, MOV and M4V videos, and .saver screen savers" = "MP4、MOV 和 M4V 视频，以及 .saver 屏幕保护程序";
+"%@ added." = "已添加“%@”。";
+"%@ screen savers added." = "已添加 %@ 个屏幕保护程序。";
+"%@ is already added." = "“%@”已添加过。";
+"Those screen savers are already added." = "这些屏幕保护程序已添加过。";
+"YOUR SCREEN SAVERS" = "你的屏幕保护程序";
+"FROM APPLE" = "来自 Apple";
+"Playlists" = "播放列表";
+"Automations" = "自动化";
+"New Playlist" = "新建播放列表";
+"Pick wallpapers and cycle them on a schedule" = "选择墙纸，按日程轮流播放";
+"Give each wallpaper its own time of day, or its own length" = "为每个墙纸设定一天中的时段，或各自的时长";
+"Every %@ min" = "每 %@ 分钟";
+"Every hour" = "每小时";
+"Every %@ hr" = "每 %@ 小时";
+"Shuffle on" = "随机播放：开";
+"Shuffle off" = "随机播放：关";
+"Edit Playlist" = "编辑播放列表";
+"Shuffle Off" = "关闭随机播放";
+"Shuffle On" = "打开随机播放";
+"Delete Playlist" = "删除播放列表";
+"Nothing to play" = "没有可播放的内容";
+"%@ cycle" = "循环 %@";
+"Covers the whole day" = "覆盖全天";
+"%@ gaps#other" = "%@ 个空档";
+"Now: %@ until %@" = "当前：%@，直到 %@";
+"CLOCK" = "时钟";
+"TIMER" = "计时器";
+"No wallpapers in this automation yet" = "此自动化中还没有墙纸";
+"Delete Automation" = "删除自动化";
+"%@ hr" = "%@ 小时";
+"Playlist name" = "播放列表名称";
+"CHANGE WALLPAPER EVERY" = "更换墙纸的间隔";
+"Create Playlist" = "创建播放列表";
+"Shuffle" = "随机播放";
+"Every %@ hr %@ min" = "每 %@ 小时 %@ 分钟";
+"Custom interval" = "自定义间隔";
+"Delete “%@”?" = "删除“%@”？";
+"This playlist is deleted for good. Its wallpapers stay in your Library." = "此播放列表将被永久删除。其中的墙纸仍保留在你的资料库中。";
+"This automation is deleted for good. Its wallpapers stay in your Library." = "此自动化将被永久删除。其中的墙纸仍保留在你的资料库中。";
+
+/* Lock screen: problems */
+"Lock-screen live wallpapers require macOS 26 or later." = "锁屏动态墙纸需要 macOS 26 或更高版本。";
+"Muro’s lock-screen extension is missing. Reinstall this build of Muro." = "Muro 的锁屏扩展缺失。请重新安装此版本的 Muro。";
+"macOS would not load Muro’s lock-screen extension. Move Muro to your Applications folder, open it once from there, and try again." = "macOS 未能载入 Muro 的锁屏扩展。请将 Muro 移到“应用程序”文件夹，从那里打开一次，然后重试。";
+"macOS is running Muro from a temporary copy, so the lock screen cannot be set. Drag Muro into your Applications folder, then open it from there." = "macOS 正在从临时副本运行 Muro，因此无法设置锁屏。请将 Muro 拖到“应用程序”文件夹，然后从那里打开。";
+"The macOS wallpaper store could not be found." = "找不到 macOS 的墙纸存储。";
+
+/* Menu bar icons */
+"Default@@icon" = "默认";
+"Outline" = "轮廓";
+"Glass Moon" = "玻璃月亮";
+"Planet" = "行星";
+"Peaks" = "山峰";
+"Display@@icon" = "显示器";
+
+/* Menu bar */
+"No wallpaper applied" = "未应用墙纸";
+"Muro %@ available" = "Muro %@ 可用";
+"Version %@" = "版本 %@";
+"Play the sound" = "播放声音";
+"Pause the sound" = "暂停声音";
+"PAUSED" = "已暂停";
+"%@ DISPLAYS#other" = "%@ 台显示器";
+"RECENTS" = "最近使用";
+"PLAYLISTS & AUTOMATIONS" = "播放列表和自动化";
+"Off" = "关闭";
+"Open Muro" = "打开 Muro";
+"Quit Muro" = "退出 Muro";
+"Language" = "语言";
+"Check for Updates" = "检查更新";
+"New Update Available" = "有新的更新";
+"Muro is up to date" = "Muro 已是最新版本";
+"Could not check. Try again" = "无法检查。请重试";
+"Muro %@ is available" = "Muro %@ 现已推出";
+"Download" = "下载";
+
+/* Alerts */
+"Settings…" = "设置…";
+"Couldn’t set wallpaper" = "无法设置墙纸";
+"OK" = "好";
+"Unknown error" = "未知错误";
+"Couldn’t import video" = "无法导入视频";
+"One more step" = "还差一步";
+"Open System Settings" = "打开系统设置";
+"Later" = "稍后";
+"Muro set your lock screen wallpaper but macOS has not picked it up yet. Open System Settings, go to Wallpaper, and choose Muro to finish it." = "Muro 已设置你的锁屏墙纸，但 macOS 还没有采用它。打开“系统设置”，前往“墙纸”，选择 Muro 即可完成。";
+"Muro cannot read your wallpaper list" = "Muro 无法读取你的墙纸列表";
+"Show the File" = "显示文件";
+"Your wallpapers are safe on disk, and Muro has stopped rather than overwrite the list with an empty one. Liking, importing and downloading will not work until library.json is repaired or moved out of Muro's folder." = "你的墙纸仍完好地保存在磁盘上。为免用空列表覆盖原列表，Muro 已停止操作。在修复 library.json 或将其移出 Muro 的文件夹之前，喜欢、导入和下载都无法使用。";
+
+/* Now Playing */
+"Desktop" = "桌面";
+"Lock screen" = "锁屏";
+"Screen saver" = "屏幕保护程序";
+"desktop@@short" = "桌面";
+"lock@@short" = "锁屏";
+"saver@@short" = "屏保";
+"PLAYING EVERYWHERE" = "正在所有位置播放";
+"No playlists or automations yet" = "还没有播放列表或自动化";
+"Everywhere" = "所有位置";
+"On %@" = "在%@";
+"PLAYLISTS" = "播放列表";
+"AUTOMATIONS" = "自动化";
+"NOW PLAYING" = "正在播放";
+
+/* Wallpaper page */
+"Drawn by macOS · moves when you unlock" = "由 macOS 绘制 · 解锁时会动起来";
+"Screen saver · drawn live by macOS" = "屏幕保护程序 · 由 macOS 实时绘制";
+"Still picture · %@×%@" = "静态图片 · %@×%@";
+"%@ download" = "需下载 %@";
+"Still picture · %@×%@ · %@" = "静态图片 · %@×%@ · %@";
+"Video file missing · %@" = "视频文件丢失 · %@";
+"Vertical video · zoomed in to fill the screen" = "竖屏视频 · 已放大以填满屏幕";
+"Low resolution · may look soft on the screen" = "分辨率较低 · 在屏幕上可能显得模糊";
+"Higher CPU" = "CPU 占用较高";
+"Lower CPU" = "CPU 占用较低";
+"%@ fps · %@" = "%@ fps · %@";
+"Use setting (%@)" = "使用设置（%@）";
+"Never pause" = "永不暂停";
+"Pause after: how long this wallpaper moves before holding on a frame" = "定时暂停：此墙纸播放多久后定格在一帧";
+"%@% of %@" = "%@%，共 %@";
+"Preview" = "预览";
+"Preparing 30 fps…" = "正在准备 30 fps…";
+"Set Wallpaper" = "设为墙纸";
+"Setting…" = "正在设置…";
+"Applied" = "已应用";
+"This needs macOS 26" = "这需要 macOS 26";
+"The lock screen and the screen saver use a part of macOS that arrived in macOS 26. This Mac runs %@, so Muro can set your desktop but not those." = "锁屏和屏幕保护程序用到了 macOS 26 才有的功能。这台 Mac 运行的是 %@，因此 Muro 可以设置你的桌面，但不能设置它们。";
+"Set my desktop instead" = "改为设置我的桌面";
+"Every display" = "所有显示器";
+"Choose display" = "选择显示器";
+"macOS can't use a still picture as the screen saver." = "macOS 无法将静态图片用作屏幕保护程序。";
+"All Screens" = "所有屏幕";
+"Remove %@ from the screen saver" = "从屏幕保护程序中移除“%@”";
+"Apply %@ to the screen saver" = "将“%@”应用到屏幕保护程序";
+"Remove" = "移除";
+"Apply to %@" = "应用到%@";
+"Selected" = "已选择";
+"Not selected" = "未选择";
+"The lock screen and screen saver require macOS 26 or later" = "锁屏和屏幕保护程序需要 macOS 26 或更高版本";
+"Remove all" = "全部移除";
+"All displays" = "所有显示器";
+"Remove from all displays" = "从所有显示器中移除";
+"Apply to all displays" = "应用到所有显示器";
+"Remove %@ from %@" = "从 %2$@ 中移除“%1$@”";
+"Apply %@ to %@" = "将“%1$@”应用到 %2$@";
+
+/* Settings */
+"GENERAL" = "通用";
+"Launch at Login" = "登录时打开";
+"Starts quietly in the background" = "在后台悄悄启动";
+"Show Menu Bar Icon" = "在菜单栏中显示图标";
+"Show Dock Icon" = "在程序坞中显示图标";
+"Off keeps Muro in the menu bar only" = "关闭后 Muro 只留在菜单栏中";
+"Appearance" = "外观";
+"Default, Light or Dark" = "默认、浅色或深色";
+"Menu Bar Icon" = "菜单栏图标";
+"The icon Muro shows in the menu bar" = "Muro 在菜单栏中显示的图标";
+"The language Muro is in" = "Muro 使用的语言";
+"PLAYBACK" = "播放";
+"Playback Speed" = "播放速度";
+"How fast wallpapers play" = "墙纸的播放速度";
+"Default Quality" = "默认画质";
+"Efficient caps at 30 fps for lower CPU" = "“节能”限制为 30 fps，降低 CPU 占用";
+"Smooth" = "流畅";
+"Efficient" = "节能";
+"Live Wallpaper Sound" = "动态墙纸声音";
+"Your own videos play with sound" = "你自己的视频会播放声音";
+"All live wallpapers stay silent" = "所有动态墙纸均保持静音";
+"Pause After" = "定时暂停";
+"Replay on Clear Desktop" = "桌面空出时重新播放";
+"Start Screen Saver" = "启动屏幕保护程序";
+"ENERGY" = "能耗";
+"Auto-pause in Low Power Mode" = "低电量模式下自动暂停";
+"Freeze while saving energy" = "节能时定格画面";
+"Auto-pause below 20% battery" = "电量低于 20% 时自动暂停";
+"Resumes automatically on power" = "接通电源后自动恢复";
+"Auto-pause when covered" = "被遮挡时自动暂停";
+"Freeze when a window or full screen app covers it" = "被窗口或全屏 App 遮住时定格画面";
+"Play only on desktop" = "仅在显示桌面时播放";
+"Freeze while a window is open on that screen" = "该屏幕上有打开的窗口时定格画面";
+"DISPLAYS" = "显示器";
+"STORAGE" = "存储空间";
+"Library & Cache" = "资料库与缓存";
+"Keeps the wallpaper in use" = "保留正在使用的墙纸";
+"Apple Downloads" = "Apple 下载项";
+"Aerials and pictures from the Apple section" = "来自 Apple 栏目的航拍和图片";
+"Download Folder" = "下载文件夹";
+"Default@@folder" = "默认";
+"Change" = "更改";
+"ABOUT" = "关于";
+"Software Update" = "软件更新";
+"Support Muro" = "支持 Muro";
+"Muro is free. Sponsoring keeps it that way." = "Muro 是免费的。赞助能让它一直免费。";
+"Clear the library?" = "清除资料库？";
+"Wallpapers keep playing" = "墙纸会一直播放";
+"Plays for %@, then holds on a frame" = "播放 %@ 后定格在一帧";
+"Saved. macOS uses it after the current wait ends, or now if you lock the screen." = "已存储。macOS 会在当前等待结束后采用，你锁定屏幕时则会立即采用。";
+"macOS is deciding. Pick a time to set it." = "由 macOS 决定。选择一个时间来设置。";
+"The screen saver never starts" = "屏幕保护程序永不启动";
+"Starts after %@ with no activity" = "无操作 %@ 后启动";
+"Nothing to clear. Every wallpaper here is playing, or in a playlist or an automation." = "没有可清除的内容。这里的每个墙纸都在播放，或在播放列表或自动化中。";
+"Nothing to clear. The only wallpapers here are the ones in use." = "没有可清除的内容。这里只有正在使用的墙纸。";
+"This removes %@ wallpapers and frees about %@.#other" = "这将移除 %@ 个墙纸，释放约 %@。";
+"%@ of them are from the Apple section and can be downloaded again.#other" = "其中 %@ 个来自 Apple 栏目，可以重新下载。";
+"The %@ in use stay.#=1" = "正在播放的那个会保留。";
+"The %@ in use stay.#other" = "正在使用的 %@ 个会保留。";
+"The %@ in your playlists and automations stay.#=1" = "播放列表和自动化中的那个会保留。";
+"The %@ in your playlists and automations stay.#other" = "播放列表和自动化中的 %@ 个会保留。";
+"%@ of them are your own videos and cannot be recovered.#other" = "其中 %@ 个是你自己的视频，无法恢复。";
+"Muro %@ is available. See what's new." = "Muro %@ 现已推出。查看新功能。";
+"Designed & developed by %@" = "由 %@ 设计与开发";
+"Works with a Pause After time" = "需配合“定时暂停”使用";
+"Plays %@ again each time the desktop clears" = "每当桌面空出时，再播放 %@";
+"Checking GitHub…" = "正在检查 GitHub…";
+"Muro %@ is the latest version" = "Muro %@ 是最新版本";
+"Version %@ is available on GitHub" = "GitHub 上有版本 %@";
+"Couldn't check. Check your connection." = "无法检查。请检查网络连接。";
+"Download ↗" = "下载 ↗";
+"Check Now" = "立即检查";
+"Quick controls from the menu bar" = "从菜单栏快速控制";
+"Open Muro from Launchpad or Spotlight" = "从启动台或聚焦打开 Muro";
+
+/* Places, imports and messages */
+"All@@places" = "全部";
+"Lockscreen" = "锁屏";
+"Screensaver" = "屏保";
+"Built-in" = "内建";
+"ALL DISPLAYS" = "所有显示器";
+"%@ LOCK" = "%@ 锁屏";
+"Applied on %@" = "已应用于 %@";
+"Applied on all displays" = "已应用于所有显示器";
+"Applied on the %@ lock screen" = "已应用于 %@ 的锁屏";
+"Applied on all lock screens" = "已应用于所有锁屏";
+"Applied on the screen saver" = "已应用于屏幕保护程序";
+"Main display" = "主显示器";
+"Built-in display" = "内建显示器";
+"External display" = "外接显示器";
+"Home" = "主页";
+"Explore" = "探索";
+"Library" = "资料库";
+"Muro can't find the video for “%@”. It was moved or deleted outside Muro. Delete it in the Library, then download or import it again." = "Muro 找不到“%@”的视频。它已在 Muro 之外被移动或删除。请在资料库中删除它，然后重新下载或导入。";
+"The downloaded wallpaper files could not be found." = "找不到已下载的墙纸文件。";
+"EVERYWHERE" = "所有位置";
+"ALL LOCK SCREENS" = "所有锁屏";
+"%@ PLACES#other" = "%@ 个位置";
+"Applied everywhere" = "已应用于所有位置";
+"Applied in %@ places#other" = "已应用于 %@ 个位置";
+"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro 可导入 MP4、MOV 和 M4V 视频，以及 .saver 屏幕保护程序。未添加任何内容。";
+"Importing" = "正在导入";
+"Importing %@ of %@" = "正在导入第 %@ 个，共 %@ 个";
+"%@ is already in your Library." = "“%@”已在你的资料库中。";
+"%@ of those videos are already in your Library." = "其中 %@ 个视频已在你的资料库中。";
+"This video could not be imported." = "无法导入此视频。";
+"%@ of %@ videos could not be imported." = "%2$@ 个视频中有 %1$@ 个无法导入。";
+"%@ files were skipped. Muro imports MP4, MOV and M4V videos.#other" = "已跳过 %@ 个文件。Muro 可导入 MP4、MOV 和 M4V 视频。";
+"The playlist" = "该播放列表";
+"Playlist stopped" = "播放列表已停止";
+"%@ has no wallpapers left, so it stopped." = "%@ 已没有墙纸，因此停止了。";
+"The automation" = "该自动化";
+"Automation stopped" = "自动化已停止";
+"%@ wallpapers removed#other" = "已移除 %@ 个墙纸";
+"about %@ freed" = "释放了约 %@";
+"%@ of leftovers swept" = "清理了 %@ 的残留文件";
+"Nothing to clear" = "没有可清除的内容";
+"It has no video track." = "它没有视频轨道。";
+"It could not be read. The file may be damaged, or in a format macOS cannot open." = "无法读取它。文件可能已损坏，或是 macOS 无法打开的格式。";
+"It could not be converted to HEVC." = "无法将它转换为 HEVC。";
+"A picture could not be taken from it." = "无法从中截取图片。";
+
+/* Looks and sizes */
+"Default@@look" = "默认";
+"%@ GB" = "%@ GB";
+"%@ MB" = "%@ MB";
+
+/* What's New */
+"October 2026" = "2026 年 10 月";
+"Apple's aerials and screen savers are in Muro now, your playlists can play on the lock screen and the screen saver, and Muro comes in Light and Dark with a new icon." = "Apple 的航拍和屏幕保护程序现已加入 Muro，你的播放列表可以在锁屏和屏幕保护程序上播放，Muro 还有了浅色和深色外观以及新图标。";
+"New" = "新功能";
+"The Apple section" = "Apple 栏目";
+"Apple's aerials and Dynamic Wallpapers, in a tab of their own." = "Apple 的航拍和动态墙纸，有了自己的标签页。";
+"Apple's screen savers in 4K" = "4K 版 Apple 屏幕保护程序";
+"Flurry, Hello, Drift and five more as seamless 4K videos, for the desktop, the lock screen or the screen saver." = "“光舞”“你好”“漂移”以及另外五款，制成无缝循环的 4K 视频，可用于桌面、锁屏或屏幕保护程序。";
+"Playlists on the lock screen and the screen saver" = "锁屏和屏幕保护程序上的播放列表";
+"The desktop, the lock screen and the screen saver can each play their own, and Off brings back what was there before." = "桌面、锁屏和屏幕保护程序可以各自播放自己的内容，选择“关闭”即可恢复原来的样子。";
+"Default, Light and Dark" = "默认、浅色和深色";
+"Choose how Muro looks in Settings: the classic midnight blue, clean white or true black." = "在“设置”中选择 Muro 的外观：经典午夜蓝、纯净白色或纯黑色。";
+"A new icon" = "新图标";
+"The Glass Moon. In the Dock it follows your Mac's icon style, light or dark." = "玻璃月亮。在程序坞中，它会跟随你 Mac 的图标风格，显示浅色或深色。";
+"Your own screen savers" = "你自己的屏幕保护程序";
+"Add .saver files like XScreenSaver from the Library, and set them from Muro." = "在资料库中添加 XScreenSaver 等 .saver 文件，并在 Muro 中设置它们。";
+"Keep your wallpapers on any drive" = "把墙纸存放在任意磁盘上";
+"Pick their folder in Settings. A move shows how far it is and can be cancelled." = "在“设置”中选择存放文件夹。移动时会显示进度，并且可以取消。";
+"A new look for Settings" = "全新的设置界面";
+"Each setting has a glass icon of its own." = "每个设置都有自己的玻璃图标。";
+"Choose your menu bar icon" = "选择你的菜单栏图标";
+"Six to pick from in Settings, from the classic moon to a ringed planet." = "在“设置”中有六款可选，从经典的月亮到带环的行星。";
+"Fixed" = "已修复";
+"A crash on macOS 14" = "在 macOS 14 上崩溃";
+"Muro 6.0 and 6.0.1 quit the moment they opened on macOS 14." = "Muro 6.0 和 6.0.1 在 macOS 14 上一打开就退出。";
+"A crash when Muro opened" = "Muro 打开时崩溃";
+"On some Macs, Apple's older aerial list made Muro 6.0 quit the moment it opened." = "在部分 Mac 上，Apple 较旧的航拍列表会导致 Muro 6.0 一打开就退出。";
+"The flick at the loop" = "循环时的闪动";
+"Some wallpapers stopped for a moment every time they looped, on the desktop, the lock screen and the screen saver." = "部分墙纸在桌面、锁屏和屏幕保护程序上每次循环时都会停顿一下。";
+"The lock screen and the screen saver on new Macs" = "新款 Mac 上的锁屏和屏幕保护程序";
+"Setting one also changed the other." = "设置其中一个时，另一个也会跟着改变。";
+"The lock screen on some Macs" = "部分 Mac 上的锁屏";
+"It stayed on Apple's wallpaper because macOS never switched Muro on for it. Muro now does that itself." = "由于 macOS 从未为锁屏启用 Muro，锁屏一直停留在 Apple 的墙纸上。现在 Muro 会自己完成这一步。";
+"Playlists keep your choices" = "播放列表会保留你的选择";
+"A wallpaper you set by hand, or a pause, was undone at the next step." = "你手动设置的墙纸或暂停，曾在下一步时被撤销。";
+"Clear keeps playlist wallpapers" = "清除时会保留播放列表中的墙纸";
+"Clearing the library deleted wallpapers your playlists and automations use." = "清除资料库曾会删除播放列表和自动化正在使用的墙纸。";
+"A crash in the Custom boxes" = "“自定义”输入框中的崩溃";
+"A very long number made Muro quit." = "输入很长的数字会导致 Muro 退出。";
+"Lighter" = "更轻巧";
+"The gallery lets go of its pictures when it is closed, so Muro uses less memory." = "图库窗口关闭后会释放其中的图片，因此 Muro 占用的内存更少。";
+"Some other major bug fixes and improvements" = "其他重要的错误修复和改进";
+"Across the gallery, the Library, the menu bar and Settings." = "涉及图库、资料库、菜单栏和设置。";
+"IN THE VERSION YOU HAVE" = "你当前版本中的内容";
+"What's New" = "新功能";
+"UPDATE AVAILABLE" = "有可用更新";
+"The notes for this release are on the release page." = "此版本的说明在发布页面上。";
+"Download Muro %@" = "下载 Muro %@";
+"Release Notes" = "发布说明";
+"The notes for this update are on the way" = "此更新的说明即将推出";
+"Everything that changed will be listed right here: what is new, what got better, and what was fixed." = "所有变化都会列在这里：新增了什么、改进了什么、修复了什么。";
+"You are running Muro %@, the latest version" = "你正在使用 Muro %@，这是最新版本";
+"You are running Muro %@" = "你正在使用 Muro %@";
+"Earlier releases" = "早期版本";
+
+/* Categories (stored in English, shown in the chosen language) */
+"Abstract@@category" = "抽象";
+"Anime@@category" = "动漫";
+"Cars@@category" = "汽车";
+"Movies@@category" = "影视";
+"Nature@@category" = "自然";
+"Sci-fi@@category" = "科幻";
+"Video Games@@category" = "游戏";
+"My Videos@@category" = "我的视频";
+"Other@@category" = "其他";
+"Yours@@category" = "你的";
+"Screen Savers@@category" = "屏幕保护程序";
+
+/* Apple's screen savers (Apple's own names) */
+"Arabesque@@saver" = "阿拉伯式花纹";
+"Drift@@saver" = "漂移";
+"Flurry@@saver" = "光舞";
+"Hello@@saver" = "你好";
+"Monterey@@saver" = "Monterey";
+"Shell@@saver" = "Shell";
+"Ventura@@saver" = "文图拉";
+"Word of the Day@@saver" = "今日词语";

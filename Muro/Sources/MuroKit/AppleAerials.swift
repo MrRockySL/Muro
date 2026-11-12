@@ -541,19 +541,30 @@ extension AppleAerials {
     /// The user's languages, most wanted first, in the shapes Apple's table
     /// uses: `en_GB` before `en`.
     static func preferredLanguageCodes(
-        preferred: [String] = Locale.preferredLanguages
+        preferred: [String] = wantedLanguages()
     ) -> [String] {
         var codes: [String] = []
+        func add(_ code: String) { if !codes.contains(code) { codes.append(code) } }
         for tag in preferred {
             let underscored = tag.replacingOccurrences(of: "-", with: "_")
-            if !codes.contains(underscored) { codes.append(underscored) }
-            if let base = underscored.split(separator: "_").first.map(String.init),
-               !codes.contains(base) {
-                codes.append(base)
+            add(underscored)
+            let parts = underscored.split(separator: "_").map(String.init)
+            // Apple files its Chinese under the place, not the script: a tag
+            // of zh-Hans finds nothing unless zh_CN is asked for too.
+            if parts.first == "zh" {
+                let traditional = parts.contains { ["Hant", "TW", "HK", "MO"].contains($0) }
+                if traditional { add("zh_TW"); add("zh_HK") } else { add("zh_CN") }
             }
+            if let base = parts.first { add(base) }
         }
-        if !codes.contains("en") { codes.append("en") }
+        add("en")
         return codes
+    }
+
+    /// The language Muro is in first, then the Mac's own, so Apple's names
+    /// read in the language the rest of Muro does.
+    public static func wantedLanguages() -> [String] {
+        [Localization.shared.language.rawValue] + Locale.preferredLanguages
     }
 }
 
@@ -676,6 +687,9 @@ extension AppleAerials {
             forKeys: [.fileSizeKey, .contentModificationDateKey])
         let key = "\(root.path)|\(libraryRoot.path)|\(values?.fileSize ?? -1)|"
             + "\(values?.contentModificationDate?.timeIntervalSince1970 ?? -1)"
+            // Apple's names come in the language Muro is in, so a change of
+            // language reads them again.
+            + "|\(Localization.shared.language.rawValue)"
 
         cacheLock.lock()
         let remembered = cache?.key == key ? cache?.aerials : nil
@@ -689,7 +703,7 @@ extension AppleAerials {
         let dynamic = (try? Data(contentsOf: manifestURL))
             .flatMap { dynamicCategory(manifest: $0, strings: loadStrings(root: root)) }
         loaded += DynamicWallpapers.found(
-            category: dynamic?.name ?? "Dynamic Wallpapers",
+            category: dynamic?.name ?? L("Dynamic Wallpapers"),
             categoryOrder: dynamic?.rank ?? rankAfter(loaded),
             cacheDir: cacheDir(libraryRoot: libraryRoot)
         )

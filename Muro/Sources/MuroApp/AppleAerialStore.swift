@@ -351,7 +351,7 @@ extension AppStore {
                 await MainActor.run {
                     AppStore.shared.downloads[id] = nil
                     AppStore.shared.applyError =
-                        "That aerial could not be downloaded from Apple. \(error.localizedDescription)"
+                        L("That aerial could not be downloaded from Apple. %@", error.localizedDescription)
                 }
             }
         }
@@ -383,7 +383,7 @@ extension AppStore {
                 try FileManager.default.copyItem(at: url, to: target)
                 added.append(name)
             } catch {
-                importError = "\(url.lastPathComponent) could not be added. \(error.localizedDescription)"
+                importError = L("%@ could not be added. %@", url.lastPathComponent, error.localizedDescription)
             }
         }
         if !added.isEmpty { refreshImportedScreenSavers() }
@@ -435,7 +435,7 @@ extension AppStore {
                 }
                 gone.insert(id)
             } catch {
-                applyError = "\(saver.name) could not be deleted. \(error.localizedDescription)"
+                applyError = L("%@ could not be deleted. %@", saver.name, error.localizedDescription)
             }
         }
         if recentIDs.contains(where: { gone.contains($0) }) {

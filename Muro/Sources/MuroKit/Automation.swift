@@ -222,6 +222,7 @@ public func clockLabel(_ minute: Int) -> String {
     let calendar = Calendar.current
     guard let date = calendar.date(from: components) else { return "00:00" }
     let formatter = DateFormatter()
+    formatter.locale = Localization.shared.formattingLocale
     formatter.timeStyle = .short
     formatter.dateStyle = .none
     return formatter.string(from: date)
@@ -229,15 +230,15 @@ public func clockLabel(_ minute: Int) -> String {
 
 /// "10 s", "5 min", "2 h", "1 h 30 min".
 public func durationLabel(_ seconds: Int) -> String {
-    if seconds < 60 { return "\(seconds) s" }
+    if seconds < 60 { return L("%@ s", seconds) }
     if seconds < 3600 {
         let minutes = seconds / 60
         let rest = seconds % 60
-        return rest == 0 ? "\(minutes) min" : "\(minutes) min \(rest) s"
+        return rest == 0 ? L("%@ min", minutes) : L("%@ min %@ s", minutes, rest)
     }
     let hours = seconds / 3600
     let minutes = (seconds % 3600) / 60
-    return minutes == 0 ? "\(hours) h" : "\(hours) h \(minutes) min"
+    return minutes == 0 ? L("%@ h", hours) : L("%@ h %@ min", hours, minutes)
 }
 
 public extension Automation {

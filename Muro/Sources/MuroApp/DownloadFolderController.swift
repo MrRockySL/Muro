@@ -42,20 +42,21 @@ final class DownloadFolderController: ObservableObject {
     var isCustom: Bool { location != .builtIn }
 
     var subtitle: String {
-        if cancelling { return "Cancelling…" }
+        if cancelling { return L("Cancelling…") }
         if let moving {
             let percent = movedFraction.map { " \(Int(($0 * 100).rounded()))%" } ?? ""
-            return moving.total == 0
-                ? "Moving your wallpapers…\(percent)"
-                : "Moving \(min(moving.done + 1, moving.total)) of \(moving.total) wallpapers…\(percent)"
+            return (moving.total == 0
+                ? L("Moving your wallpapers…")
+                : L("Moving %@ of %@ wallpapers…", min(moving.done + 1, moving.total), moving.total))
+                + percent
         }
         switch location {
         case .builtIn:
-            return "On this Mac, in Muro's own folder"
+            return L("On this Mac, in Muro's own folder")
         case .custom(let url):
             return Self.displayPath(url)
         case .unavailable(let url):
-            return "\(DownloadFolder.placeName(url)) is not connected"
+            return L("%@ is not connected", DownloadFolder.placeName(url))
         }
     }
 
@@ -71,8 +72,8 @@ final class DownloadFolderController: ObservableObject {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
-        panel.prompt = "Move Here"
-        panel.message = "Muro moves your downloaded wallpapers into a folder called \(DownloadFolder.folderName) here. New downloads go there too."
+        panel.prompt = L("Move Here")
+        panel.message = L("Muro moves your downloaded wallpapers into a folder called %@ here. New downloads go there too.", DownloadFolder.folderName)
         if case .custom(let url) = location {
             panel.directoryURL = url.deletingLastPathComponent()
         }
@@ -164,7 +165,7 @@ final class DownloadFolderController: ObservableObject {
         }
         let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.pathComponents
         if parts.starts(with: home) {
-            return (["Home"] + parts.dropFirst(home.count)).joined(separator: " › ")
+            return ([L("Home", ctx: "folder")] + parts.dropFirst(home.count)).joined(separator: " › ")
         }
         let disk = (try? URL(fileURLWithPath: "/").resourceValues(forKeys: [.volumeLocalizedNameKey]))?
             .volumeLocalizedName ?? "Mac"
