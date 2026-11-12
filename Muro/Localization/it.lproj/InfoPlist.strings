@@ -1,2 +1,9 @@
 /* Finder's Get Info and the About panel. */
 "NSHumanReadableCopyright" = "Progettato e sviluppato da MrRockySL";
+
+/* What macOS shows if it asks whether Muro may read a folder. One sentence for every folder. */
+"NSDesktopFolderUsageDescription" = "Muro legge qui la tua immagine della scrivania per mantenerla sulla scrivania mentre uno sfondo animato è nella schermata di blocco, e riproduce gli sfondi animati che conservi qui.";
+"NSDocumentsFolderUsageDescription" = "Muro legge qui la tua immagine della scrivania per mantenerla sulla scrivania mentre uno sfondo animato è nella schermata di blocco, e riproduce gli sfondi animati che conservi qui.";
+"NSDownloadsFolderUsageDescription" = "Muro legge qui la tua immagine della scrivania per mantenerla sulla scrivania mentre uno sfondo animato è nella schermata di blocco, e riproduce gli sfondi animati che conservi qui.";
+"NSRemovableVolumesUsageDescription" = "Muro legge qui la tua immagine della scrivania per mantenerla sulla scrivania mentre uno sfondo animato è nella schermata di blocco, e riproduce gli sfondi animati che conservi qui.";
+"NSNetworkVolumesUsageDescription" = "Muro legge qui la tua immagine della scrivania per mantenerla sulla scrivania mentre uno sfondo animato è nella schermata di blocco, e riproduce gli sfondi animati che conservi qui.";

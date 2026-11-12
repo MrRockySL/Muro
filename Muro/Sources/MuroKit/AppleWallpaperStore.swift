@@ -458,6 +458,85 @@ public enum AppleWallpaperStore {
         }
     }
 
+    // MARK: - Remembering what a write covers
+
+    /// Copies into `backup` each surface the next write for this role and
+    /// target is about to cover, when `keep` says it is one to give back.
+    /// Returns how many were copied.
+    ///
+    /// The backup is a copy of the store from before Muro first wrote it, and
+    /// it is what a removal hands each surface back from. It was taken once.
+    /// So a picture the person set after that was not in it, and taking
+    /// Muro's lock screen off gave them back the picture from the first day
+    /// rather than the one they had (#58). Learning a surface just before it
+    /// is written over keeps the backup at what the person last chose.
+    ///
+    /// The nodes are the ones `applyChoiceCreatingNode` writes: every node
+    /// that serves the target, or the shared ones when the store has none.
+    @discardableResult
+    public static func rememberSurfaces(
+        of store: Any,
+        in backup: inout Any,
+        targetKey: String,
+        surface: Surface = .desktop,
+        where keep: ([String: Any]) -> Bool
+    ) -> Int {
+        var covered: [(path: [String], name: String, surface: [String: Any])] = []
+        var matched = 0
+        forEachNode(in: store) { path, node in
+            guard targetKey == "all" || path.contains(targetKey),
+                  let name = surfaceName(of: node, for: surface),
+                  let occupant = node[name] as? [String: Any]
+            else { return }
+            matched += 1
+            if keep(occupant) { covered.append((path, name, occupant)) }
+        }
+        if matched == 0 {
+            for path in fallbackNodePaths(in: store, targetKey: targetKey) {
+                guard let node = node(at: path, in: store),
+                      let name = surfaceName(of: node, for: surface),
+                      let occupant = node[name] as? [String: Any],
+                      keep(occupant)
+                else { continue }
+                covered.append((path, name, occupant))
+            }
+        }
+        for entry in covered {
+            backup = setting(entry.surface, named: entry.name, at: entry.path, in: backup)
+        }
+        return covered.count
+    }
+
+    private static func node(at path: [String], in store: Any) -> [String: Any]? {
+        var current = store
+        for component in path {
+            guard let dictionary = current as? [String: Any],
+                  let next = dictionary[component]
+            else { return nil }
+            current = next
+        }
+        return current as? [String: Any]
+    }
+
+    /// `value` with one surface put at `path`, making any dictionary on the
+    /// way that is not there yet. A node the backup has never seen, a Space
+    /// made since, gets only the surface: a removal looks a surface up by its
+    /// path and name and reads nothing else of the node.
+    private static func setting(
+        _ surface: [String: Any], named name: String, at path: [String], in value: Any
+    ) -> Any {
+        var dictionary = value as? [String: Any] ?? [:]
+        guard let first = path.first else {
+            dictionary[name] = surface
+            return dictionary
+        }
+        dictionary[first] = setting(
+            surface, named: name, at: Array(path.dropFirst()),
+            in: dictionary[first] ?? [String: Any]()
+        )
+        return dictionary
+    }
+
     // MARK: - Automatic and Custom
 
     /// Turns every `linked` node into an `individual` one, keeping what is on

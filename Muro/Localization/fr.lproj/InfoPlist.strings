@@ -1,2 +1,9 @@
 /* Finder's Get Info and the About panel. */
 "NSHumanReadableCopyright" = "Conçu et développé par MrRockySL";
+
+/* What macOS shows if it asks whether Muro may read a folder. One sentence for every folder. */
+"NSDesktopFolderUsageDescription" = "Muro lit ici votre image de bureau pour la garder sur le bureau pendant qu’un fond d’écran animé est sur l’écran verrouillé, et joue les fonds d’écran animés que vous conservez ici.";
+"NSDocumentsFolderUsageDescription" = "Muro lit ici votre image de bureau pour la garder sur le bureau pendant qu’un fond d’écran animé est sur l’écran verrouillé, et joue les fonds d’écran animés que vous conservez ici.";
+"NSDownloadsFolderUsageDescription" = "Muro lit ici votre image de bureau pour la garder sur le bureau pendant qu’un fond d’écran animé est sur l’écran verrouillé, et joue les fonds d’écran animés que vous conservez ici.";
+"NSRemovableVolumesUsageDescription" = "Muro lit ici votre image de bureau pour la garder sur le bureau pendant qu’un fond d’écran animé est sur l’écran verrouillé, et joue les fonds d’écran animés que vous conservez ici.";
+"NSNetworkVolumesUsageDescription" = "Muro lit ici votre image de bureau pour la garder sur le bureau pendant qu’un fond d’écran animé est sur l’écran verrouillé, et joue les fonds d’écran animés que vous conservez ici.";

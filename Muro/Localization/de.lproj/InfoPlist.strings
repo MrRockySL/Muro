@@ -1,2 +1,9 @@
 /* Finder's Get Info and the About panel. */
 "NSHumanReadableCopyright" = "Gestaltet und entwickelt von MrRockySL";
+
+/* What macOS shows if it asks whether Muro may read a folder. One sentence for every folder. */
+"NSDesktopFolderUsageDescription" = "Muro liest hier dein Schreibtischbild, damit es auf dem Schreibtisch bleibt, während ein Live-Hintergrundbild auf dem Sperrbildschirm ist, und spielt die Live-Hintergrundbilder ab, die du hier aufbewahrst.";
+"NSDocumentsFolderUsageDescription" = "Muro liest hier dein Schreibtischbild, damit es auf dem Schreibtisch bleibt, während ein Live-Hintergrundbild auf dem Sperrbildschirm ist, und spielt die Live-Hintergrundbilder ab, die du hier aufbewahrst.";
+"NSDownloadsFolderUsageDescription" = "Muro liest hier dein Schreibtischbild, damit es auf dem Schreibtisch bleibt, während ein Live-Hintergrundbild auf dem Sperrbildschirm ist, und spielt die Live-Hintergrundbilder ab, die du hier aufbewahrst.";
+"NSRemovableVolumesUsageDescription" = "Muro liest hier dein Schreibtischbild, damit es auf dem Schreibtisch bleibt, während ein Live-Hintergrundbild auf dem Sperrbildschirm ist, und spielt die Live-Hintergrundbilder ab, die du hier aufbewahrst.";
+"NSNetworkVolumesUsageDescription" = "Muro liest hier dein Schreibtischbild, damit es auf dem Schreibtisch bleibt, während ein Live-Hintergrundbild auf dem Sperrbildschirm ist, und spielt die Live-Hintergrundbilder ab, die du hier aufbewahrst.";

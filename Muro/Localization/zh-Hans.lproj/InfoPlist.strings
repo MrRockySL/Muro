@@ -1,2 +1,9 @@
 /* Finder's Get Info and the About panel. */
 "NSHumanReadableCopyright" = "由 MrRockySL 设计与开发";
+
+/* What macOS shows if it asks whether Muro may read a folder. One sentence for every folder. */
+"NSDesktopFolderUsageDescription" = "Muro 会读取这里的桌面图片，让它在锁屏使用动态墙纸时继续显示在桌面上，并播放你存放在这里的动态墙纸。";
+"NSDocumentsFolderUsageDescription" = "Muro 会读取这里的桌面图片，让它在锁屏使用动态墙纸时继续显示在桌面上，并播放你存放在这里的动态墙纸。";
+"NSDownloadsFolderUsageDescription" = "Muro 会读取这里的桌面图片，让它在锁屏使用动态墙纸时继续显示在桌面上，并播放你存放在这里的动态墙纸。";
+"NSRemovableVolumesUsageDescription" = "Muro 会读取这里的桌面图片，让它在锁屏使用动态墙纸时继续显示在桌面上，并播放你存放在这里的动态墙纸。";
+"NSNetworkVolumesUsageDescription" = "Muro 会读取这里的桌面图片，让它在锁屏使用动态墙纸时继续显示在桌面上，并播放你存放在这里的动态墙纸。";

@@ -1,2 +1,9 @@
 /* Finder's Get Info and the About panel. */
 "NSHumanReadableCopyright" = "Designed & developed by MrRockySL";
+
+/* What macOS shows if it asks whether Muro may read a folder. One sentence for every folder. */
+"NSDesktopFolderUsageDescription" = "Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here.";
+"NSDocumentsFolderUsageDescription" = "Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here.";
+"NSDownloadsFolderUsageDescription" = "Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here.";
+"NSRemovableVolumesUsageDescription" = "Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here.";
+"NSNetworkVolumesUsageDescription" = "Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here.";

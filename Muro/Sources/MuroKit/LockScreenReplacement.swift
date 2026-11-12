@@ -62,6 +62,28 @@ public enum LockScreenReplacement {
         return own ?? shared
     }
 
+    /// The whole surface behind `latestDesktopChoice`: what macOS most
+    /// recently put in this display's desktop role, by the same rule. For
+    /// reading what it holds, not only who it belongs to (see
+    /// `OwnDesktopPicture`).
+    public static func latestDesktopSurface(forDisplay uuid: String, in store: Any?) -> [String: Any]? {
+        guard let store else { return nil }
+        var own: (surface: [String: Any], at: Date)?
+        var shared: (surface: [String: Any], at: Date)?
+        AppleWallpaperStore.forEachNode(in: store) { path, node in
+            guard let name = AppleWallpaperStore.surfaceName(of: node, for: .desktop),
+                  let surface = node[name] as? [String: Any]
+            else { return }
+            let at = surface["LastSet"] as? Date ?? .distantPast
+            if path.contains(uuid) {
+                if own.map({ at > $0.at }) ?? true { own = (surface, at) }
+            } else if isShared(path) {
+                if shared.map({ at > $0.at }) ?? true { shared = (surface, at) }
+            }
+        }
+        return (own ?? shared)?.surface
+    }
+
     /// The displays among `claimed` whose lock screen macOS now gives to
     /// something other than `provider`.
     ///
