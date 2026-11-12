@@ -1,0 +1,601 @@
+/* Muro, français. Same keys as en.lproj. Terms follow macOS: fond d’écran,
+   écran verrouillé, économiseur d’écran, Bibliothèque, Réglages Système. */
+
+/* Apple section: names */
+"Dynamic Wallpapers" = "Fonds d’écran dynamiques";
+
+/* Apple section: still pictures */
+"The picture from Apple could not be opened." = "Impossible d’ouvrir l’image d’Apple.";
+"Apple's download held no picture." = "Le téléchargement d’Apple ne contenait aucune image.";
+"The light and dark pictures could not be made." = "Impossible de créer les images claire et sombre.";
+"Apple's list of pictures could not be reached. Check the internet connection and try again." = "Impossible d’accéder à la liste d’images d’Apple. Vérifiez la connexion à Internet, puis réessayez.";
+"Apple's list of pictures has no download for this one." = "La liste d’images d’Apple ne propose aucun téléchargement pour celle-ci.";
+
+/* Lengths of time */
+"%@ s" = "%@ s";
+"%@ min" = "%@ min";
+"%@ min %@ s" = "%@ min %@ s";
+"%@ h" = "%@ h";
+"%@ h %@ min" = "%@ h %@ min";
+
+/* Download folder: problems */
+"That is not a folder Muro can use." = "Muro ne peut pas utiliser ce dossier.";
+"Pick a folder outside the one Muro uses now." = "Choisissez un dossier situé en dehors de celui qu’utilise Muro actuellement.";
+"Muro already keeps your wallpapers there." = "Muro conserve déjà vos fonds d’écran à cet endroit.";
+"A folder called %@ is already there and holds other files. Pick another place." = "Un dossier nommé « %@ » existe déjà à cet endroit et contient d’autres fichiers. Choisissez un autre emplacement.";
+"Connect %@ first. Your wallpapers are on it." = "Connectez d’abord « %@ ». Vos fonds d’écran s’y trouvent.";
+"There is not enough space there. Your wallpapers need %@ and %@ is free." = "L’espace est insuffisant à cet endroit. Vos fonds d’écran nécessitent %@ et seuls %@ sont disponibles.";
+"%@ could not be copied. Nothing was moved." = "Impossible de copier « %@ ». Rien n’a été déplacé.";
+"The move was cancelled. Your wallpapers stayed where they were." = "Le déplacement a été annulé. Vos fonds d’écran sont restés à leur place.";
+
+/* Apple section: light and dark */
+"Light@@look" = "Clair";
+"Dark@@look" = "Sombre";
+
+/* Library file */
+"Muro could not read your wallpaper list, so it stopped rather than overwrite it. Your wallpaper files are untouched. The list is library.json in Muro's Application Support folder." = "Muro n’a pas pu lire votre liste de fonds d’écran ; il s’est donc arrêté plutôt que de l’écraser. Vos fichiers de fonds d’écran sont intacts. La liste est le fichier library.json, dans le dossier Application Support de Muro.";
+
+/* Catalog: connection problems */
+"Muro cannot reach the internet" = "Muro ne peut pas accéder à Internet";
+"The wallpaper catalog is not answering" = "Le catalogue de fonds d’écran ne répond pas";
+"Something is blocking the wallpaper catalog" = "Quelque chose bloque le catalogue de fonds d’écran";
+"Check that you are online, then try again. A VPN, a firewall or a DNS filter can also stop Muro reaching its wallpapers." = "Vérifiez que vous êtes connecté, puis réessayez. Un VPN, un coupe-feu ou un filtre DNS peut aussi empêcher Muro d’accéder à ses fonds d’écran.";
+"The server answered with an error (%@). This is usually temporary, so try again in a minute." = "Le serveur a répondu par une erreur (%@). C’est généralement temporaire : réessayez dans une minute.";
+"Muro reached the catalog but what came back was not the wallpaper list. A VPN, a company network or a DNS filter can do this." = "Muro a atteint le catalogue, mais la réponse n’était pas la liste de fonds d’écran. Un VPN, un réseau d’entreprise ou un filtre DNS peut en être la cause.";
+"%@. %@" = "%@. %@";
+
+/* Screen saver delay */
+"System default" = "Valeur du système";
+"Never" = "Jamais";
+
+/* Apple section: problems */
+"That aerial could not be downloaded from Apple. %@" = "Impossible de télécharger cette vue aérienne depuis Apple. %@";
+"%@ could not be added. %@" = "Impossible d’ajouter « %@ ». %@";
+"%@ could not be deleted. %@" = "Impossible de supprimer « %@ ». %@";
+
+/* Apple section */
+"Aerials" = "Vues aériennes";
+"Screen Savers" = "Économiseurs d’écran";
+"All@@filter" = "Tous";
+"%@ wallpapers from Apple#one" = "%@ fond d’écran d’Apple";
+"%@ wallpapers from Apple#other" = "%@ fonds d’écran d’Apple";
+"%@ wallpapers in %@#one" = "%@ fond d’écran dans %@";
+"%@ wallpapers in %@#other" = "%@ fonds d’écran dans %@";
+"%@ on this Mac" = "%@ sur ce Mac";
+"Reading Apple's wallpapers…" = "Lecture des fonds d’écran d’Apple…";
+"Apple's wallpapers are not on this Mac yet" = "Les fonds d’écran d’Apple ne sont pas encore sur ce Mac";
+"Open System Settings and look at Wallpaper once. macOS writes its list of aerials then, and Muro reads the same list." = "Ouvrez Réglages Système et affichez une fois Fond d’écran. macOS écrit alors sa liste de vues aériennes, et Muro lit cette même liste.";
+"Look Again" = "Chercher à nouveau";
+"Nothing matches that" = "Aucun résultat";
+"Try another category." = "Essayez une autre catégorie.";
+"No screen saver called %@. Try another word." = "Aucun économiseur d’écran ne s’appelle « %@ ». Essayez un autre mot.";
+"No aerial called %@. Try another word." = "Aucune vue aérienne ne s’appelle « %@ ». Essayez un autre mot.";
+
+/* Apple section: notice card */
+"It brings Apple's own live wallpapers and screen savers into Muro:" = "Elle ajoute à Muro les fonds d’écran animés et les économiseurs d’écran d’Apple :";
+"About this section" = "À propos de cette section";
+"This section was added by community request." = "Cette section a été ajoutée à la demande de la communauté.";
+"Apple's videos of landscapes, cities, oceans and space" = "Des vidéos d’Apple de paysages, de villes, d’océans et de l’espace";
+"Videos, still pictures, and a few drawn live by macOS" = "Des vidéos, des images fixes et quelques fonds dessinés en direct par macOS";
+"8 of Apple's own, like Hello and Flurry" = "8 économiseurs d’Apple, comme Bonjour et Faisceaux";
+"These are Apple's, not made for Muro, so some of them can use *more CPU, RAM and power* than Muro's own live wallpapers." = "Ils appartiennent à Apple et ne sont pas faits pour Muro : certains peuvent donc utiliser *plus de processeur, de mémoire et d’énergie* que les fonds d’écran animés de Muro.";
+"Do not show this message again" = "Ne plus afficher ce message";
+"Got it" = "D’accord";
+
+/* Automation editor */
+"Name already in use" = "Ce nom est déjà utilisé";
+"New Automation" = "Nouvelle automatisation";
+"Edit Automation" = "Modifier l’automatisation";
+"NAME" = "NOM";
+"Automation name" = "Nom de l’automatisation";
+"CHOOSE WALLPAPERS" = "CHOISIR DES FONDS D’ÉCRAN";
+"%@ in this schedule" = "%@ dans ce programme";
+"HOW LONG EACH ONE PLAYS" = "DURÉE DE CHACUN";
+"WHEN EACH ONE PLAYS" = "HORAIRE DE CHACUN";
+"Drag the handle to reorder" = "Faites glisser la poignée pour réorganiser";
+"Drag an edge to change a time" = "Faites glisser un bord pour changer un horaire";
+"Nothing scheduled yet" = "Rien n’est encore programmé";
+"Pick a wallpaper above and it plays for ten minutes. Every one you add gets its own length." = "Choisissez un fond d’écran ci-dessus : il sera lu pendant dix minutes. Chaque fond que vous ajoutez a sa propre durée.";
+"Pick a wallpaper above and it takes the whole day. Add another and the day splits between them." = "Choisissez un fond d’écran ci-dessus : il occupe toute la journée. Ajoutez-en un autre et la journée est partagée entre eux.";
+"Timer" = "Minuteur";
+"Clock" = "Horloge";
+"Each wallpaper plays for its own length of time, then the next one takes over and it loops." = "Chaque fond d’écran est lu pendant sa propre durée, puis le suivant prend le relais, en boucle.";
+"Each wallpaper owns a slot on the clock, and the same schedule repeats every day." = "Chaque fond d’écran occupe une plage horaire, et le même programme se répète chaque jour.";
+"No wallpapers downloaded yet. Download some from Explore, or import your own with the + button in the Library." = "Aucun fond d’écran téléchargé pour le moment. Téléchargez-en dans Explorer ou importez vos propres vidéos avec le bouton + de la Bibliothèque.";
+"Missing wallpaper" = "Fond d’écran introuvable";
+"Remove from this automation" = "Retirer de cette automatisation";
+"Set every step at once" = "Régler toutes les étapes à la fois";
+"to@@range" = "à";
+"Delete" = "Supprimer";
+"Cancel" = "Annuler";
+"Create Automation" = "Créer l’automatisation";
+"Save" = "Enregistrer";
+"Pick the wallpapers this automation should use" = "Choisissez les fonds d’écran à utiliser dans cette automatisation";
+"Cycle: %2$@ across %1$@ wallpapers#one" = "Cycle : %2$@ sur %1$@ fond d’écran";
+"Cycle: %2$@ across %1$@ wallpapers#other" = "Cycle : %2$@ sur %1$@ fonds d’écran";
+"Covers the whole day across %@ wallpapers#one" = "Couvre toute la journée avec %@ fond d’écran";
+"Covers the whole day across %@ wallpapers#other" = "Couvre toute la journée avec %@ fonds d’écran";
+"Covers %2$@ of the day across %1$@ wallpapers#one" = "Couvre %2$@ de la journée avec %1$@ fond d’écran";
+"Covers %2$@ of the day across %1$@ wallpapers#other" = "Couvre %2$@ de la journée avec %1$@ fonds d’écran";
+"%2$@ to %3$@ is not covered, and %1$@ other gaps. Whatever is playing stays.#one" = "De %2$@ à %3$@, rien n’est prévu, et il reste %1$@ autre trou. Ce qui est en cours de lecture reste.";
+"%2$@ to %3$@ is not covered, and %1$@ other gaps. Whatever is playing stays.#other" = "De %2$@ à %3$@, rien n’est prévu, et il reste %1$@ autres trous. Ce qui est en cours de lecture reste.";
+"%@ to %@ is not covered. Whatever is playing stays." = "De %@ à %@, rien n’est prévu. Ce qui est en cours de lecture reste.";
+"Pick at least one to get started." = "Choisissez-en au moins un pour commencer.";
+"It loops back to the first wallpaper and starts again." = "Il revient au premier fond d’écran et recommence.";
+"The same schedule repeats every day." = "Le même programme se répète chaque jour.";
+"Custom" = "Personnalisé";
+"Custom duration" = "Durée personnalisée";
+"Set %@" = "Régler sur %@";
+"sec" = "s";
+"min" = "min";
+"hr" = "h";
+
+/* Top bar and cards */
+"made by %@" = "créé par %@";
+"Search wallpapers" = "Rechercher des fonds d’écran";
+"Settings" = "Réglages";
+"A new version of Muro is available" = "Une nouvelle version de Muro est disponible";
+"What's New in Muro" = "Nouveautés de Muro";
+"New update available" = "Nouvelle mise à jour disponible";
+"Import your own video" = "Importer votre propre vidéo";
+"NEW" = "NOUVEAU";
+"Delete wallpaper" = "Supprimer le fond d’écran";
+"Remove Download (%@)" = "Retirer le téléchargement (%@)";
+"Delete Wallpaper (%@)" = "Supprimer le fond d’écran (%@)";
+"Search wallpapers…" = "Rechercher des fonds d’écran…";
+
+/* Delete sheet */
+"Remove %@#=1" = "Retirer";
+"Remove %@#one" = "Retirer %@";
+"Remove %@#other" = "Retirer %@";
+"Delete %@#=1" = "Supprimer";
+"Delete %@#one" = "Supprimer %@";
+"Delete %@#other" = "Supprimer %@";
+"Remove %@ downloads?#=1" = "Retirer ce téléchargement ?";
+"Remove %@ downloads?#one" = "Retirer %@ téléchargement ?";
+"Remove %@ downloads?#other" = "Retirer %@ téléchargements ?";
+"Delete %@ screen savers?#=1" = "Supprimer cet économiseur d’écran ?";
+"Delete %@ screen savers?#one" = "Supprimer %@ économiseur d’écran ?";
+"Delete %@ screen savers?#other" = "Supprimer %@ économiseurs d’écran ?";
+"Delete %@ wallpapers?#=1" = "Supprimer ce fond d’écran ?";
+"Delete %@ wallpapers?#one" = "Supprimer %@ fond d’écran ?";
+"Delete %@ wallpapers?#other" = "Supprimer %@ fonds d’écran ?";
+"It goes to the Trash." = "Il sera placé dans la Corbeille.";
+"They go to the Trash." = "Ils seront placés dans la Corbeille.";
+"Screen savers go to the Trash. The others you can download again." = "Les économiseurs d’écran seront placés dans la Corbeille. Vous pourrez retélécharger les autres.";
+"You can download it again any time." = "Vous pourrez le retélécharger à tout moment.";
+"You can download them again any time." = "Vous pourrez les retélécharger à tout moment.";
+"This is your own video. Deleting it is permanent." = "C’est votre propre vidéo. Sa suppression est définitive.";
+"These are your own videos. Deleting them is permanent." = "Ce sont vos propres vidéos. Leur suppression est définitive.";
+"%@ are your own videos, and those are permanent.#one" = "%@ est votre propre vidéo, et sa suppression est définitive.";
+"%@ are your own videos, and those are permanent.#other" = "%@ sont vos propres vidéos, et leur suppression est définitive.";
+"LOCK SCREEN" = "ÉCRAN VERROUILLÉ";
+"SCREEN SAVER" = "ÉCONOMISEUR D’ÉCRAN";
+"SHOWING NOW" = "AFFICHÉ";
+"PLAYING ON %@" = "EN LECTURE SUR %@";
+"PLAYING NOW" = "EN LECTURE";
+"%@ playlists and automations#one" = "%@ playlist ou automatisation";
+"%@ playlists and automations#other" = "%@ playlists et automatisations";
+"It also comes out of %@." = "Il sera aussi retiré de %@.";
+"They also come out of %@." = "Ils seront aussi retirés de %@.";
+
+/* Day timeline */
+"Not covered" = "Non couvert";
+
+/* Download folder */
+"Cancelling…" = "Annulation…";
+"Moving your wallpapers…" = "Déplacement de vos fonds d’écran…";
+"Moving %@ of %@ wallpapers…" = "Déplacement du fond d’écran %@ sur %@…";
+"On this Mac, in Muro's own folder" = "Sur ce Mac, dans le dossier de Muro";
+"%@ is not connected" = "« %@ » n’est pas connecté";
+"Move Here" = "Déplacer ici";
+"Muro moves your downloaded wallpapers into a folder called %@ here. New downloads go there too." = "Muro déplace vos fonds d’écran téléchargés dans un dossier nommé « %@ » à cet endroit. Les nouveaux téléchargements y seront aussi placés.";
+"Home@@folder" = "Départ";
+
+/* Explore */
+"Resolution" = "Résolution";
+"FPS" = "Images/s";
+"%@ wallpapers#one" = "%@ fond d’écran";
+"%@ wallpapers#other" = "%@ fonds d’écran";
+"Clear filters" = "Effacer les filtres";
+"Loading wallpapers…" = "Chargement des fonds d’écran…";
+"Try another category, or widen the resolution and frame rate." = "Essayez une autre catégorie, ou élargissez la résolution et la fréquence d’images.";
+"No wallpaper called %@. Try another word." = "Aucun fond d’écran ne s’appelle « %@ ». Essayez un autre mot.";
+"Only the wallpapers you have already downloaded are showing." = "Seuls les fonds d’écran que vous avez déjà téléchargés sont affichés.";
+"Checking…" = "Vérification…";
+"Try Again" = "Réessayer";
+
+/* Shared pieces */
+"PLAYING" = "EN LECTURE";
+"Enter a number" = "Saisissez un nombre";
+
+/* Home */
+"FEATURED" = "À LA UNE";
+"%@ FPS" = "%@ i/s";
+"APPLIED · %@" = "APPLIQUÉ · %@";
+"View Wallpaper" = "Voir le fond d’écran";
+"Your library is empty" = "Votre bibliothèque est vide";
+"Import your own videos with the + button, or browse Explore to download wallpapers." = "Importez vos propres vidéos avec le bouton +, ou parcourez Explorer pour télécharger des fonds d’écran.";
+"New Live Wallpapers" = "Nouveaux fonds d’écran animés";
+"The latest wallpapers added to the catalog" = "Les derniers fonds d’écran ajoutés au catalogue";
+"Muro's Pick" = "La sélection de Muro";
+"A different twelve every day" = "Douze différents chaque jour";
+
+/* Language */
+"Same as macOS" = "Comme macOS";
+
+/* Library */
+"Downloaded" = "Téléchargés";
+"Liked" = "Favoris";
+"Playlists & Automations" = "Playlists et automatisations";
+"Done" = "Terminé";
+"Select" = "Sélectionner";
+"Select None" = "Ne rien sélectionner";
+"Select All" = "Tout sélectionner";
+"%@ selected" = "Sélection : %@";
+"Clear" = "Effacer";
+"Drop videos or screen savers here, or click to import" = "Déposez ici des vidéos ou des économiseurs d’écran, ou cliquez pour importer";
+"MP4, MOV and M4V videos, and .saver screen savers" = "Vidéos MP4, MOV et M4V, et économiseurs d’écran .saver";
+"%@ added." = "« %@ » a été ajouté.";
+"%@ screen savers added." = "%@ économiseurs d’écran ont été ajoutés.";
+"%@ is already added." = "« %@ » a déjà été ajouté.";
+"Those screen savers are already added." = "Ces économiseurs d’écran ont déjà été ajoutés.";
+"YOUR SCREEN SAVERS" = "VOS ÉCONOMISEURS D’ÉCRAN";
+"FROM APPLE" = "D’APPLE";
+"Playlists" = "Playlists";
+"Automations" = "Automatisations";
+"New Playlist" = "Nouvelle playlist";
+"Pick wallpapers and cycle them on a schedule" = "Choisissez des fonds d’écran et faites-les défiler selon un programme";
+"Give each wallpaper its own time of day, or its own length" = "Donnez à chaque fond d’écran son propre horaire ou sa propre durée";
+"Every %@ min" = "Toutes les %@ min";
+"Every hour" = "Toutes les heures";
+"Every %@ hr" = "Toutes les %@ h";
+"Shuffle on" = "Lecture aléatoire activée";
+"Shuffle off" = "Lecture aléatoire désactivée";
+"Edit Playlist" = "Modifier la playlist";
+"Shuffle Off" = "Désactiver la lecture aléatoire";
+"Shuffle On" = "Activer la lecture aléatoire";
+"Delete Playlist" = "Supprimer la playlist";
+"Nothing to play" = "Rien à lire";
+"%@ cycle" = "Cycle de %@";
+"Covers the whole day" = "Couvre toute la journée";
+"%@ gaps#one" = "%@ trou";
+"%@ gaps#other" = "%@ trous";
+"Now: %@ until %@" = "En ce moment : %@ jusqu’à %@";
+"CLOCK" = "HORLOGE";
+"TIMER" = "MINUTEUR";
+"No wallpapers in this automation yet" = "Cette automatisation ne contient encore aucun fond d’écran";
+"Delete Automation" = "Supprimer l’automatisation";
+"%@ hr" = "%@ h";
+"Playlist name" = "Nom de la playlist";
+"CHANGE WALLPAPER EVERY" = "CHANGER DE FOND D’ÉCRAN TOUTES LES";
+"Create Playlist" = "Créer la playlist";
+"Shuffle" = "Aléatoire";
+"Every %@ hr %@ min" = "Toutes les %@ h %@ min";
+"Custom interval" = "Intervalle personnalisé";
+"Delete “%@”?" = "Supprimer « %@ » ?";
+"This playlist is deleted for good. Its wallpapers stay in your Library." = "Cette playlist sera supprimée définitivement. Ses fonds d’écran resteront dans votre Bibliothèque.";
+"This automation is deleted for good. Its wallpapers stay in your Library." = "Cette automatisation sera supprimée définitivement. Ses fonds d’écran resteront dans votre Bibliothèque.";
+
+/* Lock screen: problems */
+"Lock-screen live wallpapers require macOS 26 or later." = "Les fonds d’écran animés sur l’écran verrouillé nécessitent macOS 26 ou une version ultérieure.";
+"Muro’s lock-screen extension is missing. Reinstall this build of Muro." = "L’extension d’écran verrouillé de Muro est absente. Réinstallez cette version de Muro.";
+"macOS would not load Muro’s lock-screen extension. Move Muro to your Applications folder, open it once from there, and try again." = "macOS n’a pas voulu charger l’extension d’écran verrouillé de Muro. Placez Muro dans votre dossier Applications, ouvrez-le une fois depuis cet endroit, puis réessayez.";
+"macOS is running Muro from a temporary copy, so the lock screen cannot be set. Drag Muro into your Applications folder, then open it from there." = "macOS exécute Muro depuis une copie temporaire : l’écran verrouillé ne peut donc pas être réglé. Faites glisser Muro dans votre dossier Applications, puis ouvrez-le depuis cet endroit.";
+"The macOS wallpaper store could not be found." = "Le stockage des fonds d’écran de macOS est introuvable.";
+
+/* Menu bar icons */
+"Default@@icon" = "Par défaut";
+"Outline" = "Contour";
+"Glass Moon" = "Lune de verre";
+"Planet" = "Planète";
+"Peaks" = "Sommets";
+"Display@@icon" = "Écran";
+
+/* Menu bar */
+"No wallpaper applied" = "Aucun fond d’écran appliqué";
+"Muro %@ available" = "Muro %@ disponible";
+"Version %@" = "Version %@";
+"Play the sound" = "Lire le son";
+"Pause the sound" = "Mettre le son en pause";
+"PAUSED" = "EN PAUSE";
+"%@ DISPLAYS#one" = "%@ ÉCRAN";
+"%@ DISPLAYS#other" = "%@ ÉCRANS";
+"RECENTS" = "RÉCENTS";
+"PLAYLISTS & AUTOMATIONS" = "PLAYLISTS ET AUTOMATISATIONS";
+"Off" = "Désactivé";
+"Open Muro" = "Ouvrir Muro";
+"Quit Muro" = "Quitter Muro";
+"Language" = "Langue";
+"Check for Updates" = "Rechercher des mises à jour";
+"New Update Available" = "Nouveau";
+"Muro is up to date" = "Muro est à jour";
+"Could not check. Try again" = "Vérification impossible. Réessayez";
+"Muro %@ is available" = "Muro %@ est disponible";
+"Download" = "Télécharger";
+
+/* Alerts */
+"Settings…" = "Réglages…";
+"Couldn’t set wallpaper" = "Impossible de définir le fond d’écran";
+"OK" = "OK";
+"Unknown error" = "Erreur inconnue";
+"Couldn’t import video" = "Impossible d’importer la vidéo";
+"One more step" = "Encore une étape";
+"Open System Settings" = "Ouvrir Réglages Système";
+"Later" = "Plus tard";
+"Muro set your lock screen wallpaper but macOS has not picked it up yet. Open System Settings, go to Wallpaper, and choose Muro to finish it." = "Muro a défini le fond de votre écran verrouillé, mais macOS ne l’a pas encore pris en compte. Ouvrez Réglages Système, allez dans Fond d’écran et choisissez Muro pour terminer.";
+"Muro cannot read your wallpaper list" = "Muro ne peut pas lire votre liste de fonds d’écran";
+"Show the File" = "Afficher le fichier";
+"Your wallpapers are safe on disk, and Muro has stopped rather than overwrite the list with an empty one. Liking, importing and downloading will not work until library.json is repaired or moved out of Muro's folder." = "Vos fonds d’écran sont en sécurité sur le disque, et Muro s’est arrêté plutôt que de remplacer la liste par une liste vide. Les favoris, l’importation et le téléchargement ne fonctionneront pas tant que library.json n’aura pas été réparé ou déplacé hors du dossier de Muro.";
+
+/* Now Playing */
+"Desktop" = "Bureau";
+"Lock screen" = "Écran verrouillé";
+"Screen saver" = "Économiseur d’écran";
+"desktop@@short" = "bureau";
+"lock@@short" = "verrouillage";
+"saver@@short" = "économiseur";
+"PLAYING EVERYWHERE" = "EN LECTURE PARTOUT";
+"No playlists or automations yet" = "Aucune playlist ni automatisation pour le moment";
+"Everywhere" = "Partout";
+"On %@" = "Sur %@";
+"PLAYLISTS" = "PLAYLISTS";
+"AUTOMATIONS" = "AUTOMATISATIONS";
+"NOW PLAYING" = "EN LECTURE";
+
+/* Wallpaper page */
+"Drawn by macOS · moves when you unlock" = "Dessiné par macOS · s’anime au déverrouillage";
+"Screen saver · drawn live by macOS" = "Économiseur d’écran · dessiné en direct par macOS";
+"Still picture · %@×%@" = "Image fixe · %@×%@";
+"%@ download" = "Téléchargement de %@";
+"Still picture · %@×%@ · %@" = "Image fixe · %@×%@ · %@";
+"Video file missing · %@" = "Fichier vidéo manquant · %@";
+"Vertical video · zoomed in to fill the screen" = "Vidéo verticale · agrandie pour remplir l’écran";
+"Low resolution · may look soft on the screen" = "Basse résolution · peut paraître floue à l’écran";
+"Higher CPU" = "Plus de processeur";
+"Lower CPU" = "Moins de processeur";
+"%@ fps · %@" = "%@ i/s · %@";
+"Use setting (%@)" = "Utiliser le réglage (%@)";
+"Never pause" = "Ne jamais mettre en pause";
+"Pause after: how long this wallpaper moves before holding on a frame" = "Pause après : durée pendant laquelle ce fond d’écran bouge avant de se figer sur une image";
+"%@% of %@" = "%@ % de %@";
+"Preview" = "Aperçu";
+"Preparing 30 fps…" = "Préparation à 30 i/s…";
+"Set Wallpaper" = "Définir comme fond";
+"Setting…" = "Réglage…";
+"Applied" = "Appliqué";
+"This needs macOS 26" = "macOS 26 est nécessaire";
+"The lock screen and the screen saver use a part of macOS that arrived in macOS 26. This Mac runs %@, so Muro can set your desktop but not those." = "L’écran verrouillé et l’économiseur d’écran utilisent une partie de macOS apparue avec macOS 26. Ce Mac utilise %@ : Muro peut donc régler votre bureau, mais pas ces deux-là.";
+"Set my desktop instead" = "Régler plutôt mon bureau";
+"Every display" = "Tous les écrans";
+"Choose display" = "Choisir l’écran";
+"macOS can't use a still picture as the screen saver." = "macOS ne peut pas utiliser une image fixe comme économiseur d’écran.";
+"All Screens" = "Tous les écrans";
+"Remove %@ from the screen saver" = "Retirer « %@ » de l’économiseur d’écran";
+"Apply %@ to the screen saver" = "Appliquer « %@ » à l’économiseur d’écran";
+"Remove" = "Retirer";
+"Apply to %@" = "Appliquer à : %@";
+"Selected" = "Sélectionné";
+"Not selected" = "Non sélectionné";
+"The lock screen and screen saver require macOS 26 or later" = "L’écran verrouillé et l’économiseur d’écran nécessitent macOS 26 ou une version ultérieure";
+"Remove all" = "Tout retirer";
+"All displays" = "Tous les écrans";
+"Remove from all displays" = "Retirer de tous les écrans";
+"Apply to all displays" = "Appliquer à tous les écrans";
+"Remove %@ from %@" = "Retirer « %@ » de %@";
+"Apply %@ to %@" = "Appliquer « %@ » à %@";
+
+/* Settings */
+"GENERAL" = "GÉNÉRAL";
+"Launch at Login" = "Ouvrir avec la session";
+"Starts quietly in the background" = "Démarre discrètement en arrière-plan";
+"Show Menu Bar Icon" = "Afficher l’icône dans la barre des menus";
+"Show Dock Icon" = "Afficher l’icône dans le Dock";
+"Off keeps Muro in the menu bar only" = "Désactivé, Muro reste seulement dans la barre des menus";
+"Appearance" = "Apparence";
+"Default, Light or Dark" = "Par défaut, claire ou sombre";
+"Menu Bar Icon" = "Icône de la barre des menus";
+"The icon Muro shows in the menu bar" = "L’icône de Muro dans la barre des menus";
+"The language Muro is in" = "La langue de Muro";
+"PLAYBACK" = "LECTURE";
+"Playback Speed" = "Vitesse de lecture";
+"How fast wallpapers play" = "La vitesse de lecture des fonds d’écran";
+"Default Quality" = "Qualité par défaut";
+"Efficient caps at 30 fps for lower CPU" = "Économe : 30 i/s max, moins de processeur";
+"Smooth" = "Fluide";
+"Efficient" = "Économe";
+"Live Wallpaper Sound" = "Son des fonds d’écran animés";
+"Your own videos play with sound" = "Vos propres vidéos sont lues avec le son";
+"All live wallpapers stay silent" = "Tous les fonds d’écran animés restent silencieux";
+"Pause After" = "Pause après";
+"Replay on Clear Desktop" = "Relire quand le bureau se libère";
+"Start Screen Saver" = "Lancer l’économiseur d’écran";
+"ENERGY" = "ÉNERGIE";
+"Auto-pause in Low Power Mode" = "Pause en mode Économie d’énergie";
+"Freeze while saving energy" = "Se fige pendant l’économie d’énergie";
+"Auto-pause below 20% battery" = "Pause sous 20 % de batterie";
+"Resumes automatically on power" = "Reprend automatiquement sur secteur";
+"Auto-pause when covered" = "Pause quand il est masqué";
+"Freeze when a window or full screen app covers it" = "Se fige quand une fenêtre ou une app en plein écran le recouvre";
+"Play only on desktop" = "Lire seulement sur le bureau dégagé";
+"Freeze while a window is open on that screen" = "Se fige tant qu’une fenêtre est ouverte sur cet écran";
+"DISPLAYS" = "ÉCRANS";
+"STORAGE" = "STOCKAGE";
+"Library & Cache" = "Bibliothèque et cache";
+"Keeps the wallpaper in use" = "Conserve le fond d’écran utilisé";
+"Apple Downloads" = "Téléchargements d’Apple";
+"Aerials and pictures from the Apple section" = "Vues aériennes et images de la section Apple";
+"Download Folder" = "Dossier de téléchargement";
+"Default@@folder" = "Par défaut";
+"Change" = "Modifier";
+"ABOUT" = "À PROPOS";
+"Software Update" = "Mise à jour logicielle";
+"Support Muro" = "Soutenir Muro";
+"Muro is free. Sponsoring keeps it that way." = "Muro est gratuit. Votre soutien lui permet de le rester.";
+"Clear the library?" = "Vider la bibliothèque ?";
+"Wallpapers keep playing" = "Les fonds d’écran continuent de jouer";
+"Plays for %@, then holds on a frame" = "Joue pendant %@, puis se fige sur une image";
+"Saved. macOS uses it after the current wait ends, or now if you lock the screen." = "Enregistré. Appliqué après l’attente en cours, ou dès que vous verrouillez l’écran.";
+"macOS is deciding. Pick a time to set it." = "macOS décide. Choisissez une durée.";
+"The screen saver never starts" = "L’économiseur d’écran ne démarre jamais";
+"Starts after %@ with no activity" = "Démarre après %@ d’inactivité";
+"Nothing to clear. Every wallpaper here is playing, or in a playlist or an automation." = "Rien à effacer. Chaque fond d’écran ici est en lecture, ou dans une playlist ou une automatisation.";
+"Nothing to clear. The only wallpapers here are the ones in use." = "Rien à effacer. Les seuls fonds d’écran ici sont ceux qui sont utilisés.";
+"This removes %@ wallpapers and frees about %@.#one" = "Cette action retire %@ fond d’écran et libère environ %@.";
+"This removes %@ wallpapers and frees about %@.#other" = "Cette action retire %@ fonds d’écran et libère environ %@.";
+"%@ of them are from the Apple section and can be downloaded again.#one" = "%@ d’entre eux vient de la section Apple et peut être retéléchargé.";
+"%@ of them are from the Apple section and can be downloaded again.#other" = "%@ d’entre eux viennent de la section Apple et peuvent être retéléchargés.";
+"The %@ in use stay.#=1" = "Celui qui est en lecture reste.";
+"The %@ in use stay.#one" = "Le fond utilisé (%@) reste.";
+"The %@ in use stay.#other" = "Les %@ fonds utilisés restent.";
+"The %@ in your playlists and automations stay.#=1" = "Celui qui est dans vos playlists et automatisations reste.";
+"The %@ in your playlists and automations stay.#one" = "Le fond de vos playlists et automatisations (%@) reste.";
+"The %@ in your playlists and automations stay.#other" = "Les %@ fonds de vos playlists et automatisations restent.";
+"%@ of them are your own videos and cannot be recovered.#one" = "%@ d’entre eux est votre propre vidéo et ne pourra pas être récupéré.";
+"%@ of them are your own videos and cannot be recovered.#other" = "%@ d’entre eux sont vos propres vidéos et ne pourront pas être récupérés.";
+"Muro %@ is available. See what's new." = "Muro %@ est disponible. Découvrez les nouveautés.";
+"Designed & developed by %@" = "Conçu et développé par %@";
+"Works with a Pause After time" = "Fonctionne avec une durée de Pause après";
+"Plays %@ again each time the desktop clears" = "Rejoue %@ chaque fois que le bureau se libère";
+"Checking GitHub…" = "Vérification sur GitHub…";
+"Muro %@ is the latest version" = "Muro %@ est la dernière version";
+"Version %@ is available on GitHub" = "La version %@ est disponible sur GitHub";
+"Couldn't check. Check your connection." = "Impossible de vérifier. Vérifiez le réseau.";
+"Download ↗" = "Télécharger ↗";
+"Check Now" = "Vérifier maintenant";
+"Quick controls from the menu bar" = "Commandes rapides depuis la barre des menus";
+"Open Muro from Launchpad or Spotlight" = "Ouvrez Muro depuis Launchpad ou Spotlight";
+
+/* Places, imports and messages */
+"All@@places" = "Tout";
+"Lockscreen" = "Verrouillage";
+"Screensaver" = "Économiseur";
+"Built-in" = "Intégré";
+"ALL DISPLAYS" = "TOUS LES ÉCRANS";
+"%@ LOCK" = "VERROUILLAGE %@";
+"Applied on %@" = "Appliqué sur %@";
+"Applied on all displays" = "Appliqué sur tous les écrans";
+"Applied on the %@ lock screen" = "Appliqué sur l’écran verrouillé de %@";
+"Applied on all lock screens" = "Appliqué sur tous les écrans verrouillés";
+"Applied on the screen saver" = "Appliqué sur l’économiseur d’écran";
+"Main display" = "Écran principal";
+"Built-in display" = "Écran intégré";
+"External display" = "Écran externe";
+"Home" = "Accueil";
+"Explore" = "Explorer";
+"Library" = "Bibliothèque";
+"Muro can't find the video for “%@”. It was moved or deleted outside Muro. Delete it in the Library, then download or import it again." = "Muro ne trouve pas la vidéo de « %@ ». Elle a été déplacée ou supprimée en dehors de Muro. Supprimez-la dans la Bibliothèque, puis téléchargez-la ou importez-la à nouveau.";
+"The downloaded wallpaper files could not be found." = "Les fichiers du fond d’écran téléchargé sont introuvables.";
+"EVERYWHERE" = "PARTOUT";
+"ALL LOCK SCREENS" = "TOUS LES ÉCRANS VERROUILLÉS";
+"%@ PLACES#one" = "%@ EMPLACEMENT";
+"%@ PLACES#other" = "%@ EMPLACEMENTS";
+"Applied everywhere" = "Appliqué partout";
+"Applied in %@ places#one" = "Appliqué à %@ emplacement";
+"Applied in %@ places#other" = "Appliqué à %@ emplacements";
+"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro importe les vidéos MP4, MOV et M4V, et les économiseurs d’écran .saver. Rien n’a été ajouté.";
+"Importing" = "Importation";
+"Importing %@ of %@" = "Importation %@ sur %@";
+"%@ is already in your Library." = "« %@ » est déjà dans votre Bibliothèque.";
+"%@ of those videos are already in your Library." = "%@ de ces vidéos sont déjà dans votre Bibliothèque.";
+"This video could not be imported." = "Impossible d’importer cette vidéo.";
+"%@ of %@ videos could not be imported." = "Impossible d’importer %@ vidéos sur %@.";
+"%@ files were skipped. Muro imports MP4, MOV and M4V videos.#one" = "%@ fichier a été ignoré. Muro importe les vidéos MP4, MOV et M4V.";
+"%@ files were skipped. Muro imports MP4, MOV and M4V videos.#other" = "%@ fichiers ont été ignorés. Muro importe les vidéos MP4, MOV et M4V.";
+"The playlist" = "La playlist";
+"Playlist stopped" = "Playlist arrêtée";
+"%@ has no wallpapers left, so it stopped." = "%@ n’a plus de fonds d’écran ; elle s’est donc arrêtée.";
+"The automation" = "L’automatisation";
+"Automation stopped" = "Automatisation arrêtée";
+"%@ wallpapers removed#one" = "%@ fond d’écran retiré";
+"%@ wallpapers removed#other" = "%@ fonds d’écran retirés";
+"about %@ freed" = "environ %@ libérés";
+"%@ of leftovers swept" = "%@ de restes nettoyés";
+"Nothing to clear" = "Rien à effacer";
+"It has no video track." = "Elle ne contient aucune piste vidéo.";
+"It could not be read. The file may be damaged, or in a format macOS cannot open." = "Impossible de la lire. Le fichier est peut-être endommagé, ou dans un format que macOS ne peut pas ouvrir.";
+"It could not be converted to HEVC." = "Impossible de la convertir en HEVC.";
+"A picture could not be taken from it." = "Impossible d’en extraire une image.";
+
+/* Looks and sizes */
+"Default@@look" = "Par défaut";
+"%@ GB" = "%@ Go";
+"%@ MB" = "%@ Mo";
+
+/* What's New */
+"October 2026" = "Octobre 2026";
+"Apple's aerials and screen savers are in Muro now, your playlists can play on the lock screen and the screen saver, and Muro comes in Light and Dark with a new icon." = "Les vues aériennes et les économiseurs d’écran d’Apple arrivent dans Muro, vos playlists peuvent jouer sur l’écran verrouillé et l’économiseur d’écran, et Muro existe en clair et en sombre avec une nouvelle icône.";
+"New" = "Nouveautés";
+"The Apple section" = "La section Apple";
+"Apple's aerials and Dynamic Wallpapers, in a tab of their own." = "Les vues aériennes et les fonds d’écran dynamiques d’Apple, dans un onglet à part.";
+"Apple's screen savers in 4K" = "Les économiseurs d’écran d’Apple en 4K";
+"Flurry, Hello, Drift and five more as seamless 4K videos, for the desktop, the lock screen or the screen saver." = "Faisceaux, Bonjour, Dérive et cinq autres, en vidéos 4K sans coupure, pour le bureau, l’écran verrouillé ou l’économiseur d’écran.";
+"Playlists on the lock screen and the screen saver" = "Des playlists sur l’écran verrouillé et l’économiseur d’écran";
+"The desktop, the lock screen and the screen saver can each play their own, and Off brings back what was there before." = "Le bureau, l’écran verrouillé et l’économiseur d’écran peuvent chacun lire la leur, et Désactivé rétablit ce qu’il y avait avant.";
+"Default, Light and Dark" = "Par défaut, clair et sombre";
+"Choose how Muro looks in Settings: the classic midnight blue, clean white or true black." = "Choisissez l’apparence de Muro dans Réglages : le bleu nuit classique, un blanc épuré ou un vrai noir.";
+"A new icon" = "Une nouvelle icône";
+"The Glass Moon. In the Dock it follows your Mac's icon style, light or dark." = "La Lune de verre. Dans le Dock, elle suit le style d’icônes de votre Mac, clair ou sombre.";
+"Your own screen savers" = "Vos propres économiseurs d’écran";
+"Add .saver files like XScreenSaver from the Library, and set them from Muro." = "Ajoutez des fichiers .saver comme XScreenSaver depuis la Bibliothèque, et réglez-les depuis Muro.";
+"Keep your wallpapers on any drive" = "Gardez vos fonds d’écran sur n’importe quel disque";
+"Pick their folder in Settings. A move shows how far it is and can be cancelled." = "Choisissez leur dossier dans Réglages. Un déplacement affiche sa progression et peut être annulé.";
+"A new look for Settings" = "Un nouveau look pour Réglages";
+"Each setting has a glass icon of its own." = "Chaque réglage a sa propre icône en verre.";
+"Choose your menu bar icon" = "Choisissez votre icône de la barre des menus";
+"Six to pick from in Settings, from the classic moon to a ringed planet." = "Six au choix dans Réglages, de la lune classique à une planète à anneaux.";
+"Fixed" = "Corrigé";
+"A crash on macOS 14" = "Un plantage sous macOS 14";
+"Muro 6.0 and 6.0.1 quit the moment they opened on macOS 14." = "Muro 6.0 et 6.0.1 se fermaient dès leur ouverture sous macOS 14.";
+"A crash when Muro opened" = "Un plantage à l’ouverture de Muro";
+"On some Macs, Apple's older aerial list made Muro 6.0 quit the moment it opened." = "Sur certains Mac, l’ancienne liste de vues aériennes d’Apple faisait quitter Muro 6.0 dès son ouverture.";
+"The flick at the loop" = "Le sursaut à chaque boucle";
+"Some wallpapers stopped for a moment every time they looped, on the desktop, the lock screen and the screen saver." = "Certains fonds d’écran s’arrêtaient un instant à chaque boucle, sur le bureau, l’écran verrouillé et l’économiseur d’écran.";
+"The lock screen and the screen saver on new Macs" = "L’écran verrouillé et l’économiseur d’écran sur les Mac récents";
+"Setting one also changed the other." = "Régler l’un modifiait aussi l’autre.";
+"The lock screen on some Macs" = "L’écran verrouillé sur certains Mac";
+"It stayed on Apple's wallpaper because macOS never switched Muro on for it. Muro now does that itself." = "Il restait sur le fond d’écran d’Apple, car macOS n’y activait jamais Muro. Désormais, Muro le fait lui-même.";
+"Playlists keep your choices" = "Les playlists respectent vos choix";
+"A wallpaper you set by hand, or a pause, was undone at the next step." = "Un fond d’écran réglé à la main, ou une pause, était annulé à l’étape suivante.";
+"Clear keeps playlist wallpapers" = "Effacer conserve les fonds des playlists";
+"Clearing the library deleted wallpapers your playlists and automations use." = "Vider la bibliothèque supprimait des fonds d’écran utilisés par vos playlists et automatisations.";
+"A crash in the Custom boxes" = "Un plantage dans les champs Personnalisé";
+"A very long number made Muro quit." = "Un nombre très long faisait quitter Muro.";
+"Lighter" = "Plus léger";
+"The gallery lets go of its pictures when it is closed, so Muro uses less memory." = "La galerie libère ses images quand elle est fermée : Muro utilise donc moins de mémoire.";
+"Some other major bug fixes and improvements" = "D’autres corrections de bugs et améliorations importantes";
+"Across the gallery, the Library, the menu bar and Settings." = "Dans la galerie, la Bibliothèque, la barre des menus et Réglages.";
+"IN THE VERSION YOU HAVE" = "DANS VOTRE VERSION";
+"What's New" = "Nouveautés";
+"UPDATE AVAILABLE" = "MISE À JOUR DISPONIBLE";
+"The notes for this release are on the release page." = "Les notes de cette version se trouvent sur la page de la version.";
+"Download Muro %@" = "Télécharger Muro %@";
+"Release Notes" = "Notes de version";
+"The notes for this update are on the way" = "Les notes de cette mise à jour arrivent bientôt";
+"Everything that changed will be listed right here: what is new, what got better, and what was fixed." = "Tout ce qui a changé sera listé ici : ce qui est nouveau, ce qui s’est amélioré et ce qui a été corrigé.";
+"You are running Muro %@, the latest version" = "Vous utilisez Muro %@, la dernière version";
+"You are running Muro %@" = "Vous utilisez Muro %@";
+"Earlier releases" = "Versions précédentes";
+
+/* Categories (stored in English, shown in the chosen language) */
+"Abstract@@category" = "Abstrait";
+"Anime@@category" = "Anime";
+"Cars@@category" = "Voitures";
+"Movies@@category" = "Films";
+"Nature@@category" = "Nature";
+"Sci-fi@@category" = "Science-fiction";
+"Video Games@@category" = "Jeux vidéo";
+"My Videos@@category" = "Mes vidéos";
+"Other@@category" = "Autres";
+"Yours@@category" = "Les vôtres";
+"Screen Savers@@category" = "Économiseurs d’écran";
+
+/* Apple's screen savers (Apple's own names) */
+"Arabesque@@saver" = "Arabesque";
+"Drift@@saver" = "Dérive";
+"Flurry@@saver" = "Faisceaux";
+"Hello@@saver" = "Bonjour";
+"Monterey@@saver" = "Monterey";
+"Shell@@saver" = "Shell";
+"Ventura@@saver" = "Ventura";
+"Word of the Day@@saver" = "Mot du jour";

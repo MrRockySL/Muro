@@ -95,7 +95,7 @@ struct ConfirmDeleteView: View {
         HStack(spacing: 10) {
             Spacer()
             Button { dismiss() } label: {
-                Text("Cancel")
+                Text(L("Cancel"))
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(Color.muroInk)
                     .padding(.horizontal, 18)
@@ -109,7 +109,7 @@ struct ConfirmDeleteView: View {
                 store.deleteWallpapers(items)
                 dismiss()
             } label: {
-                Text(actionWord + (items.count > 1 ? " \(items.count)" : ""))
+                Text(request.removingDownload ? LN("Remove %@", items.count) : LN("Delete %@", items.count))
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(Color.muroInk)
                     .padding(.horizontal, 20)
@@ -186,18 +186,14 @@ struct ConfirmDeleteView: View {
 
     // MARK: - Words
 
-    /// "Remove Download" opened a sheet asking "Delete this wallpaper?" (full
-    /// check, 2026-10-01). A request from that menu item keeps its words.
-    private var actionWord: String { request.removingDownload ? "Remove" : "Delete" }
-
     private var title: String {
         if request.removingDownload {
-            return items.count == 1 ? "Remove this download?" : "Remove \(items.count) downloads?"
+            return LN("Remove %@ downloads?", items.count)
         }
         if onlySavers {
-            return items.count == 1 ? "Delete this screen saver?" : "Delete \(items.count) screen savers?"
+            return LN("Delete %@ screen savers?", items.count)
         }
-        return items.count == 1 ? "Delete this wallpaper?" : "Delete \(items.count) wallpapers?"
+        return LN("Delete %@ wallpapers?", items.count)
     }
 
     /// The person's own screen savers. They go to the Trash rather than for
@@ -210,9 +206,9 @@ struct ConfirmDeleteView: View {
 
     /// Said instead of the download line when screen savers are in it.
     private var saverLine: String? {
-        if onlySavers { return items.count == 1 ? "It goes to the Trash." : "They go to the Trash." }
+        if onlySavers { return items.count == 1 ? L("It goes to the Trash.") : L("They go to the Trash.") }
         if !savers.isEmpty, personal.isEmpty {
-            return "Screen savers go to the Trash. The others you can download again."
+            return L("Screen savers go to the Trash. The others you can download again.")
         }
         return nil
     }
@@ -230,17 +226,15 @@ struct ConfirmDeleteView: View {
         if let saverLine { return saverLine }
         if personal.isEmpty {
             return items.count == 1
-                ? "You can download it again any time."
-                : "You can download them again any time."
+                ? L("You can download it again any time.")
+                : L("You can download them again any time.")
         }
         if personal.count == items.count {
             return items.count == 1
-                ? "This is your own video. Deleting it is permanent."
-                : "These are your own videos. Deleting them is permanent."
+                ? L("This is your own video. Deleting it is permanent.")
+                : L("These are your own videos. Deleting them is permanent.")
         }
-        return personal.count == 1
-            ? "1 is your own video, and that one is permanent."
-            : "\(personal.count) are your own videos, and those are permanent."
+        return LN("%@ are your own videos, and those are permanent.", personal.count)
     }
 
     /// What is currently in use, as chips rather than sentences. Two lines of
@@ -249,8 +243,8 @@ struct ConfirmDeleteView: View {
     private var notices: [String] {
         var out: [String] = []
         if let playing = playingNotice { out.append(playing) }
-        if lockScreenAffected { out.append("LOCK SCREEN") }
-        if screenSaverAffected { out.append("SCREEN SAVER") }
+        if lockScreenAffected { out.append(L("LOCK SCREEN")) }
+        if screenSaverAffected { out.append(L("SCREEN SAVER")) }
         return out
     }
 
@@ -266,13 +260,13 @@ struct ConfirmDeleteView: View {
             let shown = items.contains {
                 AppleAerials.isMacOSOnly($0.id) && !store.appliedPlaces(for: $0.id).isEmpty
             }
-            return shown ? "SHOWING NOW" : nil
+            return shown ? L("SHOWING NOW") : nil
         }
         let displays = store.appliedDisplays(for: first.id)
         if applied.count == 1, displays.count == 1, let display = displays.first {
-            return "PLAYING ON \(friendly(display).uppercased())"
+            return L("PLAYING ON %@", friendly(display).uppercased())
         }
-        return "PLAYING NOW"
+        return L("PLAYING NOW")
     }
 
     /// The playlists and automations a delete takes these out of. The sheet
@@ -287,10 +281,12 @@ struct ConfirmDeleteView: View {
         let list: String
         switch names.count {
         case 1: list = last
-        case 2, 3: list = names.dropLast().joined(separator: ", ") + " and " + last
-        default: list = "\(names.count) playlists and automations"
+        case 2, 3: list = listText(names)
+        default: list = LN("%@ playlists and automations", names.count)
         }
-        return (items.count == 1 ? "It also comes out of " : "They also come out of ") + list + "."
+        return items.count == 1
+            ? L("It also comes out of %@.", list)
+            : L("They also come out of %@.", list)
     }
 
     private var lockScreenAffected: Bool {

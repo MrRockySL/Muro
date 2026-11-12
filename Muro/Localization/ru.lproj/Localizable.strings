@@ -1,0 +1,598 @@
+/* Muro, русский. Same keys as en.lproj. Terms follow macOS: обои, экран
+   блокировки, заставка, медиатека, Системные настройки. Counts of обои use the
+   "Обоев: 5" form, which reads right for every number. */
+
+/* Apple section: names */
+"Dynamic Wallpapers" = "Динамические обои";
+
+/* Apple section: still pictures */
+"The picture from Apple could not be opened." = "Не удалось открыть изображение от Apple.";
+"Apple's download held no picture." = "В загрузке от Apple не оказалось изображения.";
+"The light and dark pictures could not be made." = "Не удалось создать светлое и темное изображения.";
+"Apple's list of pictures could not be reached. Check the internet connection and try again." = "Не удалось получить список изображений Apple. Проверьте подключение к интернету и повторите попытку.";
+"Apple's list of pictures has no download for this one." = "В списке изображений Apple нет загрузки для этого изображения.";
+
+/* Lengths of time */
+"%@ s" = "%@ с";
+"%@ min" = "%@ мин";
+"%@ min %@ s" = "%@ мин %@ с";
+"%@ h" = "%@ ч";
+"%@ h %@ min" = "%@ ч %@ мин";
+
+/* Download folder: problems */
+"That is not a folder Muro can use." = "Muro не может использовать эту папку.";
+"Pick a folder outside the one Muro uses now." = "Выберите папку вне той, которую Muro использует сейчас.";
+"Muro already keeps your wallpapers there." = "Muro уже хранит ваши обои там.";
+"A folder called %@ is already there and holds other files. Pick another place." = "Там уже есть папка «%@» с другими файлами. Выберите другое место.";
+"Connect %@ first. Your wallpapers are on it." = "Сначала подключите «%@». Ваши обои хранятся там.";
+"There is not enough space there. Your wallpapers need %@ and %@ is free." = "Там недостаточно места. Вашим обоям нужно %@, а свободно %@.";
+"%@ could not be copied. Nothing was moved." = "Не удалось скопировать «%@». Ничего не перемещено.";
+"The move was cancelled. Your wallpapers stayed where they were." = "Перемещение отменено. Ваши обои остались на прежнем месте.";
+
+/* Apple section: light and dark */
+"Light@@look" = "Светлые";
+"Dark@@look" = "Темные";
+
+/* Library file */
+"Muro could not read your wallpaper list, so it stopped rather than overwrite it. Your wallpaper files are untouched. The list is library.json in Muro's Application Support folder." = "Muro не удалось прочитать ваш список обоев, поэтому он остановился, чтобы не перезаписать его. Файлы обоев не тронуты. Список хранится в файле library.json в папке Application Support приложения Muro.";
+
+/* Catalog: connection problems */
+"Muro cannot reach the internet" = "Muro не может подключиться к интернету";
+"The wallpaper catalog is not answering" = "Каталог обоев не отвечает";
+"Something is blocking the wallpaper catalog" = "Что-то блокирует каталог обоев";
+"Check that you are online, then try again. A VPN, a firewall or a DNS filter can also stop Muro reaching its wallpapers." = "Убедитесь, что вы подключены к сети, и повторите попытку. VPN, брандмауэр или DNS-фильтр тоже могут мешать Muro получать обои.";
+"The server answered with an error (%@). This is usually temporary, so try again in a minute." = "Сервер ответил ошибкой (%@). Обычно это временно, поэтому повторите попытку через минуту.";
+"Muro reached the catalog but what came back was not the wallpaper list. A VPN, a company network or a DNS filter can do this." = "Muro подключился к каталогу, но получил не список обоев. Так бывает из-за VPN, корпоративной сети или DNS-фильтра.";
+"%@. %@" = "%@. %@";
+
+/* Screen saver delay */
+"System default" = "Системное значение";
+"Never" = "Никогда";
+
+/* Apple section: problems */
+"That aerial could not be downloaded from Apple. %@" = "Не удалось загрузить эту аэросъемку от Apple. %@";
+"%@ could not be added. %@" = "Не удалось добавить «%@». %@";
+"%@ could not be deleted. %@" = "Не удалось удалить «%@». %@";
+
+/* Apple section */
+"Aerials" = "Аэросъемка";
+"Screen Savers" = "Заставки";
+"All@@filter" = "Все";
+"%@ wallpapers from Apple#other" = "Обоев от Apple: %@";
+"%@ wallpapers in %@#other" = "Обоев в категории «%2$@»: %1$@";
+"%@ on this Mac" = "На этом Mac: %@";
+"Reading Apple's wallpapers…" = "Чтение обоев Apple…";
+"Apple's wallpapers are not on this Mac yet" = "На этом Mac пока нет обоев Apple";
+"Open System Settings and look at Wallpaper once. macOS writes its list of aerials then, and Muro reads the same list." = "Откройте Системные настройки и один раз зайдите в раздел «Обои». Тогда macOS запишет свой список аэросъемок, и Muro прочитает этот же список.";
+"Look Again" = "Проверить снова";
+"Nothing matches that" = "Ничего не найдено";
+"Try another category." = "Попробуйте другую категорию.";
+"No screen saver called %@. Try another word." = "Заставки «%@» нет. Попробуйте другое слово.";
+"No aerial called %@. Try another word." = "Аэросъемки «%@» нет. Попробуйте другое слово.";
+
+/* Apple section: notice card */
+"It brings Apple's own live wallpapers and screen savers into Muro:" = "Здесь собраны живые обои и заставки самой Apple:";
+"About this section" = "Об этом разделе";
+"This section was added by community request." = "Этот раздел добавлен по просьбе сообщества.";
+"Apple's videos of landscapes, cities, oceans and space" = "Видео Apple с пейзажами, городами, океанами и космосом";
+"Videos, still pictures, and a few drawn live by macOS" = "Видео, неподвижные изображения и несколько обоев, которые macOS рисует в реальном времени";
+"8 of Apple's own, like Hello and Flurry" = "8 заставок Apple, например «Приветствие» и «Шквал»";
+"These are Apple's, not made for Muro, so some of them can use *more CPU, RAM and power* than Muro's own live wallpapers." = "Это материалы Apple, созданные не для Muro, поэтому некоторые из них могут расходовать *больше ресурсов процессора, памяти и энергии*, чем живые обои Muro.";
+"Do not show this message again" = "Больше не показывать это сообщение";
+"Got it" = "Понятно";
+
+/* Automation editor */
+"Name already in use" = "Это название уже используется";
+"New Automation" = "Новая автоматизация";
+"Edit Automation" = "Изменить автоматизацию";
+"NAME" = "НАЗВАНИЕ";
+"Automation name" = "Название автоматизации";
+"CHOOSE WALLPAPERS" = "ВЫБЕРИТЕ ОБОИ";
+"%@ in this schedule" = "В расписании: %@";
+"HOW LONG EACH ONE PLAYS" = "СКОЛЬКО ДЛИТСЯ КАЖДЫЙ";
+"WHEN EACH ONE PLAYS" = "КОГДА ВКЛЮЧАЕТСЯ КАЖДЫЙ";
+"Drag the handle to reorder" = "Перетащите маркер, чтобы изменить порядок";
+"Drag an edge to change a time" = "Перетащите край, чтобы изменить время";
+"Nothing scheduled yet" = "Пока ничего не запланировано";
+"Pick a wallpaper above and it plays for ten minutes. Every one you add gets its own length." = "Выберите обои выше, и они будут воспроизводиться десять минут. У каждых добавленных обоев своя длительность.";
+"Pick a wallpaper above and it takes the whole day. Add another and the day splits between them." = "Выберите обои выше, и они займут весь день. Добавьте еще, и день разделится между ними.";
+"Timer" = "Таймер";
+"Clock" = "Часы";
+"Each wallpaper plays for its own length of time, then the next one takes over and it loops." = "Каждые обои воспроизводятся свое время, затем их сменяют следующие, и все повторяется по кругу.";
+"Each wallpaper owns a slot on the clock, and the same schedule repeats every day." = "У каждых обоев свой отрезок времени, и это расписание повторяется каждый день.";
+"No wallpapers downloaded yet. Download some from Explore, or import your own with the + button in the Library." = "Загруженных обоев пока нет. Загрузите их в разделе «Обзор» или импортируйте свои видео кнопкой + в медиатеке.";
+"Missing wallpaper" = "Обои не найдены";
+"Remove from this automation" = "Убрать из этой автоматизации";
+"Set every step at once" = "Задать все шаги сразу";
+"to@@range" = "до";
+"Delete" = "Удалить";
+"Cancel" = "Отменить";
+"Create Automation" = "Создать автоматизацию";
+"Save" = "Сохранить";
+"Pick the wallpapers this automation should use" = "Выберите обои для этой автоматизации";
+"Cycle: %2$@ across %1$@ wallpapers#other" = "Цикл: %2$@, обоев: %1$@";
+"Covers the whole day across %@ wallpapers#other" = "Охватывает весь день, обоев: %@";
+"Covers %2$@ of the day across %1$@ wallpapers#other" = "Охватывает %2$@ в сутки, обоев: %1$@";
+"%2$@ to %3$@ is not covered, and %1$@ other gaps. Whatever is playing stays.#one" = "С %2$@ до %3$@ ничего не запланировано, и есть еще %1$@ пропуск. То, что воспроизводится, останется.";
+"%2$@ to %3$@ is not covered, and %1$@ other gaps. Whatever is playing stays.#few" = "С %2$@ до %3$@ ничего не запланировано, и есть еще %1$@ пропуска. То, что воспроизводится, останется.";
+"%2$@ to %3$@ is not covered, and %1$@ other gaps. Whatever is playing stays.#many" = "С %2$@ до %3$@ ничего не запланировано, и есть еще %1$@ пропусков. То, что воспроизводится, останется.";
+"%2$@ to %3$@ is not covered, and %1$@ other gaps. Whatever is playing stays.#other" = "С %2$@ до %3$@ ничего не запланировано, и есть еще %1$@ пропусков. То, что воспроизводится, останется.";
+"%@ to %@ is not covered. Whatever is playing stays." = "С %@ до %@ ничего не запланировано. То, что воспроизводится, останется.";
+"Pick at least one to get started." = "Чтобы начать, выберите хотя бы одни обои.";
+"It loops back to the first wallpaper and starts again." = "Затем все начинается снова с первых обоев.";
+"The same schedule repeats every day." = "Это расписание повторяется каждый день.";
+"Custom" = "Настроить";
+"Custom duration" = "Своя длительность";
+"Set %@" = "Задать %@";
+"sec" = "с";
+"min" = "мин";
+"hr" = "ч";
+
+/* Top bar and cards */
+"made by %@" = "автор: %@";
+"Search wallpapers" = "Поиск обоев";
+"Settings" = "Настройки";
+"A new version of Muro is available" = "Доступна новая версия Muro";
+"What's New in Muro" = "Что нового в Muro";
+"New update available" = "Доступно обновление";
+"Import your own video" = "Импортировать свое видео";
+"NEW" = "НОВОЕ";
+"Delete wallpaper" = "Удалить обои";
+"Remove Download (%@)" = "Убрать загрузку (%@)";
+"Delete Wallpaper (%@)" = "Удалить обои (%@)";
+"Search wallpapers…" = "Поиск обоев…";
+
+/* Delete sheet */
+"Remove %@#=1" = "Убрать";
+"Remove %@#other" = "Убрать (%@)";
+"Delete %@#=1" = "Удалить";
+"Delete %@#other" = "Удалить (%@)";
+"Remove %@ downloads?#=1" = "Убрать эту загрузку?";
+"Remove %@ downloads?#other" = "Убрать загрузки (%@)?";
+"Delete %@ screen savers?#=1" = "Удалить эту заставку?";
+"Delete %@ screen savers?#one" = "Удалить %@ заставку?";
+"Delete %@ screen savers?#few" = "Удалить %@ заставки?";
+"Delete %@ screen savers?#many" = "Удалить %@ заставок?";
+"Delete %@ screen savers?#other" = "Удалить %@ заставок?";
+"Delete %@ wallpapers?#=1" = "Удалить эти обои?";
+"Delete %@ wallpapers?#other" = "Удалить обои (%@)?";
+"It goes to the Trash." = "Она будет перемещена в Корзину.";
+"They go to the Trash." = "Они будут перемещены в Корзину.";
+"Screen savers go to the Trash. The others you can download again." = "Заставки будут перемещены в Корзину. Остальное можно будет загрузить снова.";
+"You can download it again any time." = "Их можно загрузить снова в любое время.";
+"You can download them again any time." = "Их можно загрузить снова в любое время.";
+"This is your own video. Deleting it is permanent." = "Это ваше собственное видео. Удаление необратимо.";
+"These are your own videos. Deleting them is permanent." = "Это ваши собственные видео. Удаление необратимо.";
+"%@ are your own videos, and those are permanent.#other" = "Ваших собственных видео среди них: %@. Их удаление необратимо.";
+"LOCK SCREEN" = "ЭКРАН БЛОКИРОВКИ";
+"SCREEN SAVER" = "ЗАСТАВКА";
+"SHOWING NOW" = "СЕЙЧАС НА ЭКРАНЕ";
+"PLAYING ON %@" = "ИГРАЕТ: %@";
+"PLAYING NOW" = "СЕЙЧАС ИГРАЕТ";
+"%@ playlists and automations#other" = "Плейлистов и автоматизаций: %@";
+"It also comes out of %@." = "Также будет убрано из: %@.";
+"They also come out of %@." = "Также будут убраны из: %@.";
+
+/* Day timeline */
+"Not covered" = "Не запланировано";
+
+/* Download folder */
+"Cancelling…" = "Отмена…";
+"Moving your wallpapers…" = "Перемещение ваших обоев…";
+"Moving %@ of %@ wallpapers…" = "Перемещение обоев: %@ из %@…";
+"On this Mac, in Muro's own folder" = "На этом Mac, в собственной папке Muro";
+"%@ is not connected" = "«%@» не подключен";
+"Move Here" = "Переместить сюда";
+"Muro moves your downloaded wallpapers into a folder called %@ here. New downloads go there too." = "Muro переместит загруженные обои в папку «%@» в этом месте. Новые загрузки тоже будут сохраняться туда.";
+"Home@@folder" = "Домой";
+
+/* Explore */
+"Resolution" = "Разрешение";
+"FPS" = "Частота кадров";
+"%@ wallpapers#other" = "Обоев: %@";
+"Clear filters" = "Сбросить фильтры";
+"Loading wallpapers…" = "Загрузка обоев…";
+"Try another category, or widen the resolution and frame rate." = "Попробуйте другую категорию или расширьте условия по разрешению и частоте кадров.";
+"No wallpaper called %@. Try another word." = "Обоев «%@» нет. Попробуйте другое слово.";
+"Only the wallpapers you have already downloaded are showing." = "Показаны только уже загруженные обои.";
+"Checking…" = "Проверка…";
+"Try Again" = "Повторить";
+
+/* Shared pieces */
+"PLAYING" = "ИГРАЕТ";
+"Enter a number" = "Введите число";
+
+/* Home */
+"FEATURED" = "РЕКОМЕНДУЕМ";
+"%@ FPS" = "%@ FPS";
+"APPLIED · %@" = "ПРИМЕНЕНО · %@";
+"View Wallpaper" = "Смотреть обои";
+"Your library is empty" = "Ваша медиатека пуста";
+"Import your own videos with the + button, or browse Explore to download wallpapers." = "Импортируйте свои видео кнопкой + или загрузите обои в разделе «Обзор».";
+"New Live Wallpapers" = "Новые живые обои";
+"The latest wallpapers added to the catalog" = "Последние обои, добавленные в каталог";
+"Muro's Pick" = "Выбор Muro";
+"A different twelve every day" = "Каждый день двенадцать новых";
+
+/* Language */
+"Same as macOS" = "Как в macOS";
+
+/* Library */
+"Downloaded" = "Загруженные";
+"Liked" = "Избранное";
+"Playlists & Automations" = "Плейлисты и автоматизации";
+"Done" = "Готово";
+"Select" = "Выбрать";
+"Select None" = "Снять выбор";
+"Select All" = "Выбрать все";
+"%@ selected" = "Выбрано: %@";
+"Clear" = "Очистить";
+"Drop videos or screen savers here, or click to import" = "Перетащите сюда видео или заставки либо нажмите, чтобы импортировать";
+"MP4, MOV and M4V videos, and .saver screen savers" = "Видео MP4, MOV и M4V, а также заставки .saver";
+"%@ added." = "«%@» добавлено.";
+"%@ screen savers added." = "Добавлено заставок: %@.";
+"%@ is already added." = "«%@» уже добавлено.";
+"Those screen savers are already added." = "Эти заставки уже добавлены.";
+"YOUR SCREEN SAVERS" = "ВАШИ ЗАСТАВКИ";
+"FROM APPLE" = "ОТ APPLE";
+"Playlists" = "Плейлисты";
+"Automations" = "Автоматизации";
+"New Playlist" = "Новый плейлист";
+"Pick wallpapers and cycle them on a schedule" = "Выберите обои и меняйте их по расписанию";
+"Give each wallpaper its own time of day, or its own length" = "Задайте каждым обоям свое время суток или свою длительность";
+"Every %@ min" = "Каждые %@ мин";
+"Every hour" = "Каждый час";
+"Every %@ hr" = "Каждые %@ ч";
+"Shuffle on" = "Перемешивание вкл.";
+"Shuffle off" = "Перемешивание выкл.";
+"Edit Playlist" = "Изменить плейлист";
+"Shuffle Off" = "Выключить перемешивание";
+"Shuffle On" = "Включить перемешивание";
+"Delete Playlist" = "Удалить плейлист";
+"Nothing to play" = "Нечего воспроизводить";
+"%@ cycle" = "Цикл: %@";
+"Covers the whole day" = "Охватывает весь день";
+"%@ gaps#one" = "%@ пропуск";
+"%@ gaps#few" = "%@ пропуска";
+"%@ gaps#many" = "%@ пропусков";
+"%@ gaps#other" = "%@ пропусков";
+"Now: %@ until %@" = "Сейчас: %@ до %@";
+"CLOCK" = "ЧАСЫ";
+"TIMER" = "ТАЙМЕР";
+"No wallpapers in this automation yet" = "В этой автоматизации пока нет обоев";
+"Delete Automation" = "Удалить автоматизацию";
+"%@ hr" = "%@ ч";
+"Playlist name" = "Название плейлиста";
+"CHANGE WALLPAPER EVERY" = "МЕНЯТЬ ОБОИ КАЖДЫЕ";
+"Create Playlist" = "Создать плейлист";
+"Shuffle" = "Перемешать";
+"Every %@ hr %@ min" = "Каждые %@ ч %@ мин";
+"Custom interval" = "Свой интервал";
+"Delete “%@”?" = "Удалить «%@»?";
+"This playlist is deleted for good. Its wallpapers stay in your Library." = "Этот плейлист будет удален навсегда. Его обои останутся в медиатеке.";
+"This automation is deleted for good. Its wallpapers stay in your Library." = "Эта автоматизация будет удалена навсегда. Ее обои останутся в медиатеке.";
+
+/* Lock screen: problems */
+"Lock-screen live wallpapers require macOS 26 or later." = "Для живых обоев на экране блокировки нужна macOS 26 или новее.";
+"Muro’s lock-screen extension is missing. Reinstall this build of Muro." = "Расширение Muro для экрана блокировки отсутствует. Переустановите эту версию Muro.";
+"macOS would not load Muro’s lock-screen extension. Move Muro to your Applications folder, open it once from there, and try again." = "macOS не загрузила расширение Muro для экрана блокировки. Переместите Muro в папку «Программы», один раз откройте его оттуда и повторите попытку.";
+"macOS is running Muro from a temporary copy, so the lock screen cannot be set. Drag Muro into your Applications folder, then open it from there." = "macOS запускает Muro из временной копии, поэтому настроить экран блокировки нельзя. Перетащите Muro в папку «Программы» и откройте его оттуда.";
+"The macOS wallpaper store could not be found." = "Хранилище обоев macOS не найдено.";
+
+/* Menu bar icons */
+"Default@@icon" = "Обычный";
+"Outline" = "Контур";
+"Glass Moon" = "Стеклянная луна";
+"Planet" = "Планета";
+"Peaks" = "Вершины";
+"Display@@icon" = "Дисплей";
+
+/* Menu bar */
+"No wallpaper applied" = "Обои не применены";
+"Muro %@ available" = "Доступна версия Muro %@";
+"Version %@" = "Версия %@";
+"Play the sound" = "Включить звук";
+"Pause the sound" = "Приостановить звук";
+"PAUSED" = "ПРИОСТАНОВЛЕНО";
+"%@ DISPLAYS#one" = "%@ ДИСПЛЕЙ";
+"%@ DISPLAYS#few" = "%@ ДИСПЛЕЯ";
+"%@ DISPLAYS#many" = "%@ ДИСПЛЕЕВ";
+"%@ DISPLAYS#other" = "%@ ДИСПЛЕЕВ";
+"RECENTS" = "НЕДАВНИЕ";
+"PLAYLISTS & AUTOMATIONS" = "ПЛЕЙЛИСТЫ И АВТОМАТИЗАЦИИ";
+"Off" = "Выкл.";
+"Open Muro" = "Открыть Muro";
+"Quit Muro" = "Завершить Muro";
+"Language" = "Язык";
+"Check for Updates" = "Проверить обновления";
+"New Update Available" = "Новая версия";
+"Muro is up to date" = "У вас последняя версия Muro";
+"Could not check. Try again" = "Не удалось проверить. Повторите попытку";
+"Muro %@ is available" = "Вышла Muro %@";
+"Download" = "Загрузить";
+
+/* Alerts */
+"Settings…" = "Настройки…";
+"Couldn’t set wallpaper" = "Не удалось установить обои";
+"OK" = "ОК";
+"Unknown error" = "Неизвестная ошибка";
+"Couldn’t import video" = "Не удалось импортировать видео";
+"One more step" = "Остался один шаг";
+"Open System Settings" = "Открыть Системные настройки";
+"Later" = "Позже";
+"Muro set your lock screen wallpaper but macOS has not picked it up yet. Open System Settings, go to Wallpaper, and choose Muro to finish it." = "Muro установил обои экрана блокировки, но macOS их еще не применила. Откройте Системные настройки, перейдите в раздел «Обои» и выберите Muro, чтобы завершить.";
+"Muro cannot read your wallpaper list" = "Muro не может прочитать ваш список обоев";
+"Show the File" = "Показать файл";
+"Your wallpapers are safe on disk, and Muro has stopped rather than overwrite the list with an empty one. Liking, importing and downloading will not work until library.json is repaired or moved out of Muro's folder." = "Ваши обои в целости на диске, а Muro остановился, чтобы не заменить список пустым. Избранное, импорт и загрузка не будут работать, пока файл library.json не исправят или не уберут из папки Muro.";
+
+/* Now Playing */
+"Desktop" = "Рабочий стол";
+"Lock screen" = "Экран блокировки";
+"Screen saver" = "Заставка";
+"desktop@@short" = "рабочий стол";
+"lock@@short" = "блокировка";
+"saver@@short" = "заставка";
+"PLAYING EVERYWHERE" = "ИГРАЕТ ВЕЗДЕ";
+"No playlists or automations yet" = "Пока нет плейлистов и автоматизаций";
+"Everywhere" = "Везде";
+"On %@" = "Сейчас: %@";
+"PLAYLISTS" = "ПЛЕЙЛИСТЫ";
+"AUTOMATIONS" = "АВТОМАТИЗАЦИИ";
+"NOW PLAYING" = "СЕЙЧАС ИГРАЕТ";
+
+/* Wallpaper page */
+"Drawn by macOS · moves when you unlock" = "Рисует macOS · оживает при разблокировке";
+"Screen saver · drawn live by macOS" = "Заставка · macOS рисует ее в реальном времени";
+"Still picture · %@×%@" = "Неподвижное изображение · %@×%@";
+"%@ download" = "Загрузка: %@";
+"Still picture · %@×%@ · %@" = "Неподвижное изображение · %@×%@ · %@";
+"Video file missing · %@" = "Видеофайл отсутствует · %@";
+"Vertical video · zoomed in to fill the screen" = "Вертикальное видео · увеличено на весь экран";
+"Low resolution · may look soft on the screen" = "Низкое разрешение · на экране может выглядеть размыто";
+"Higher CPU" = "Больше нагрузка на ЦП";
+"Lower CPU" = "Меньше нагрузка на ЦП";
+"%@ fps · %@" = "%@ кадр/с · %@";
+"Use setting (%@)" = "Как в настройках (%@)";
+"Never pause" = "Не приостанавливать";
+"Pause after: how long this wallpaper moves before holding on a frame" = "Пауза через: сколько эти обои двигаются, прежде чем застыть на одном кадре";
+"%@% of %@" = "%@ % из %@";
+"Preview" = "Просмотр";
+"Preparing 30 fps…" = "Подготовка 30 кадр/с…";
+"Set Wallpaper" = "Установить обои";
+"Setting…" = "Установка…";
+"Applied" = "Применено";
+"This needs macOS 26" = "Требуется macOS 26";
+"The lock screen and the screen saver use a part of macOS that arrived in macOS 26. This Mac runs %@, so Muro can set your desktop but not those." = "Экран блокировки и заставка используют часть macOS, появившуюся в macOS 26. На этом Mac установлена %@, поэтому Muro может настроить рабочий стол, но не их.";
+"Set my desktop instead" = "Настроить рабочий стол";
+"Every display" = "Все дисплеи";
+"Choose display" = "Выберите дисплей";
+"macOS can't use a still picture as the screen saver." = "macOS не может использовать неподвижное изображение как заставку.";
+"All Screens" = "Все экраны";
+"Remove %@ from the screen saver" = "Убрать «%@» с заставки";
+"Apply %@ to the screen saver" = "Применить «%@» как заставку";
+"Remove" = "Убрать";
+"Apply to %@" = "Применить: %@";
+"Selected" = "Выбрано";
+"Not selected" = "Не выбрано";
+"The lock screen and screen saver require macOS 26 or later" = "Для экрана блокировки и заставки нужна macOS 26 или новее";
+"Remove all" = "Убрать все";
+"All displays" = "Все дисплеи";
+"Remove from all displays" = "Убрать со всех дисплеев";
+"Apply to all displays" = "Применить на всех дисплеях";
+"Remove %@ from %@" = "Убрать «%@»: %@";
+"Apply %@ to %@" = "Применить «%@»: %@";
+
+/* Settings */
+"GENERAL" = "ОСНОВНЫЕ";
+"Launch at Login" = "Открывать при входе";
+"Starts quietly in the background" = "Тихо запускается в фоне";
+"Show Menu Bar Icon" = "Значок в строке меню";
+"Show Dock Icon" = "Значок в Dock";
+"Off keeps Muro in the menu bar only" = "Если выключено, Muro остается только в строке меню";
+"Appearance" = "Оформление";
+"Default, Light or Dark" = "Как выглядит Muro";
+"Menu Bar Icon" = "Значок строки меню";
+"The icon Muro shows in the menu bar" = "Значок Muro в строке меню";
+"The language Muro is in" = "Язык интерфейса Muro";
+"PLAYBACK" = "ВОСПРОИЗВЕДЕНИЕ";
+"Playback Speed" = "Скорость";
+"How fast wallpapers play" = "Скорость воспроизведения обоев";
+"Default Quality" = "Качество по умолчанию";
+"Efficient caps at 30 fps for lower CPU" = "«Экономно»: до 30 кадр/с";
+"Smooth" = "Плавно";
+"Efficient" = "Экономно";
+"Live Wallpaper Sound" = "Звук живых обоев";
+"Your own videos play with sound" = "Ваши видео воспроизводятся со звуком";
+"All live wallpapers stay silent" = "Все живые обои воспроизводятся без звука";
+"Pause After" = "Пауза через";
+"Replay on Clear Desktop" = "Повтор при свободном рабочем столе";
+"Start Screen Saver" = "Запуск заставки";
+"ENERGY" = "ЭНЕРГИЯ";
+"Auto-pause in Low Power Mode" = "Пауза в режиме энергосбережения";
+"Freeze while saving energy" = "Замирают, пока экономится энергия";
+"Auto-pause below 20% battery" = "Пауза при заряде ниже 20 %";
+"Resumes automatically on power" = "Продолжают сами при питании от сети";
+"Auto-pause when covered" = "Пауза, когда закрыты окнами";
+"Freeze when a window or full screen app covers it" = "Замирают под окном или полноэкранной программой";
+"Play only on desktop" = "Только на свободном рабочем столе";
+"Freeze while a window is open on that screen" = "Замирают, пока на этом экране открыто окно";
+"DISPLAYS" = "ДИСПЛЕИ";
+"STORAGE" = "ХРАНИЛИЩЕ";
+"Library & Cache" = "Медиатека и кэш";
+"Keeps the wallpaper in use" = "Используемые обои остаются";
+"Apple Downloads" = "Загрузки Apple";
+"Aerials and pictures from the Apple section" = "Аэросъемка и изображения из раздела Apple";
+"Download Folder" = "Папка загрузок";
+"Default@@folder" = "Исходная";
+"Change" = "Изменить";
+"ABOUT" = "О ПРОГРАММЕ";
+"Software Update" = "Обновление ПО";
+"Support Muro" = "Поддержать Muro";
+"Muro is free. Sponsoring keeps it that way." = "Muro бесплатен благодаря вашей поддержке.";
+"Clear the library?" = "Очистить медиатеку?";
+"Wallpapers keep playing" = "Обои воспроизводятся постоянно";
+"Plays for %@, then holds on a frame" = "Воспроизводятся %@, затем застывают на кадре";
+"Saved. macOS uses it after the current wait ends, or now if you lock the screen." = "Сохранено. Сработает после текущего ожидания или сразу при блокировке.";
+"macOS is deciding. Pick a time to set it." = "Решает macOS. Выберите время.";
+"The screen saver never starts" = "Заставка не запускается";
+"Starts after %@ with no activity" = "Запускается через %@ бездействия";
+"Nothing to clear. Every wallpaper here is playing, or in a playlist or an automation." = "Очищать нечего. Все обои здесь воспроизводятся или входят в плейлист либо автоматизацию.";
+"Nothing to clear. The only wallpapers here are the ones in use." = "Очищать нечего. Здесь только используемые обои.";
+"This removes %@ wallpapers and frees about %@.#other" = "Будет удалено обоев: %@. Освободится около %@.";
+"%@ of them are from the Apple section and can be downloaded again.#other" = "Из раздела Apple: %@, их можно загрузить снова.";
+"The %@ in use stay.#=1" = "Обои, которые сейчас воспроизводятся, останутся.";
+"The %@ in use stay.#other" = "Используемые обои (%@) останутся.";
+"The %@ in your playlists and automations stay.#=1" = "Обои из ваших плейлистов и автоматизаций останутся.";
+"The %@ in your playlists and automations stay.#other" = "Обои из ваших плейлистов и автоматизаций (%@) останутся.";
+"%@ of them are your own videos and cannot be recovered.#other" = "Ваших собственных видео среди них: %@, их нельзя будет восстановить.";
+"Muro %@ is available. See what's new." = "Доступна версия Muro %@. Узнайте, что нового.";
+"Designed & developed by %@" = "Дизайн и разработка: %@";
+"Works with a Pause After time" = "Работает при заданном времени паузы";
+"Plays %@ again each time the desktop clears" = "Снова играют %@, когда рабочий стол свободен";
+"Checking GitHub…" = "Проверка GitHub…";
+"Muro %@ is the latest version" = "Это последняя версия: Muro %@";
+"Version %@ is available on GitHub" = "Версия %@ доступна на GitHub";
+"Couldn't check. Check your connection." = "Не удалось проверить. Проверьте подключение.";
+"Download ↗" = "Загрузить ↗";
+"Check Now" = "Проверить";
+"Quick controls from the menu bar" = "Быстрое управление из строки меню";
+"Open Muro from Launchpad or Spotlight" = "Открывайте Muro через Launchpad или Spotlight";
+
+/* Places, imports and messages */
+"All@@places" = "Везде";
+"Lockscreen" = "Блокировка";
+"Screensaver" = "Заставка";
+"Built-in" = "Встроенный";
+"ALL DISPLAYS" = "ВСЕ ДИСПЛЕИ";
+"%@ LOCK" = "БЛОКИРОВКА %@";
+"Applied on %@" = "Применено: %@";
+"Applied on all displays" = "Применено на всех дисплеях";
+"Applied on the %@ lock screen" = "Применено на экране блокировки: %@";
+"Applied on all lock screens" = "Применено на всех экранах блокировки";
+"Applied on the screen saver" = "Применено как заставка";
+"Main display" = "Основной дисплей";
+"Built-in display" = "Встроенный дисплей";
+"External display" = "Внешний дисплей";
+"Home" = "Главная";
+"Explore" = "Обзор";
+"Library" = "Медиатека";
+"Muro can't find the video for “%@”. It was moved or deleted outside Muro. Delete it in the Library, then download or import it again." = "Muro не может найти видео для «%@». Его переместили или удалили вне Muro. Удалите эти обои в медиатеке, а затем снова загрузите или импортируйте их.";
+"The downloaded wallpaper files could not be found." = "Файлы загруженных обоев не найдены.";
+"EVERYWHERE" = "ВЕЗДЕ";
+"ALL LOCK SCREENS" = "ВСЕ ЭКРАНЫ БЛОКИРОВКИ";
+"%@ PLACES#one" = "%@ МЕСТО";
+"%@ PLACES#few" = "%@ МЕСТА";
+"%@ PLACES#many" = "%@ МЕСТ";
+"%@ PLACES#other" = "%@ МЕСТ";
+"Applied everywhere" = "Применено везде";
+"Applied in %@ places#one" = "Применено в %@ месте";
+"Applied in %@ places#few" = "Применено в %@ местах";
+"Applied in %@ places#many" = "Применено в %@ местах";
+"Applied in %@ places#other" = "Применено в %@ местах";
+"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro импортирует видео MP4, MOV и M4V, а также заставки .saver. Ничего не добавлено.";
+"Importing" = "Импорт";
+"Importing %@ of %@" = "Импорт: %@ из %@";
+"%@ is already in your Library." = "«%@» уже есть в медиатеке.";
+"%@ of those videos are already in your Library." = "Уже есть в медиатеке: %@ из этих видео.";
+"This video could not be imported." = "Не удалось импортировать это видео.";
+"%@ of %@ videos could not be imported." = "Не удалось импортировать видео: %@ из %@.";
+"%@ files were skipped. Muro imports MP4, MOV and M4V videos.#one" = "Пропущен %@ файл. Muro импортирует видео MP4, MOV и M4V.";
+"%@ files were skipped. Muro imports MP4, MOV and M4V videos.#few" = "Пропущено %@ файла. Muro импортирует видео MP4, MOV и M4V.";
+"%@ files were skipped. Muro imports MP4, MOV and M4V videos.#many" = "Пропущено %@ файлов. Muro импортирует видео MP4, MOV и M4V.";
+"%@ files were skipped. Muro imports MP4, MOV and M4V videos.#other" = "Пропущено %@ файлов. Muro импортирует видео MP4, MOV и M4V.";
+"The playlist" = "Плейлист";
+"Playlist stopped" = "Плейлист остановлен";
+"%@ has no wallpapers left, so it stopped." = "В «%@» не осталось обоев, поэтому воспроизведение остановлено.";
+"The automation" = "Автоматизация";
+"Automation stopped" = "Автоматизация остановлена";
+"%@ wallpapers removed#other" = "Удалено обоев: %@";
+"about %@ freed" = "освобождено около %@";
+"%@ of leftovers swept" = "удалено остатков: %@";
+"Nothing to clear" = "Очищать нечего";
+"It has no video track." = "В нем нет видеодорожки.";
+"It could not be read. The file may be damaged, or in a format macOS cannot open." = "Не удалось прочитать файл. Возможно, он поврежден или его формат macOS не открывает.";
+"It could not be converted to HEVC." = "Не удалось преобразовать в HEVC.";
+"A picture could not be taken from it." = "Не удалось получить из него изображение.";
+
+/* Looks and sizes */
+"Default@@look" = "Обычное";
+"%@ GB" = "%@ ГБ";
+"%@ MB" = "%@ МБ";
+
+/* What's New */
+"October 2026" = "Октябрь 2026 г.";
+"Apple's aerials and screen savers are in Muro now, your playlists can play on the lock screen and the screen saver, and Muro comes in Light and Dark with a new icon." = "Теперь в Muro есть аэросъемка и заставки Apple, плейлисты можно воспроизводить на экране блокировки и в заставке, а у Muro появились светлое и темное оформление и новый значок.";
+"New" = "Новое";
+"The Apple section" = "Раздел Apple";
+"Apple's aerials and Dynamic Wallpapers, in a tab of their own." = "Аэросъемка и динамические обои Apple на отдельной вкладке.";
+"Apple's screen savers in 4K" = "Заставки Apple в 4K";
+"Flurry, Hello, Drift and five more as seamless 4K videos, for the desktop, the lock screen or the screen saver." = "«Шквал», «Приветствие», «Дрейф» и еще пять в виде бесшовных видео 4K для рабочего стола, экрана блокировки или заставки.";
+"Playlists on the lock screen and the screen saver" = "Плейлисты на экране блокировки и в заставке";
+"The desktop, the lock screen and the screen saver can each play their own, and Off brings back what was there before." = "Рабочий стол, экран блокировки и заставка могут воспроизводить каждый свое, а «Выкл.» возвращает то, что было раньше.";
+"Default, Light and Dark" = "Обычное, светлое и темное";
+"Choose how Muro looks in Settings: the classic midnight blue, clean white or true black." = "Выберите оформление Muro в настройках: классический полуночный синий, чистый белый или настоящий черный.";
+"A new icon" = "Новый значок";
+"The Glass Moon. In the Dock it follows your Mac's icon style, light or dark." = "Стеклянная луна. В Dock значок следует стилю значков вашего Mac, светлому или темному.";
+"Your own screen savers" = "Ваши собственные заставки";
+"Add .saver files like XScreenSaver from the Library, and set them from Muro." = "Добавляйте файлы .saver, например XScreenSaver, в медиатеке и устанавливайте их из Muro.";
+"Keep your wallpapers on any drive" = "Храните обои на любом диске";
+"Pick their folder in Settings. A move shows how far it is and can be cancelled." = "Выберите для них папку в настройках. Во время перемещения виден ход, и его можно отменить.";
+"A new look for Settings" = "Новый вид настроек";
+"Each setting has a glass icon of its own." = "У каждой настройки свой стеклянный значок.";
+"Choose your menu bar icon" = "Выбирайте значок для строки меню";
+"Six to pick from in Settings, from the classic moon to a ringed planet." = "Шесть вариантов в настройках, от классической луны до планеты с кольцами.";
+"Fixed" = "Исправлено";
+"A crash on macOS 14" = "Сбой в macOS 14";
+"Muro 6.0 and 6.0.1 quit the moment they opened on macOS 14." = "В macOS 14 Muro 6.0 и 6.0.1 закрывались сразу после открытия.";
+"A crash when Muro opened" = "Сбой при открытии Muro";
+"On some Macs, Apple's older aerial list made Muro 6.0 quit the moment it opened." = "На некоторых Mac из-за старого списка аэросъемок Apple Muro 6.0 закрывался сразу после открытия.";
+"The flick at the loop" = "Рывок при повторе";
+"Some wallpapers stopped for a moment every time they looped, on the desktop, the lock screen and the screen saver." = "Некоторые обои на мгновение замирали при каждом повторе на рабочем столе, экране блокировки и в заставке.";
+"The lock screen and the screen saver on new Macs" = "Экран блокировки и заставка на новых Mac";
+"Setting one also changed the other." = "Настройка одного меняла и другое.";
+"The lock screen on some Macs" = "Экран блокировки на некоторых Mac";
+"It stayed on Apple's wallpaper because macOS never switched Muro on for it. Muro now does that itself." = "На нем оставались обои Apple, потому что macOS так и не включала для него Muro. Теперь Muro делает это сам.";
+"Playlists keep your choices" = "Плейлисты сохраняют ваш выбор";
+"A wallpaper you set by hand, or a pause, was undone at the next step." = "Обои, установленные вручную, или пауза отменялись на следующем шаге.";
+"Clear keeps playlist wallpapers" = "Очистка сохраняет обои из плейлистов";
+"Clearing the library deleted wallpapers your playlists and automations use." = "Очистка медиатеки удаляла обои, которые используют ваши плейлисты и автоматизации.";
+"A crash in the Custom boxes" = "Сбой в полях «Настроить»";
+"A very long number made Muro quit." = "Очень длинное число приводило к закрытию Muro.";
+"Lighter" = "Легче";
+"The gallery lets go of its pictures when it is closed, so Muro uses less memory." = "Галерея освобождает изображения, когда ее закрывают, поэтому Muro использует меньше памяти.";
+"Some other major bug fixes and improvements" = "Другие важные исправления и улучшения";
+"Across the gallery, the Library, the menu bar and Settings." = "В галерее, медиатеке, строке меню и настройках.";
+"IN THE VERSION YOU HAVE" = "В ВАШЕЙ ВЕРСИИ";
+"What's New" = "Что нового";
+"UPDATE AVAILABLE" = "ДОСТУПНО ОБНОВЛЕНИЕ";
+"The notes for this release are on the release page." = "Описание этого выпуска находится на странице выпуска.";
+"Download Muro %@" = "Загрузить Muro %@";
+"Release Notes" = "Описание выпуска";
+"The notes for this update are on the way" = "Описание этого обновления скоро появится";
+"Everything that changed will be listed right here: what is new, what got better, and what was fixed." = "Здесь будет все, что изменилось: что нового, что стало лучше и что исправлено.";
+"You are running Muro %@, the latest version" = "У вас Muro %@, последняя версия";
+"You are running Muro %@" = "У вас Muro %@";
+"Earlier releases" = "Предыдущие выпуски";
+
+/* Categories (stored in English, shown in the chosen language) */
+"Abstract@@category" = "Абстракция";
+"Anime@@category" = "Аниме";
+"Cars@@category" = "Машины";
+"Movies@@category" = "Кино";
+"Nature@@category" = "Природа";
+"Sci-fi@@category" = "Фантастика";
+"Video Games@@category" = "Игры";
+"My Videos@@category" = "Мои видео";
+"Other@@category" = "Другое";
+"Yours@@category" = "Ваши";
+"Screen Savers@@category" = "Заставки";
+
+/* Apple's screen savers (Apple's own names) */
+"Arabesque@@saver" = "Арабеска";
+"Drift@@saver" = "Дрейф";
+"Flurry@@saver" = "Шквал";
+"Hello@@saver" = "Приветствие";
+"Monterey@@saver" = "Monterey";
+"Shell@@saver" = "Shell";
+"Ventura@@saver" = "Ventura";
+"Word of the Day@@saver" = "Слово дня";

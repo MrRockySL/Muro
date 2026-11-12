@@ -49,7 +49,8 @@ struct ExploreView: View {
             if fps != "All", "\(standardFrameRate(item.fps))" != fps { return false }
             if !store.searchText.isEmpty,
                !item.title.localizedCaseInsensitiveContains(store.searchText),
-               !item.category.localizedCaseInsensitiveContains(store.searchText) {
+               !item.category.localizedCaseInsensitiveContains(store.searchText),
+               !categoryTitle(item.category).localizedCaseInsensitiveContains(store.searchText) {
                 return false
             }
             return true
@@ -118,7 +119,7 @@ struct ExploreView: View {
     // MARK: - Categories
 
     private var categoryOptions: [PillOption] {
-        [PillOption("All", "All")] + store.categories.map { PillOption($0, $0) }
+        [PillOption("All", L("All", ctx: "filter"))] + store.categories.map { PillOption($0, categoryTitle($0)) }
     }
 
     private var categorySegments: some View {
@@ -177,13 +178,13 @@ struct ExploreView: View {
             Spacer(minLength: 12)
             if narrowed { clearFilters }
             FilterDropdown(
-                title: "Resolution",
+                title: L("Resolution"),
                 value: resolution,
                 width: 190,
                 options: { pickOptions(all: resolutionOptions, selection: resolution) { resolution = $0 } }
             )
             FilterDropdown(
-                title: "FPS",
+                title: L("FPS"),
                 value: fps,
                 width: 160,
                 options: { pickOptions(all: fpsOptions, selection: fps) { fps = $0 } }
@@ -195,9 +196,8 @@ struct ExploreView: View {
 
     private var countLine: String {
         let count = filtered.count
-        let noun = count == 1 ? "wallpaper" : "wallpapers"
-        if category == "All" { return "\(count) \(noun)" }
-        return "\(count) \(noun) in \(category)"
+        if category == "All" { return LN("%@ wallpapers", count) }
+        return LN("%@ wallpapers in %@", count, categoryTitle(category))
     }
 
     private var clearFilters: some View {
@@ -208,7 +208,7 @@ struct ExploreView: View {
             HStack(spacing: 6) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9.5, weight: .semibold))
-                Text("Clear filters")
+                Text(L("Clear filters"))
                     .font(.system(size: 12, weight: .semibold))
             }
             .foregroundStyle(Color.muroAccent)
@@ -225,7 +225,8 @@ struct ExploreView: View {
         all: [String], selection: String, choose: @escaping (String) -> Void
     ) -> [MenuOption] {
         (["All"] + all).map { value in
-            MenuOption(title: value, checked: selection == value) { choose(value) }
+            MenuOption(title: value == "All" ? L("All", ctx: "filter") : value,
+                       checked: selection == value) { choose(value) }
         }
     }
 
@@ -271,7 +272,7 @@ struct ExploreView: View {
             ProgressView()
                 .controlSize(.large)
                 .tint(Color.muroAccent)
-            Text("Loading wallpapers…")
+            Text(L("Loading wallpapers…"))
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Color.muroSecondary)
         }
@@ -301,12 +302,12 @@ struct ExploreView: View {
     private var noMatchesState: some View {
         VStack(spacing: 12) {
             emptyIcon("sparkle.magnifyingglass")
-            Text("Nothing matches that")
+            Text(L("Nothing matches that"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.muroInk)
             Text(store.searchText.isEmpty
-                 ? "Try another category, or widen the resolution and frame rate."
-                 : "No wallpaper called \(store.searchText). Try another word.")
+                 ? L("Try another category, or widen the resolution and frame rate.")
+                 : L("No wallpaper called %@. Try another word.", store.searchText))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Color.muroSecondary)
                 .multilineTextAlignment(.center)
@@ -330,7 +331,7 @@ struct ExploreView: View {
                     Text(problem.title)
                         .font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(Color.muroInk)
-                    Text("Only the wallpapers you have already downloaded are showing.")
+                    Text(L("Only the wallpapers you have already downloaded are showing."))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Color.muroSecondary)
                 }
@@ -364,7 +365,7 @@ struct ExploreView: View {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 11, weight: .semibold))
                 }
-                Text(store.catalogRefreshing ? "Checking…" : "Try Again")
+                Text(store.catalogRefreshing ? L("Checking…") : L("Try Again"))
                     .font(.system(size: 12.5, weight: .semibold))
             }
             .foregroundStyle(Color.muroAccent)
@@ -418,7 +419,7 @@ struct FilterDropdown: View {
                 Text(title)
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(Color.muroSecondary)
-                Text(value)
+                Text(value == "All" ? L("All", ctx: "filter") : value)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(set ? Color.muroAccent : Color.muroInk)
                 Image(systemName: "chevron.down")

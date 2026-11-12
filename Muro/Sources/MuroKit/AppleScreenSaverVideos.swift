@@ -61,7 +61,10 @@ public enum AppleScreenSaverVideos {
         recordings.enumerated().map { index, recording in
             let assetID = assetPrefix + recording.slug
             return AppleAerial(
-                id: AppleAerials.muroID(assetID: assetID), assetID: assetID, name: recording.name,
+                // Apple's own name for it in the language Muro is in: Flurry
+                // is Wirbel in German and 光舞 in Chinese.
+                id: AppleAerials.muroID(assetID: assetID), assetID: assetID,
+                name: L(recording.name, ctx: "saver"),
                 category: category, categoryOrder: categoryOrder, order: index,
                 thumbnailPath: nil,
                 previewImageURL: base.appendingPathComponent("thumbs/\(assetID).jpg"),

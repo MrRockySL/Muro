@@ -74,6 +74,9 @@ struct AppleGalleryView: View {
         // Every time the section opens, until it is turned off in the card
         // itself (owner, 2026-09-30).
         .onAppear { if AppleNoticeCard.wanted { store.appleNoticeOpen = true } }
+        // Apple's names are read in the language Muro is in, so a change of
+        // language reads the list again.
+        .onChange(of: Localization.shared.language) { _, _ in model.load() }
         // A category Apple no longer ships would leave the page filtered to
         // nothing with no lit pill to say why. Explore guards the same thing.
         .onChange(of: model.categories) { _, list in
@@ -87,8 +90,8 @@ struct AppleGalleryView: View {
         ZStack {
             PillSegments(
                 options: [
-                    PillOption(Kind.aerials.rawValue, "Aerials", count: model.aerialCount),
-                    PillOption(Kind.screenSavers.rawValue, "Screen Savers",
+                    PillOption(Kind.aerials.rawValue, L("Aerials"), count: model.aerialCount),
+                    PillOption(Kind.screenSavers.rawValue, L("Screen Savers"),
                                count: model.aerials == nil ? nil : model.screenSavers(matching: "").count)
                 ],
                 selection: Binding(
@@ -141,7 +144,7 @@ struct AppleGalleryView: View {
     }
 
     private var categoryOptions: [PillOption] {
-        [PillOption("All", "All")] + model.categories.map { PillOption($0, $0) }
+        [PillOption("All", L("All", ctx: "filter"))] + model.categories.map { PillOption($0, categoryTitle($0)) }
     }
 
     /// The Library's small switch, at the same size, so the page reads as two
@@ -192,9 +195,8 @@ struct AppleGalleryView: View {
 
     private var countLine: String {
         let count = shown.count
-        let noun = count == 1 ? "wallpaper" : "wallpapers"
-        if category == "All" { return "\(count) \(noun) from Apple" }
-        return "\(count) \(noun) in \(category)"
+        if category == "All" { return LN("%@ wallpapers from Apple", count) }
+        return LN("%@ wallpapers in %@", count, categoryTitle(category))
     }
 
     /// Videos ready to play, and still pictures downloaded, on this page.
@@ -209,7 +211,7 @@ struct AppleGalleryView: View {
         HStack(spacing: 6) {
             Image(systemName: "arrow.down.circle.fill")
                 .font(.system(size: 10.5, weight: .semibold))
-            Text("\(downloadedCount) on this Mac")
+            Text(L("%@ on this Mac", downloadedCount))
                 .font(.system(size: 12, weight: .semibold))
         }
         .foregroundStyle(Color.muroAccent)
@@ -250,7 +252,7 @@ struct AppleGalleryView: View {
                     // page with the tab still saying 8 (full check,
                     // 2026-10-01). It answers the way the aerials do.
                     if savers.isEmpty {
-                        if model.loaded { noMatchesState(noun: "screen saver") } else { loadingState }
+                        if model.loaded { noMatchesState(screenSavers: true) } else { loadingState }
                     } else {
                         saverGrid(savers)
                     }
@@ -286,7 +288,7 @@ struct AppleGalleryView: View {
         } else if model.aerials == nil {
             noStoreState
         } else {
-            noMatchesState(noun: "aerial")
+            noMatchesState(screenSavers: false)
         }
     }
 
@@ -295,7 +297,7 @@ struct AppleGalleryView: View {
             ProgressView()
                 .controlSize(.large)
                 .tint(Color.muroAccent)
-            Text("Reading Apple's wallpapers…")
+            Text(L("Reading Apple's wallpapers…"))
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(Color.muroSecondary)
         }
@@ -306,11 +308,10 @@ struct AppleGalleryView: View {
     private var noStoreState: some View {
         VStack(spacing: 12) {
             emptyIcon("macwindow.badge.plus")
-            Text("Apple's wallpapers are not on this Mac yet")
+            Text(L("Apple's wallpapers are not on this Mac yet"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.muroInk)
-            Text("Open System Settings and look at Wallpaper once. macOS writes "
-                 + "its list of aerials then, and Muro reads the same list.")
+            Text(L("Open System Settings and look at Wallpaper once. macOS writes its list of aerials then, and Muro reads the same list."))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Color.muroSecondary)
                 .multilineTextAlignment(.center)
@@ -319,7 +320,7 @@ struct AppleGalleryView: View {
             Button {
                 model.load()
             } label: {
-                Text("Look Again")
+                Text(L("Look Again"))
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(Color.muroAccent)
                     .padding(.horizontal, 18)
@@ -334,15 +335,17 @@ struct AppleGalleryView: View {
         .padding(.vertical, 70)
     }
 
-    private func noMatchesState(noun: String) -> some View {
+    private func noMatchesState(screenSavers: Bool) -> some View {
         VStack(spacing: 12) {
             emptyIcon("sparkle.magnifyingglass")
-            Text("Nothing matches that")
+            Text(L("Nothing matches that"))
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.muroInk)
             Text(store.searchText.isEmpty
-                 ? "Try another category."
-                 : "No \(noun) called \(store.searchText). Try another word.")
+                 ? L("Try another category.")
+                 : (screenSavers
+                    ? L("No screen saver called %@. Try another word.", store.searchText)
+                    : L("No aerial called %@. Try another word.", store.searchText)))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Color.muroSecondary)
                 .multilineTextAlignment(.center)

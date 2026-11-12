@@ -38,55 +38,57 @@ struct WhatsNewRelease: Identifiable {
 /// Data, never layout: the sheet draws whatever is here, so writing the next
 /// release is editing this one list.
 enum WhatsNew {
-    static let current = WhatsNewRelease(
+    /// Built each time it is read, so it comes out in the language Muro is in
+    /// at that moment and not the one it started in.
+    static var current: WhatsNewRelease { WhatsNewRelease(
         version: "6.0.2",
-        date: "October 2026",
-        headline: "Apple's aerials and screen savers are in Muro now, your playlists can play on the lock screen and the screen saver, and Muro comes in Light and Dark with a new icon.",
+        date: L("October 2026"),
+        headline: L("Apple's aerials and screen savers are in Muro now, your playlists can play on the lock screen and the screen saver, and Muro comes in Light and Dark with a new icon."),
         sections: [
-            WhatsNewSection(name: "New", tint: .muroAccent, entries: [
-                WhatsNewEntry(title: "The Apple section",
-                              detail: "Apple's aerials and Dynamic Wallpapers, in a tab of their own."),
-                WhatsNewEntry(title: "Apple's screen savers in 4K",
-                              detail: "Flurry, Hello, Drift and five more as seamless 4K videos, for the desktop, the lock screen or the screen saver."),
-                WhatsNewEntry(title: "Playlists on the lock screen and the screen saver",
-                              detail: "The desktop, the lock screen and the screen saver can each play their own, and Off brings back what was there before."),
-                WhatsNewEntry(title: "Default, Light and Dark",
-                              detail: "Choose how Muro looks in Settings: the classic midnight blue, clean white or true black."),
-                WhatsNewEntry(title: "A new icon",
-                              detail: "The Glass Moon. In the Dock it follows your Mac's icon style, light or dark."),
-                WhatsNewEntry(title: "Your own screen savers",
-                              detail: "Add .saver files like XScreenSaver from the Library, and set them from Muro."),
-                WhatsNewEntry(title: "Keep your wallpapers on any drive",
-                              detail: "Pick their folder in Settings. A move shows how far it is and can be cancelled."),
-                WhatsNewEntry(title: "A new look for Settings",
-                              detail: "Each setting has a glass icon of its own."),
-                WhatsNewEntry(title: "Choose your menu bar icon",
-                              detail: "Six to pick from in Settings, from the classic moon to a ringed planet."),
+            WhatsNewSection(name: L("New"), tint: .muroAccent, entries: [
+                WhatsNewEntry(title: L("The Apple section"),
+                              detail: L("Apple's aerials and Dynamic Wallpapers, in a tab of their own.")),
+                WhatsNewEntry(title: L("Apple's screen savers in 4K"),
+                              detail: L("Flurry, Hello, Drift and five more as seamless 4K videos, for the desktop, the lock screen or the screen saver.")),
+                WhatsNewEntry(title: L("Playlists on the lock screen and the screen saver"),
+                              detail: L("The desktop, the lock screen and the screen saver can each play their own, and Off brings back what was there before.")),
+                WhatsNewEntry(title: L("Default, Light and Dark"),
+                              detail: L("Choose how Muro looks in Settings: the classic midnight blue, clean white or true black.")),
+                WhatsNewEntry(title: L("A new icon"),
+                              detail: L("The Glass Moon. In the Dock it follows your Mac's icon style, light or dark.")),
+                WhatsNewEntry(title: L("Your own screen savers"),
+                              detail: L("Add .saver files like XScreenSaver from the Library, and set them from Muro.")),
+                WhatsNewEntry(title: L("Keep your wallpapers on any drive"),
+                              detail: L("Pick their folder in Settings. A move shows how far it is and can be cancelled.")),
+                WhatsNewEntry(title: L("A new look for Settings"),
+                              detail: L("Each setting has a glass icon of its own.")),
+                WhatsNewEntry(title: L("Choose your menu bar icon"),
+                              detail: L("Six to pick from in Settings, from the classic moon to a ringed planet.")),
             ]),
-            WhatsNewSection(name: "Fixed", tint: .muroGreen, entries: [
-                WhatsNewEntry(title: "A crash on macOS 14",
-                              detail: "Muro 6.0 and 6.0.1 quit the moment they opened on macOS 14."),
-                WhatsNewEntry(title: "A crash when Muro opened",
-                              detail: "On some Macs, Apple's older aerial list made Muro 6.0 quit the moment it opened."),
-                WhatsNewEntry(title: "The flick at the loop",
-                              detail: "Some wallpapers stopped for a moment every time they looped, on the desktop, the lock screen and the screen saver."),
-                WhatsNewEntry(title: "The lock screen and the screen saver on new Macs",
-                              detail: "Setting one also changed the other."),
-                WhatsNewEntry(title: "The lock screen on some Macs",
-                              detail: "It stayed on Apple's wallpaper because macOS never switched Muro on for it. Muro now does that itself."),
-                WhatsNewEntry(title: "Playlists keep your choices",
-                              detail: "A wallpaper you set by hand, or a pause, was undone at the next step."),
-                WhatsNewEntry(title: "Clear keeps playlist wallpapers",
-                              detail: "Clearing the library deleted wallpapers your playlists and automations use."),
-                WhatsNewEntry(title: "A crash in the Custom boxes",
-                              detail: "A very long number made Muro quit."),
-                WhatsNewEntry(title: "Lighter",
-                              detail: "The gallery lets go of its pictures when it is closed, so Muro uses less memory."),
-                WhatsNewEntry(title: "Some other major bug fixes and improvements",
-                              detail: "Across the gallery, the Library, the menu bar and Settings."),
+            WhatsNewSection(name: L("Fixed"), tint: .muroGreen, entries: [
+                WhatsNewEntry(title: L("A crash on macOS 14"),
+                              detail: L("Muro 6.0 and 6.0.1 quit the moment they opened on macOS 14.")),
+                WhatsNewEntry(title: L("A crash when Muro opened"),
+                              detail: L("On some Macs, Apple's older aerial list made Muro 6.0 quit the moment it opened.")),
+                WhatsNewEntry(title: L("The flick at the loop"),
+                              detail: L("Some wallpapers stopped for a moment every time they looped, on the desktop, the lock screen and the screen saver.")),
+                WhatsNewEntry(title: L("The lock screen and the screen saver on new Macs"),
+                              detail: L("Setting one also changed the other.")),
+                WhatsNewEntry(title: L("The lock screen on some Macs"),
+                              detail: L("It stayed on Apple's wallpaper because macOS never switched Muro on for it. Muro now does that itself.")),
+                WhatsNewEntry(title: L("Playlists keep your choices"),
+                              detail: L("A wallpaper you set by hand, or a pause, was undone at the next step.")),
+                WhatsNewEntry(title: L("Clear keeps playlist wallpapers"),
+                              detail: L("Clearing the library deleted wallpapers your playlists and automations use.")),
+                WhatsNewEntry(title: L("A crash in the Custom boxes"),
+                              detail: L("A very long number made Muro quit.")),
+                WhatsNewEntry(title: L("Lighter"),
+                              detail: L("The gallery lets go of its pictures when it is closed, so Muro uses less memory.")),
+                WhatsNewEntry(title: L("Some other major bug fixes and improvements"),
+                              detail: L("Across the gallery, the Library, the menu bar and Settings.")),
             ]),
         ]
-    )
+    ) }
 
     // Past releases are deliberately not listed here. Keeping them inline meant
     // the sheet grew by one more release every time, and 4.0 opened onto a
@@ -120,7 +122,7 @@ struct WhatsNewView: View {
                     // that, and should not have to scroll past old news.
                     if let update = store.latestRelease {
                         updateBlock(update)
-                        SectionLabel("IN THE VERSION YOU HAVE")
+                        SectionLabel(L("IN THE VERSION YOU HAVE"))
                     }
                     releaseCard
                     if release.isEmpty {
@@ -147,7 +149,7 @@ struct WhatsNewView: View {
         HStack(spacing: 12) {
             MuroAppIcon()
                 .frame(width: 32, height: 32)
-            Text("What's New")
+            Text(L("What's New"))
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Color.muroInk)
             Spacer()
@@ -251,7 +253,7 @@ struct WhatsNewView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.system(size: 9.5, weight: .semibold))
-                    Text("UPDATE AVAILABLE")
+                    Text(L("UPDATE AVAILABLE"))
                         .font(.system(size: 9.5, weight: .semibold))
                         .tracking(1.3)
                 }
@@ -279,7 +281,7 @@ struct WhatsNewView: View {
             }
 
             if update.isEmpty {
-                Text("The notes for this release are on the release page.")
+                Text(L("The notes for this release are on the release page."))
                     .font(.system(size: 12.5))
                     .foregroundStyle(Color.muroSecondary)
             } else {
@@ -298,10 +300,10 @@ struct WhatsNewView: View {
             }
 
             HStack(spacing: 10) {
-                PrimaryPill(title: "Download Muro \(update.version)") {
+                PrimaryPill(title: L("Download Muro %@", update.version)) {
                     store.downloadUpdate()
                 }
-                GhostPill(title: "Release Notes") {
+                GhostPill(title: L("Release Notes")) {
                     NSWorkspace.shared.open(update.page)
                 }
                 Spacer(minLength: 0)
@@ -346,7 +348,13 @@ struct WhatsNewView: View {
 
     private static func dateText(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "d MMMM yyyy"
+        formatter.locale = Localization.shared.formattingLocale
+        if Localization.shared.language == .english {
+            formatter.dateFormat = "d MMMM yyyy"
+        } else {
+            // Each language orders a date its own way: "2026年10月5日".
+            formatter.setLocalizedDateFormatFromTemplate("dMMMMyyyy")
+        }
         return formatter.string(from: date)
     }
 
@@ -391,10 +399,10 @@ struct WhatsNewView: View {
                 .frame(width: 54, height: 54)
                 .background(Circle().fill(.glassSheen(0.14, 0.05)))
                 .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.16), lineWidth: 1))
-            Text("The notes for this update are on the way")
+            Text(L("The notes for this update are on the way"))
                 .font(.system(size: 14.5, weight: .semibold))
                 .foregroundStyle(Color.muroInk)
-            Text("Everything that changed will be listed right here: what is new, what got better, and what was fixed.")
+            Text(L("Everything that changed will be listed right here: what is new, what got better, and what was fixed."))
                 .font(.system(size: 12.5))
                 .foregroundStyle(Color.muroSecondary)
                 .multilineTextAlignment(.center)
@@ -419,16 +427,16 @@ struct WhatsNewView: View {
         SheetFooter {
             Text(
                 store.latestRelease == nil
-                    ? "You are running Muro \(AppStore.appVersion), the latest version"
-                    : "You are running Muro \(AppStore.appVersion)"
+                    ? L("You are running Muro %@, the latest version", AppStore.appVersion)
+                    : L("You are running Muro %@", AppStore.appVersion)
             )
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(Color.muroSecondary)
         } actions: {
-            GhostPill(title: "Earlier releases") {
+            GhostPill(title: L("Earlier releases")) {
                 NSWorkspace.shared.open(WhatsNew.releasesURL)
             }
-            PrimaryPill(title: "Done") { dismiss() }
+            PrimaryPill(title: L("Done")) { dismiss() }
         }
     }
 }

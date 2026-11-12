@@ -132,9 +132,9 @@ public enum CatalogError: LocalizedError, Equatable {
     /// The headline. Short enough to sit under an icon.
     public var title: String {
         switch self {
-        case .unreachable: return "Muro cannot reach the internet"
-        case .server: return "The wallpaper catalog is not answering"
-        case .unreadable: return "Something is blocking the wallpaper catalog"
+        case .unreachable: return L("Muro cannot reach the internet")
+        case .server: return L("The wallpaper catalog is not answering")
+        case .unreadable: return L("Something is blocking the wallpaper catalog")
         }
     }
 
@@ -143,24 +143,15 @@ public enum CatalogError: LocalizedError, Equatable {
     public var detail: String {
         switch self {
         case .unreachable:
-            return """
-            Check that you are online, then try again. A VPN, a firewall or a \
-            DNS filter can also stop Muro reaching its wallpapers.
-            """
+            return L("Check that you are online, then try again. A VPN, a firewall or a DNS filter can also stop Muro reaching its wallpapers.")
         case .server(let status):
-            return """
-            The server answered with an error (\(status)). This is usually \
-            temporary, so try again in a minute.
-            """
+            return L("The server answered with an error (%@). This is usually temporary, so try again in a minute.", status)
         case .unreadable:
-            return """
-            Muro reached the catalog but what came back was not the wallpaper \
-            list. A VPN, a company network or a DNS filter can do this.
-            """
+            return L("Muro reached the catalog but what came back was not the wallpaper list. A VPN, a company network or a DNS filter can do this.")
         }
     }
 
-    public var errorDescription: String? { "\(title). \(detail)" }
+    public var errorDescription: String? { L("%@. %@", title, detail) }
 
     /// Everything that can go wrong on the way to a catalog, sorted into the
     /// three cases. Anything unrecognised counts as unreachable, which is the

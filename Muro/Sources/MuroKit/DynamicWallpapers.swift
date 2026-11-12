@@ -232,7 +232,8 @@ public enum DynamicWallpapers {
                 for (side, variant) in ["Light", "Dark"].enumerated() {
                     out.append(maker.picture(
                         slug: "\(slugged(picture.base))-\(variant.lowercased())",
-                        name: "\(name) \(variant)", order: slot + side,
+                        name: "\(name) \(side == 0 ? L("Light", ctx: "look") : L("Dark", ctx: "look"))",
+                        order: slot + side,
                         thumbnail: existing(thumbnails.appendingPathComponent("\(picture.base) \(variant).heic"))
                             ?? existing(thumbnails.appendingPathComponent("\(picture.base).heic")),
                         source: download?.url ?? desktopPictures.appendingPathComponent(picture.base),
@@ -403,7 +404,7 @@ public enum DynamicWallpapers {
 
     /// The words Apple's own extension uses for its light and dark cuts.
     static func lightDarkWords(_ strings: [String: String]) -> (light: String, dark: String) {
-        (strings["DYNAMIC_TYPE_LIGHT"] ?? strings["APPEARANCE_LIGHT"] ?? "Light",
-         strings["DYNAMIC_TYPE_DARK"] ?? strings["APPEARANCE_DARK"] ?? "Dark")
+        (strings["DYNAMIC_TYPE_LIGHT"] ?? strings["APPEARANCE_LIGHT"] ?? L("Light", ctx: "look"),
+         strings["DYNAMIC_TYPE_DARK"] ?? strings["APPEARANCE_DARK"] ?? L("Dark", ctx: "look"))
     }
 }

@@ -298,7 +298,7 @@ struct MuroApp: App {
         .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .appSettings) {
-                Button("Settings…") {
+                Button(L("Settings…")) {
                     openSettingsWindow()
                 }
                 .keyboardShortcut(",", modifiers: .command)
@@ -358,21 +358,21 @@ struct RootView: View {
         .animation(.muroTab, value: store.tab)
         .animation(.easeInOut(duration: 0.18), value: store.previewItem?.id)
         .animation(.easeOut(duration: 0.2), value: store.appleNoticeOpen)
-        .alert("Couldn’t set wallpaper", isPresented: Binding(
+        .alert(L("Couldn’t set wallpaper"), isPresented: Binding(
             get: { store.applyError != nil },
             set: { if !$0 { store.applyError = nil } }
         )) {
-            Button("OK", role: .cancel) { store.applyError = nil }
+            Button(L("OK"), role: .cancel) { store.applyError = nil }
         } message: {
-            Text(store.applyError ?? "Unknown error")
+            Text(store.applyError ?? L("Unknown error"))
         }
-        .alert("Couldn’t import video", isPresented: Binding(
+        .alert(L("Couldn’t import video"), isPresented: Binding(
             get: { store.importError != nil },
             set: { if !$0 { store.importError = nil } }
         )) {
-            Button("OK", role: .cancel) { store.importError = nil }
+            Button(L("OK"), role: .cancel) { store.importError = nil }
         } message: {
-            Text(store.importError ?? "Unknown error")
+            Text(store.importError ?? L("Unknown error"))
         }
         .sheet(item: $store.pendingDelete) { request in
             ConfirmDeleteView(request: request)
@@ -385,29 +385,29 @@ struct RootView: View {
         // The lock screen is set, macOS just has not noticed. A dead-end
         // error here is what people reported; this says what finishes it and
         // offers the button that gets them there.
-        .alert("One more step", isPresented: $store.lockScreenNeedsSystemSettings) {
-            Button("Open System Settings") {
+        .alert(L("One more step"), isPresented: $store.lockScreenNeedsSystemSettings) {
+            Button(L("Open System Settings")) {
                 store.lockScreenNeedsSystemSettings = false
                 openWallpaperSettings()
             }
-            Button("Later", role: .cancel) { store.lockScreenNeedsSystemSettings = false }
+            Button(L("Later"), role: .cancel) { store.lockScreenNeedsSystemSettings = false }
         } message: {
-            Text("Muro set your lock screen wallpaper but macOS has not picked it up yet. Open System Settings, go to Wallpaper, and choose Muro to finish it.")
+            Text(L("Muro set your lock screen wallpaper but macOS has not picked it up yet. Open System Settings, go to Wallpaper, and choose Muro to finish it."))
         }
         // A damaged library.json stops every edit, because Muro will not write
         // over a list it could not read. Saying so is the difference between
         // an app protecting the user's library and an app that has silently
         // stopped responding.
-        .alert("Muro cannot read your wallpaper list", isPresented: $store.libraryUnreadable) {
-            Button("Show the File") {
+        .alert(L("Muro cannot read your wallpaper list"), isPresented: $store.libraryUnreadable) {
+            Button(L("Show the File")) {
                 store.libraryUnreadable = false
                 NSWorkspace.shared.activateFileViewerSelecting([
                     LibraryManifest.manifestURL(root: store.root)
                 ])
             }
-            Button("Later", role: .cancel) { store.libraryUnreadable = false }
+            Button(L("Later"), role: .cancel) { store.libraryUnreadable = false }
         } message: {
-            Text("Your wallpapers are safe on disk, and Muro has stopped rather than overwrite the list with an empty one. Liking, importing and downloading will not work until library.json is repaired or moved out of Muro's folder.")
+            Text(L("Your wallpapers are safe on disk, and Muro has stopped rather than overwrite the list with an empty one. Liking, importing and downloading will not work until library.json is repaired or moved out of Muro's folder."))
         }
         .alert(
             Text(store.deleteNotice?.title ?? ""),
@@ -416,7 +416,7 @@ struct RootView: View {
                 set: { if !$0 { store.deleteNotice = nil } }
             )
         ) {
-            Button("OK", role: .cancel) { store.deleteNotice = nil }
+            Button(L("OK"), role: .cancel) { store.deleteNotice = nil }
         } message: {
             Text(store.deleteNotice?.message ?? "")
         }

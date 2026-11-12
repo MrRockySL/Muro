@@ -46,22 +46,23 @@ public enum DownloadFolder {
         public var errorDescription: String? {
             switch self {
             case .notAFolder:
-                return "That is not a folder Muro can use."
+                return L("That is not a folder Muro can use.")
             case .insideLibrary:
-                return "Pick a folder outside the one Muro uses now."
+                return L("Pick a folder outside the one Muro uses now.")
             case .alreadyThere:
-                return "Muro already keeps your wallpapers there."
+                return L("Muro already keeps your wallpapers there.")
             case .folderInUse:
-                return "A folder called \(DownloadFolder.folderName) is already there and holds other files. Pick another place."
+                return L("A folder called %@ is already there and holds other files. Pick another place.", DownloadFolder.folderName)
             case .notConnected(let name):
-                return "Connect \(name) first. Your wallpapers are on it."
+                return L("Connect %@ first. Your wallpapers are on it.", name)
             case .notEnoughSpace(let needed, let available):
                 let format = ByteCountFormatter()
-                return "There is not enough space there. Your wallpapers need \(format.string(fromByteCount: needed)) and \(format.string(fromByteCount: available)) is free."
+                return L("There is not enough space there. Your wallpapers need %@ and %@ is free.",
+                         format.string(fromByteCount: needed), format.string(fromByteCount: available))
             case .copyFailed(let name):
-                return "\(name) could not be copied. Nothing was moved."
+                return L("%@ could not be copied. Nothing was moved.", name)
             case .cancelled:
-                return "The move was cancelled. Your wallpapers stayed where they were."
+                return L("The move was cancelled. Your wallpapers stayed where they were.")
             }
         }
     }

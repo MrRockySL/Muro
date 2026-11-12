@@ -203,7 +203,7 @@ private struct GapBlock: View {
             shape.fill(Color.muroWarn.opacity(0.10))
             shape.strokeBorder(Color.muroWarn.opacity(0.22), lineWidth: 1)
             if labelled, width > 96 {
-                Text("Not covered")
+                Text(L("Not covered"))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color.muroWarn.opacity(0.95))
                     .padding(.horizontal, 11)
@@ -359,7 +359,7 @@ struct DayTimelineEditor: View {
                 context.stroke(shape, with: .color(Color.muroWarn.opacity(0.22)), lineWidth: 1)
                 if rect.width > 96 {
                     context.draw(
-                        Text("Not covered")
+                        Text(L("Not covered"))
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(Color.muroWarn.opacity(0.95)),
                         at: CGPoint(x: rect.minX + 11, y: rect.midY),

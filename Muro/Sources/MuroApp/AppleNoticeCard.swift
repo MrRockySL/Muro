@@ -1,4 +1,5 @@
 import SwiftUI
+import MuroKit
 
 /// What the Apple section is, said each time the section opens until the
 /// person ticks "Do not show this message again" (owner, 2026-09-30).
@@ -52,7 +53,7 @@ struct AppleNoticeCard: View {
         let shape = RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
             header
-            Text("It brings Apple's own live wallpapers and screen savers into Muro:")
+            Text(L("It brings Apple's own live wallpapers and screen savers into Muro:"))
                 .font(.system(size: 13))
                 .foregroundStyle(Color.muroInk.opacity(0.86))
                 .fixedSize(horizontal: false, vertical: true)
@@ -108,10 +109,10 @@ struct AppleNoticeCard: View {
                 .shadow(color: .white.opacity(0.45), radius: 3)
                 .bubbleSurface(size: 40, tint: .white)
             VStack(alignment: .leading, spacing: 3) {
-                Text("About this section")
+                Text(L("About this section"))
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(Color.muroInk)
-                Text("This section was added by community request.")
+                Text(L("This section was added by community request."))
                     .font(.system(size: 13))
                     .foregroundStyle(Color.muroAccent)
             }
@@ -124,13 +125,13 @@ struct AppleNoticeCard: View {
     /// 2026-10-02); the colour on the card is the subtitle and the note.
     private var kinds: some View {
         HStack(alignment: .top, spacing: 12) {
-            kind("Aerials", "Apple's videos of landscapes, cities, oceans and space") {
+            kind(L("Aerials"), L("Apple's videos of landscapes, cities, oceans and space")) {
                 NoticeGlyph(kind: .aerials, size: 17)
             }
-            kind("Dynamic Wallpapers", "Videos, still pictures, and a few drawn live by macOS") {
+            kind(L("Dynamic Wallpapers"), L("Videos, still pictures, and a few drawn live by macOS")) {
                 NoticeGlyph(kind: .dynamic, size: 17)
             }
-            kind("Screen Savers", "8 of Apple's own, like Hello and Flurry") {
+            kind(L("Screen Savers"), L("8 of Apple's own, like Hello and Flurry")) {
                 PlaceGlyph(place: .screenSaver, size: 17)
             }
         }
@@ -172,9 +173,9 @@ struct AppleNoticeCard: View {
         HStack(spacing: 10) {
             NoticeGlyph(kind: .power, size: 15)
                 .opacity(0.72)
-            (Text("These are Apple's, not made for Muro, so some of them can use ")
-                + Text("more CPU, RAM and power").fontWeight(.semibold)
-                + Text(" than Muro's own live wallpapers."))
+            // The stars mark the part in bold, so a translation can put it
+            // wherever its own word order wants it.
+            emphasisedText(L("These are Apple's, not made for Muro, so some of them can use *more CPU, RAM and power* than Muro's own live wallpapers."))
                 .font(.system(size: 12))
                 .foregroundStyle(Color.muroWarn)
                 .fixedSize(horizontal: false, vertical: true)
@@ -190,7 +191,7 @@ struct AppleNoticeCard: View {
             } label: {
                 HStack(spacing: 9) {
                     SelectionTick(isSelected: dontShowAgain, size: 18)
-                    Text("Do not show this message again")
+                    Text(L("Do not show this message again"))
                         .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(dontShowAgain ? Color.muroInk : Color.muroInk.opacity(0.62))
                 }
@@ -199,7 +200,7 @@ struct AppleNoticeCard: View {
             }
             .buttonStyle(.plain)
             Spacer(minLength: 0)
-            PrimaryPill(title: "Got it") { close() }
+            PrimaryPill(title: L("Got it")) { close() }
         }
     }
 

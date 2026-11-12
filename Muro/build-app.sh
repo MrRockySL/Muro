@@ -96,6 +96,19 @@ cp "$DIR/Icon/InApp/MuroIcon-Default.png" "$DIR/Icon/InApp/MuroIcon-Light.png" \
     "$DIR/Icon/InApp/MuroIcon-Dark.png" "$APP/Contents/Resources/"
 cp "$DIR/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
+# Muro's languages (issue #62): one folder per language, read by
+# Localization.swift, and named in Info.plist below so macOS offers them in
+# System Settings > General > Language & Region > Applications. The extension
+# carries its own two lines, the names System Settings shows for Muro in its
+# Wallpaper pane, which follow the Mac's language.
+cp -R "$DIR/Localization/"*.lproj "$APP/Contents/Resources/"
+mkdir -p "$EXT/Contents/Resources"
+cp -R "$DIR/Localization/Extension/"*.lproj "$EXT/Contents/Resources/"
+LOCALIZATIONS=""
+for lproj in "$DIR/Localization/"*.lproj; do
+    LOCALIZATIONS="$LOCALIZATIONS<string>$(basename "$lproj" .lproj)</string>"
+done
+
 # Bundled wallpaper: "Snowfall in Forest" full 4K master + thumb, so a fresh
 # install always has one wallpaper playing in the hero (owner decision — 4K
 # over DMG size). Sourced from the local library; the id must match
@@ -135,6 +148,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSHighResolutionCapable</key> <true/>
     <key>LSApplicationCategoryType</key> <string>public.app-category.entertainment</string>
     <key>NSHumanReadableCopyright</key> <string>Designed &amp; developed by MrRockySL</string>
+    <key>CFBundleDevelopmentRegion</key> <string>en</string>
+    <key>CFBundleLocalizations</key>   <array>$LOCALIZATIONS</array>
 </dict>
 </plist>
 PLIST

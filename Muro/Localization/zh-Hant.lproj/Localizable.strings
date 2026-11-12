@@ -1,0 +1,576 @@
+/* Muro, 繁體中文（台灣）. Same keys as en.lproj. Terms follow macOS: 背景圖片,
+   鎖定畫面, 螢幕保護程式, 資料庫, 系統設定. */
+
+/* Apple section: names */
+"Dynamic Wallpapers" = "動態背景圖片";
+
+/* Apple section: still pictures */
+"The picture from Apple could not be opened." = "無法打開來自 Apple 的圖片。";
+"Apple's download held no picture." = "Apple 的下載內容中沒有圖片。";
+"The light and dark pictures could not be made." = "無法製作淺色和深色圖片。";
+"Apple's list of pictures could not be reached. Check the internet connection and try again." = "無法連上 Apple 的圖片列表。請檢查網際網路連線，然後再試一次。";
+"Apple's list of pictures has no download for this one." = "Apple 的圖片列表中沒有這張圖片的下載項目。";
+
+/* Lengths of time */
+"%@ s" = "%@ 秒";
+"%@ min" = "%@ 分鐘";
+"%@ min %@ s" = "%@ 分鐘 %@ 秒";
+"%@ h" = "%@ 小時";
+"%@ h %@ min" = "%@ 小時 %@ 分鐘";
+
+/* Download folder: problems */
+"That is not a folder Muro can use." = "Muro 無法使用這個檔案夾。";
+"Pick a folder outside the one Muro uses now." = "請選擇 Muro 目前使用的檔案夾以外的檔案夾。";
+"Muro already keeps your wallpapers there." = "Muro 已經把你的背景圖片存放在那裡。";
+"A folder called %@ is already there and holds other files. Pick another place." = "那裡已經有一個名為「%@」的檔案夾，裡面還有其他檔案。請選擇其他位置。";
+"Connect %@ first. Your wallpapers are on it." = "請先連接「%@」。你的背景圖片存放在上面。";
+"There is not enough space there. Your wallpapers need %@ and %@ is free." = "那裡的空間不足。你的背景圖片需要 %@，可用空間為 %@。";
+"%@ could not be copied. Nothing was moved." = "無法拷貝「%@」。沒有搬移任何檔案。";
+"The move was cancelled. Your wallpapers stayed where they were." = "已取消搬移。你的背景圖片仍在原來的位置。";
+
+/* Apple section: light and dark */
+"Light@@look" = "淺色";
+"Dark@@look" = "深色";
+
+/* Library file */
+"Muro could not read your wallpaper list, so it stopped rather than overwrite it. Your wallpaper files are untouched. The list is library.json in Muro's Application Support folder." = "Muro 無法讀取你的背景圖片列表，為了避免覆寫它而停止了。你的背景圖片檔案完好無損。該列表是 Muro 的 Application Support 檔案夾中的 library.json。";
+
+/* Catalog: connection problems */
+"Muro cannot reach the internet" = "Muro 無法連上網際網路";
+"The wallpaper catalog is not answering" = "背景圖片目錄沒有回應";
+"Something is blocking the wallpaper catalog" = "有東西阻擋了背景圖片目錄";
+"Check that you are online, then try again. A VPN, a firewall or a DNS filter can also stop Muro reaching its wallpapers." = "請確認你已連上網路，然後再試一次。VPN、防火牆或 DNS 過濾器也可能讓 Muro 無法取得背景圖片。";
+"The server answered with an error (%@). This is usually temporary, so try again in a minute." = "伺服器回應錯誤（%@）。這通常是暫時的，請過一分鐘再試一次。";
+"Muro reached the catalog but what came back was not the wallpaper list. A VPN, a company network or a DNS filter can do this." = "Muro 連上了目錄，但收到的內容不是背景圖片列表。VPN、公司網路或 DNS 過濾器可能會造成這種情況。";
+"%@. %@" = "%@。%@";
+
+/* Screen saver delay */
+"System default" = "系統預設";
+"Never" = "永不";
+
+/* Apple section: problems */
+"That aerial could not be downloaded from Apple. %@" = "無法從 Apple 下載這段空拍影片。%@";
+"%@ could not be added. %@" = "無法加入「%@」。%@";
+"%@ could not be deleted. %@" = "無法刪除「%@」。%@";
+
+/* Apple section */
+"Aerials" = "空拍";
+"Screen Savers" = "螢幕保護程式";
+"All@@filter" = "全部";
+"%@ wallpapers from Apple#other" = "%@ 張來自 Apple 的背景圖片";
+"%@ wallpapers in %@#other" = "%2$@：%1$@ 張背景圖片";
+"%@ on this Mac" = "這部 Mac 上有 %@ 個";
+"Reading Apple's wallpapers…" = "正在讀取 Apple 的背景圖片⋯";
+"Apple's wallpapers are not on this Mac yet" = "這部 Mac 上還沒有 Apple 的背景圖片";
+"Open System Settings and look at Wallpaper once. macOS writes its list of aerials then, and Muro reads the same list." = "打開「系統設定」，查看一次「背景圖片」。macOS 會在那時寫入它的空拍列表，Muro 讀取的就是這份列表。";
+"Look Again" = "重新尋找";
+"Nothing matches that" = "沒有符合的結果";
+"Try another category." = "試試其他類別。";
+"No screen saver called %@. Try another word." = "沒有名為「%@」的螢幕保護程式。試試其他關鍵字。";
+"No aerial called %@. Try another word." = "沒有名為「%@」的空拍影片。試試其他關鍵字。";
+
+/* Apple section: notice card */
+"It brings Apple's own live wallpapers and screen savers into Muro:" = "它將 Apple 自己的動態背景圖片和螢幕保護程式帶進 Muro：";
+"About this section" = "關於這個專區";
+"This section was added by community request." = "這個專區是應社群的要求加入的。";
+"Apple's videos of landscapes, cities, oceans and space" = "Apple 拍攝的風景、城市、海洋和太空影片";
+"Videos, still pictures, and a few drawn live by macOS" = "影片、靜態圖片，以及幾款由 macOS 即時繪製的背景圖片";
+"8 of Apple's own, like Hello and Flurry" = "8 款 Apple 內建的，例如「哈囉」和「幻彩」";
+"These are Apple's, not made for Muro, so some of them can use *more CPU, RAM and power* than Muro's own live wallpapers." = "這些是 Apple 的內容，並非為 Muro 製作，因此其中一些會比 Muro 自己的動態背景圖片使用*更多的 CPU、記憶體和電力*。";
+"Do not show this message again" = "不要再顯示此訊息";
+"Got it" = "瞭解";
+
+/* Automation editor */
+"Name already in use" = "名稱已被使用";
+"New Automation" = "新增自動化";
+"Edit Automation" = "編輯自動化";
+"NAME" = "名稱";
+"Automation name" = "自動化名稱";
+"CHOOSE WALLPAPERS" = "選擇背景圖片";
+"%@ in this schedule" = "此排程中有 %@ 個";
+"HOW LONG EACH ONE PLAYS" = "每個播放多久";
+"WHEN EACH ONE PLAYS" = "每個何時播放";
+"Drag the handle to reorder" = "拖移控點來重新排序";
+"Drag an edge to change a time" = "拖移邊緣來更改時間";
+"Nothing scheduled yet" = "尚未排程任何內容";
+"Pick a wallpaper above and it plays for ten minutes. Every one you add gets its own length." = "在上方選擇一張背景圖片，它會播放十分鐘。你加入的每一張都有自己的長度。";
+"Pick a wallpaper above and it takes the whole day. Add another and the day splits between them." = "在上方選擇一張背景圖片，它會佔滿一整天。再加入一張，這一天就會由它們平分。";
+"Timer" = "計時器";
+"Clock" = "時鐘";
+"Each wallpaper plays for its own length of time, then the next one takes over and it loops." = "每張背景圖片依自己的長度播放，接著由下一張接手，不斷循環。";
+"Each wallpaper owns a slot on the clock, and the same schedule repeats every day." = "每張背景圖片佔用時鐘上的一個時段，相同的排程每天重複。";
+"No wallpapers downloaded yet. Download some from Explore, or import your own with the + button in the Library." = "尚未下載任何背景圖片。你可以從「探索」下載，或在資料庫中用 + 按鈕輸入你自己的影片。";
+"Missing wallpaper" = "背景圖片遺失";
+"Remove from this automation" = "從此自動化中移除";
+"Set every step at once" = "一次設定所有步驟";
+"to@@range" = "至";
+"Delete" = "刪除";
+"Cancel" = "取消";
+"Create Automation" = "建立自動化";
+"Save" = "儲存";
+"Pick the wallpapers this automation should use" = "選擇此自動化要使用的背景圖片";
+"Cycle: %2$@ across %1$@ wallpapers#other" = "循環：%1$@ 張背景圖片，共 %2$@";
+"Covers the whole day across %@ wallpapers#other" = "%@ 張背景圖片涵蓋整天";
+"Covers %2$@ of the day across %1$@ wallpapers#other" = "%1$@ 張背景圖片涵蓋一天中的 %2$@";
+"%2$@ to %3$@ is not covered, and %1$@ other gaps. Whatever is playing stays.#other" = "%2$@ 至 %3$@ 未涵蓋，另有 %1$@ 個空檔。正在播放的內容會保留。";
+"%@ to %@ is not covered. Whatever is playing stays." = "%@ 至 %@ 未涵蓋。正在播放的內容會保留。";
+"Pick at least one to get started." = "至少選擇一張即可開始。";
+"It loops back to the first wallpaper and starts again." = "播完後會回到第一張背景圖片重新開始。";
+"The same schedule repeats every day." = "相同的排程每天重複。";
+"Custom" = "自訂";
+"Custom duration" = "自訂長度";
+"Set %@" = "設為 %@";
+"sec" = "秒";
+"min" = "分鐘";
+"hr" = "小時";
+
+/* Top bar and cards */
+"made by %@" = "由 %@ 製作";
+"Search wallpapers" = "搜尋背景圖片";
+"Settings" = "設定";
+"A new version of Muro is available" = "Muro 有新版本可用";
+"What's New in Muro" = "Muro 的新功能";
+"New update available" = "有新的更新項目";
+"Import your own video" = "輸入你自己的影片";
+"NEW" = "新";
+"Delete wallpaper" = "刪除背景圖片";
+"Remove Download (%@)" = "移除下載項目（%@）";
+"Delete Wallpaper (%@)" = "刪除背景圖片（%@）";
+"Search wallpapers…" = "搜尋背景圖片⋯";
+
+/* Delete sheet */
+"Remove %@#=1" = "移除";
+"Remove %@#other" = "移除 %@ 個";
+"Delete %@#=1" = "刪除";
+"Delete %@#other" = "刪除 %@ 個";
+"Remove %@ downloads?#=1" = "要移除這個下載項目嗎？";
+"Remove %@ downloads?#other" = "要移除 %@ 個下載項目嗎？";
+"Delete %@ screen savers?#=1" = "要刪除這個螢幕保護程式嗎？";
+"Delete %@ screen savers?#other" = "要刪除 %@ 個螢幕保護程式嗎？";
+"Delete %@ wallpapers?#=1" = "要刪除這張背景圖片嗎？";
+"Delete %@ wallpapers?#other" = "要刪除 %@ 張背景圖片嗎？";
+"It goes to the Trash." = "它會被移到垃圾桶。";
+"They go to the Trash." = "它們會被移到垃圾桶。";
+"Screen savers go to the Trash. The others you can download again." = "螢幕保護程式會被移到垃圾桶。其他的可以重新下載。";
+"You can download it again any time." = "你可以隨時重新下載它。";
+"You can download them again any time." = "你可以隨時重新下載它們。";
+"This is your own video. Deleting it is permanent." = "這是你自己的影片。刪除後無法復原。";
+"These are your own videos. Deleting them is permanent." = "這些是你自己的影片。刪除後無法復原。";
+"%@ are your own videos, and those are permanent.#other" = "其中 %@ 個是你自己的影片，刪除後無法復原。";
+"LOCK SCREEN" = "鎖定畫面";
+"SCREEN SAVER" = "螢幕保護程式";
+"SHOWING NOW" = "正在顯示";
+"PLAYING ON %@" = "正在 %@ 上播放";
+"PLAYING NOW" = "正在播放";
+"%@ playlists and automations#other" = "%@ 個播放列表和自動化";
+"It also comes out of %@." = "它也會從 %@ 中移除。";
+"They also come out of %@." = "它們也會從 %@ 中移除。";
+
+/* Day timeline */
+"Not covered" = "未涵蓋";
+
+/* Download folder */
+"Cancelling…" = "正在取消⋯";
+"Moving your wallpapers…" = "正在搬移你的背景圖片⋯";
+"Moving %@ of %@ wallpapers…" = "正在搬移第 %@ 張背景圖片，共 %@ 張⋯";
+"On this Mac, in Muro's own folder" = "在這部 Mac 上，位於 Muro 自己的檔案夾中";
+"%@ is not connected" = "「%@」未連接";
+"Move Here" = "搬移到這裡";
+"Muro moves your downloaded wallpapers into a folder called %@ here. New downloads go there too." = "Muro 會把你下載的背景圖片搬移到這裡一個名為「%@」的檔案夾中。新的下載項目也會存放在那裡。";
+"Home@@folder" = "個人專屬";
+
+/* Explore */
+"Resolution" = "解析度";
+"FPS" = "影格速率";
+"%@ wallpapers#other" = "%@ 張背景圖片";
+"Clear filters" = "清除篩選條件";
+"Loading wallpapers…" = "正在載入背景圖片⋯";
+"Try another category, or widen the resolution and frame rate." = "試試其他類別，或放寬解析度和影格速率。";
+"No wallpaper called %@. Try another word." = "沒有名為「%@」的背景圖片。試試其他關鍵字。";
+"Only the wallpapers you have already downloaded are showing." = "只顯示你已下載的背景圖片。";
+"Checking…" = "正在檢查⋯";
+"Try Again" = "再試一次";
+
+/* Shared pieces */
+"PLAYING" = "正在播放";
+"Enter a number" = "輸入一個數字";
+
+/* Home */
+"FEATURED" = "精選";
+"%@ FPS" = "%@ FPS";
+"APPLIED · %@" = "已套用 · %@";
+"View Wallpaper" = "檢視背景圖片";
+"Your library is empty" = "你的資料庫是空的";
+"Import your own videos with the + button, or browse Explore to download wallpapers." = "用 + 按鈕輸入你自己的影片，或瀏覽「探索」下載背景圖片。";
+"New Live Wallpapers" = "最新動態背景圖片";
+"The latest wallpapers added to the catalog" = "最近加入目錄的背景圖片";
+"Muro's Pick" = "Muro 精選";
+"A different twelve every day" = "每天換一組十二張";
+
+/* Language */
+"Same as macOS" = "與 macOS 相同";
+
+/* Library */
+"Downloaded" = "已下載";
+"Liked" = "喜愛";
+"Playlists & Automations" = "播放列表與自動化";
+"Done" = "完成";
+"Select" = "選取";
+"Select None" = "全部不選";
+"Select All" = "全選";
+"%@ selected" = "已選取 %@ 個";
+"Clear" = "清除";
+"Drop videos or screen savers here, or click to import" = "將影片或螢幕保護程式拖到這裡，或按一下來輸入";
+"MP4, MOV and M4V videos, and .saver screen savers" = "MP4、MOV 和 M4V 影片，以及 .saver 螢幕保護程式";
+"%@ added." = "已加入「%@」。";
+"%@ screen savers added." = "已加入 %@ 個螢幕保護程式。";
+"%@ is already added." = "「%@」已經加入過了。";
+"Those screen savers are already added." = "這些螢幕保護程式已經加入過了。";
+"YOUR SCREEN SAVERS" = "你的螢幕保護程式";
+"FROM APPLE" = "來自 Apple";
+"Playlists" = "播放列表";
+"Automations" = "自動化";
+"New Playlist" = "新增播放列表";
+"Pick wallpapers and cycle them on a schedule" = "選擇背景圖片，依排程輪流播放";
+"Give each wallpaper its own time of day, or its own length" = "為每張背景圖片設定一天中的時段，或各自的長度";
+"Every %@ min" = "每 %@ 分鐘";
+"Every hour" = "每小時";
+"Every %@ hr" = "每 %@ 小時";
+"Shuffle on" = "隨機播放：開";
+"Shuffle off" = "隨機播放：關";
+"Edit Playlist" = "編輯播放列表";
+"Shuffle Off" = "關閉隨機播放";
+"Shuffle On" = "開啟隨機播放";
+"Delete Playlist" = "刪除播放列表";
+"Nothing to play" = "沒有可播放的內容";
+"%@ cycle" = "循環 %@";
+"Covers the whole day" = "涵蓋整天";
+"%@ gaps#other" = "%@ 個空檔";
+"Now: %@ until %@" = "目前：%@，直到 %@";
+"CLOCK" = "時鐘";
+"TIMER" = "計時器";
+"No wallpapers in this automation yet" = "此自動化中還沒有背景圖片";
+"Delete Automation" = "刪除自動化";
+"%@ hr" = "%@ 小時";
+"Playlist name" = "播放列表名稱";
+"CHANGE WALLPAPER EVERY" = "更換背景圖片的間隔";
+"Create Playlist" = "建立播放列表";
+"Shuffle" = "隨機播放";
+"Every %@ hr %@ min" = "每 %@ 小時 %@ 分鐘";
+"Custom interval" = "自訂間隔";
+"Delete “%@”?" = "要刪除「%@」嗎？";
+"This playlist is deleted for good. Its wallpapers stay in your Library." = "此播放列表將被永久刪除。其中的背景圖片仍會保留在你的資料庫中。";
+"This automation is deleted for good. Its wallpapers stay in your Library." = "此自動化將被永久刪除。其中的背景圖片仍會保留在你的資料庫中。";
+
+/* Lock screen: problems */
+"Lock-screen live wallpapers require macOS 26 or later." = "鎖定畫面的動態背景圖片需要 macOS 26 或以上版本。";
+"Muro’s lock-screen extension is missing. Reinstall this build of Muro." = "Muro 的鎖定畫面延伸功能遺失。請重新安裝這個版本的 Muro。";
+"macOS would not load Muro’s lock-screen extension. Move Muro to your Applications folder, open it once from there, and try again." = "macOS 無法載入 Muro 的鎖定畫面延伸功能。請將 Muro 移到「應用程式」檔案夾，從那裡打開一次，然後再試一次。";
+"macOS is running Muro from a temporary copy, so the lock screen cannot be set. Drag Muro into your Applications folder, then open it from there." = "macOS 正在從暫時的副本執行 Muro，因此無法設定鎖定畫面。請將 Muro 拖到「應用程式」檔案夾，然後從那裡打開。";
+"The macOS wallpaper store could not be found." = "找不到 macOS 的背景圖片儲存區。";
+
+/* Menu bar icons */
+"Default@@icon" = "預設";
+"Outline" = "外框";
+"Glass Moon" = "玻璃月亮";
+"Planet" = "行星";
+"Peaks" = "山峰";
+"Display@@icon" = "顯示器";
+
+/* Menu bar */
+"No wallpaper applied" = "未套用背景圖片";
+"Muro %@ available" = "Muro %@ 可用";
+"Version %@" = "版本 %@";
+"Play the sound" = "播放聲音";
+"Pause the sound" = "暫停聲音";
+"PAUSED" = "已暫停";
+"%@ DISPLAYS#other" = "%@ 台顯示器";
+"RECENTS" = "最近使用";
+"PLAYLISTS & AUTOMATIONS" = "播放列表與自動化";
+"Off" = "關閉";
+"Open Muro" = "打開 Muro";
+"Quit Muro" = "結束 Muro";
+"Language" = "語言";
+"Check for Updates" = "檢查更新項目";
+"New Update Available" = "有新的更新項目";
+"Muro is up to date" = "Muro 已是最新版本";
+"Could not check. Try again" = "無法檢查。請再試一次";
+"Muro %@ is available" = "Muro %@ 現已推出";
+"Download" = "下載";
+
+/* Alerts */
+"Settings…" = "設定⋯";
+"Couldn’t set wallpaper" = "無法設定背景圖片";
+"OK" = "好";
+"Unknown error" = "未知的錯誤";
+"Couldn’t import video" = "無法輸入影片";
+"One more step" = "還差一個步驟";
+"Open System Settings" = "打開系統設定";
+"Later" = "稍後";
+"Muro set your lock screen wallpaper but macOS has not picked it up yet. Open System Settings, go to Wallpaper, and choose Muro to finish it." = "Muro 已設定你的鎖定畫面背景圖片，但 macOS 還沒有採用它。打開「系統設定」，前往「背景圖片」，選擇 Muro 即可完成。";
+"Muro cannot read your wallpaper list" = "Muro 無法讀取你的背景圖片列表";
+"Show the File" = "顯示檔案";
+"Your wallpapers are safe on disk, and Muro has stopped rather than overwrite the list with an empty one. Liking, importing and downloading will not work until library.json is repaired or moved out of Muro's folder." = "你的背景圖片仍安全地保存在磁碟上。為了避免用空的列表覆寫原列表，Muro 已停止動作。在修復 library.json 或將它移出 Muro 的檔案夾之前，喜愛、輸入和下載都無法使用。";
+
+/* Now Playing */
+"Desktop" = "桌面";
+"Lock screen" = "鎖定畫面";
+"Screen saver" = "螢幕保護程式";
+"desktop@@short" = "桌面";
+"lock@@short" = "鎖定畫面";
+"saver@@short" = "螢幕保護";
+"PLAYING EVERYWHERE" = "正在所有位置播放";
+"No playlists or automations yet" = "還沒有播放列表或自動化";
+"Everywhere" = "所有位置";
+"On %@" = "在%@";
+"PLAYLISTS" = "播放列表";
+"AUTOMATIONS" = "自動化";
+"NOW PLAYING" = "正在播放";
+
+/* Wallpaper page */
+"Drawn by macOS · moves when you unlock" = "由 macOS 繪製 · 解鎖時會動起來";
+"Screen saver · drawn live by macOS" = "螢幕保護程式 · 由 macOS 即時繪製";
+"Still picture · %@×%@" = "靜態圖片 · %@×%@";
+"%@ download" = "需下載 %@";
+"Still picture · %@×%@ · %@" = "靜態圖片 · %@×%@ · %@";
+"Video file missing · %@" = "影片檔案遺失 · %@";
+"Vertical video · zoomed in to fill the screen" = "直式影片 · 已放大以填滿螢幕";
+"Low resolution · may look soft on the screen" = "解析度較低 · 在螢幕上可能看起來模糊";
+"Higher CPU" = "CPU 用量較高";
+"Lower CPU" = "CPU 用量較低";
+"%@ fps · %@" = "%@ fps · %@";
+"Use setting (%@)" = "使用設定（%@）";
+"Never pause" = "永不暫停";
+"Pause after: how long this wallpaper moves before holding on a frame" = "定時暫停：此背景圖片播放多久後停在一個畫面";
+"%@% of %@" = "%@%，共 %@";
+"Preview" = "預覽";
+"Preparing 30 fps…" = "正在準備 30 fps⋯";
+"Set Wallpaper" = "設為背景圖片";
+"Setting…" = "正在設定⋯";
+"Applied" = "已套用";
+"This needs macOS 26" = "這需要 macOS 26";
+"The lock screen and the screen saver use a part of macOS that arrived in macOS 26. This Mac runs %@, so Muro can set your desktop but not those." = "鎖定畫面和螢幕保護程式用到了 macOS 26 才有的功能。這部 Mac 執行的是 %@，因此 Muro 可以設定你的桌面，但無法設定它們。";
+"Set my desktop instead" = "改為設定我的桌面";
+"Every display" = "所有顯示器";
+"Choose display" = "選擇顯示器";
+"macOS can't use a still picture as the screen saver." = "macOS 無法將靜態圖片用作螢幕保護程式。";
+"All Screens" = "所有螢幕";
+"Remove %@ from the screen saver" = "從螢幕保護程式中移除「%@」";
+"Apply %@ to the screen saver" = "將「%@」套用到螢幕保護程式";
+"Remove" = "移除";
+"Apply to %@" = "套用到%@";
+"Selected" = "已選取";
+"Not selected" = "未選取";
+"The lock screen and screen saver require macOS 26 or later" = "鎖定畫面和螢幕保護程式需要 macOS 26 或以上版本";
+"Remove all" = "全部移除";
+"All displays" = "所有顯示器";
+"Remove from all displays" = "從所有顯示器中移除";
+"Apply to all displays" = "套用到所有顯示器";
+"Remove %@ from %@" = "從 %2$@ 中移除「%1$@」";
+"Apply %@ to %@" = "將「%1$@」套用到 %2$@";
+
+/* Settings */
+"GENERAL" = "一般";
+"Launch at Login" = "登入時打開";
+"Starts quietly in the background" = "在背景中安靜地啟動";
+"Show Menu Bar Icon" = "在選單列中顯示圖像";
+"Show Dock Icon" = "在 Dock 中顯示圖像";
+"Off keeps Muro in the menu bar only" = "關閉後 Muro 只會留在選單列中";
+"Appearance" = "外觀";
+"Default, Light or Dark" = "預設、淺色或深色";
+"Menu Bar Icon" = "選單列圖像";
+"The icon Muro shows in the menu bar" = "Muro 在選單列中顯示的圖像";
+"The language Muro is in" = "Muro 使用的語言";
+"PLAYBACK" = "播放";
+"Playback Speed" = "播放速度";
+"How fast wallpapers play" = "背景圖片的播放速度";
+"Default Quality" = "預設畫質";
+"Efficient caps at 30 fps for lower CPU" = "「節能」以 30 fps 為上限，降低 CPU 用量";
+"Smooth" = "流暢";
+"Efficient" = "節能";
+"Live Wallpaper Sound" = "動態背景圖片聲音";
+"Your own videos play with sound" = "你自己的影片會播放聲音";
+"All live wallpapers stay silent" = "所有動態背景圖片皆保持靜音";
+"Pause After" = "定時暫停";
+"Replay on Clear Desktop" = "桌面淨空時重新播放";
+"Start Screen Saver" = "啟動螢幕保護程式";
+"ENERGY" = "能源";
+"Auto-pause in Low Power Mode" = "低耗電模式時自動暫停";
+"Freeze while saving energy" = "節省電力時停在當下畫面";
+"Auto-pause below 20% battery" = "電量低於 20% 時自動暫停";
+"Resumes automatically on power" = "接上電源後自動恢復";
+"Auto-pause when covered" = "被遮住時自動暫停";
+"Freeze when a window or full screen app covers it" = "被視窗或全螢幕 App 遮住時停在當下畫面";
+"Play only on desktop" = "只在顯示桌面時播放";
+"Freeze while a window is open on that screen" = "該螢幕上有打開的視窗時停在當下畫面";
+"DISPLAYS" = "顯示器";
+"STORAGE" = "儲存空間";
+"Library & Cache" = "資料庫與快取";
+"Keeps the wallpaper in use" = "保留正在使用的背景圖片";
+"Apple Downloads" = "Apple 下載項目";
+"Aerials and pictures from the Apple section" = "來自 Apple 專區的空拍影片和圖片";
+"Download Folder" = "下載項目檔案夾";
+"Default@@folder" = "預設";
+"Change" = "更改";
+"ABOUT" = "關於";
+"Software Update" = "軟體更新";
+"Support Muro" = "支持 Muro";
+"Muro is free. Sponsoring keeps it that way." = "Muro 是免費的。贊助能讓它一直免費。";
+"Clear the library?" = "要清除資料庫嗎？";
+"Wallpapers keep playing" = "背景圖片會持續播放";
+"Plays for %@, then holds on a frame" = "播放 %@ 後停在一個畫面";
+"Saved. macOS uses it after the current wait ends, or now if you lock the screen." = "已儲存。macOS 會在目前的等待結束後採用，或在你鎖定螢幕時立即採用。";
+"macOS is deciding. Pick a time to set it." = "由 macOS 決定。選擇一個時間來設定。";
+"The screen saver never starts" = "螢幕保護程式永不啟動";
+"Starts after %@ with no activity" = "閒置 %@ 後啟動";
+"Nothing to clear. Every wallpaper here is playing, or in a playlist or an automation." = "沒有可清除的內容。這裡的每張背景圖片都在播放，或在播放列表或自動化中。";
+"Nothing to clear. The only wallpapers here are the ones in use." = "沒有可清除的內容。這裡只有正在使用的背景圖片。";
+"This removes %@ wallpapers and frees about %@.#other" = "這會移除 %@ 張背景圖片，釋放約 %@。";
+"%@ of them are from the Apple section and can be downloaded again.#other" = "其中 %@ 張來自 Apple 專區，可以重新下載。";
+"The %@ in use stay.#=1" = "正在播放的那一張會保留。";
+"The %@ in use stay.#other" = "正在使用的 %@ 張會保留。";
+"The %@ in your playlists and automations stay.#=1" = "播放列表和自動化中的那一張會保留。";
+"The %@ in your playlists and automations stay.#other" = "播放列表和自動化中的 %@ 張會保留。";
+"%@ of them are your own videos and cannot be recovered.#other" = "其中 %@ 個是你自己的影片，無法復原。";
+"Muro %@ is available. See what's new." = "Muro %@ 現已推出。查看新功能。";
+"Designed & developed by %@" = "由 %@ 設計與開發";
+"Works with a Pause After time" = "需搭配「定時暫停」使用";
+"Plays %@ again each time the desktop clears" = "每次桌面淨空時，再播放 %@";
+"Checking GitHub…" = "正在檢查 GitHub⋯";
+"Muro %@ is the latest version" = "Muro %@ 是最新版本";
+"Version %@ is available on GitHub" = "GitHub 上有版本 %@";
+"Couldn't check. Check your connection." = "無法檢查。請檢查網路連線。";
+"Download ↗" = "下載 ↗";
+"Check Now" = "立即檢查";
+"Quick controls from the menu bar" = "從選單列快速控制";
+"Open Muro from Launchpad or Spotlight" = "從啟動台或 Spotlight 打開 Muro";
+
+/* Places, imports and messages */
+"All@@places" = "全部";
+"Lockscreen" = "鎖定畫面";
+"Screensaver" = "螢幕保護";
+"Built-in" = "內建";
+"ALL DISPLAYS" = "所有顯示器";
+"%@ LOCK" = "%@ 鎖定畫面";
+"Applied on %@" = "已套用到 %@";
+"Applied on all displays" = "已套用到所有顯示器";
+"Applied on the %@ lock screen" = "已套用到 %@ 的鎖定畫面";
+"Applied on all lock screens" = "已套用到所有鎖定畫面";
+"Applied on the screen saver" = "已套用到螢幕保護程式";
+"Main display" = "主要顯示器";
+"Built-in display" = "內建顯示器";
+"External display" = "外接顯示器";
+"Home" = "首頁";
+"Explore" = "探索";
+"Library" = "資料庫";
+"Muro can't find the video for “%@”. It was moved or deleted outside Muro. Delete it in the Library, then download or import it again." = "Muro 找不到「%@」的影片。它已在 Muro 之外被搬移或刪除。請在資料庫中刪除它，然後重新下載或輸入。";
+"The downloaded wallpaper files could not be found." = "找不到已下載的背景圖片檔案。";
+"EVERYWHERE" = "所有位置";
+"ALL LOCK SCREENS" = "所有鎖定畫面";
+"%@ PLACES#other" = "%@ 個位置";
+"Applied everywhere" = "已套用到所有位置";
+"Applied in %@ places#other" = "已套用到 %@ 個位置";
+"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro 可以輸入 MP4、MOV 和 M4V 影片，以及 .saver 螢幕保護程式。沒有加入任何內容。";
+"Importing" = "正在輸入";
+"Importing %@ of %@" = "正在輸入第 %@ 個，共 %@ 個";
+"%@ is already in your Library." = "「%@」已在你的資料庫中。";
+"%@ of those videos are already in your Library." = "其中 %@ 部影片已在你的資料庫中。";
+"This video could not be imported." = "無法輸入這部影片。";
+"%@ of %@ videos could not be imported." = "%2$@ 部影片中有 %1$@ 部無法輸入。";
+"%@ files were skipped. Muro imports MP4, MOV and M4V videos.#other" = "已略過 %@ 個檔案。Muro 可以輸入 MP4、MOV 和 M4V 影片。";
+"The playlist" = "這個播放列表";
+"Playlist stopped" = "播放列表已停止";
+"%@ has no wallpapers left, so it stopped." = "%@ 已沒有背景圖片，因此停止了。";
+"The automation" = "這個自動化";
+"Automation stopped" = "自動化已停止";
+"%@ wallpapers removed#other" = "已移除 %@ 張背景圖片";
+"about %@ freed" = "釋放了約 %@";
+"%@ of leftovers swept" = "清掉了 %@ 的殘留檔案";
+"Nothing to clear" = "沒有可清除的內容";
+"It has no video track." = "它沒有影片軌道。";
+"It could not be read. The file may be damaged, or in a format macOS cannot open." = "無法讀取它。檔案可能已損毀，或是 macOS 無法打開的格式。";
+"It could not be converted to HEVC." = "無法將它轉換為 HEVC。";
+"A picture could not be taken from it." = "無法從中擷取圖片。";
+
+/* Looks and sizes */
+"Default@@look" = "預設";
+"%@ GB" = "%@ GB";
+"%@ MB" = "%@ MB";
+
+/* What's New */
+"October 2026" = "2026 年 10 月";
+"Apple's aerials and screen savers are in Muro now, your playlists can play on the lock screen and the screen saver, and Muro comes in Light and Dark with a new icon." = "Apple 的空拍影片和螢幕保護程式現已加入 Muro，你的播放列表可以在鎖定畫面和螢幕保護程式上播放，Muro 也有了淺色和深色外觀以及新圖像。";
+"New" = "新功能";
+"The Apple section" = "Apple 專區";
+"Apple's aerials and Dynamic Wallpapers, in a tab of their own." = "Apple 的空拍影片和動態背景圖片，有了自己的標籤頁。";
+"Apple's screen savers in 4K" = "4K 版 Apple 螢幕保護程式";
+"Flurry, Hello, Drift and five more as seamless 4K videos, for the desktop, the lock screen or the screen saver." = "「幻彩」、「哈囉」、「漂移」以及另外五款，製成無縫循環的 4K 影片，可用於桌面、鎖定畫面或螢幕保護程式。";
+"Playlists on the lock screen and the screen saver" = "鎖定畫面和螢幕保護程式上的播放列表";
+"The desktop, the lock screen and the screen saver can each play their own, and Off brings back what was there before." = "桌面、鎖定畫面和螢幕保護程式可以各自播放自己的內容，選擇「關閉」即可恢復原本的樣子。";
+"Default, Light and Dark" = "預設、淺色和深色";
+"Choose how Muro looks in Settings: the classic midnight blue, clean white or true black." = "在「設定」中選擇 Muro 的外觀：經典午夜藍、純淨白色或純黑色。";
+"A new icon" = "新圖像";
+"The Glass Moon. In the Dock it follows your Mac's icon style, light or dark." = "玻璃月亮。在 Dock 中，它會跟隨你 Mac 的圖像風格，顯示淺色或深色。";
+"Your own screen savers" = "你自己的螢幕保護程式";
+"Add .saver files like XScreenSaver from the Library, and set them from Muro." = "在資料庫中加入 XScreenSaver 等 .saver 檔案，並從 Muro 設定它們。";
+"Keep your wallpapers on any drive" = "把背景圖片存放在任何磁碟上";
+"Pick their folder in Settings. A move shows how far it is and can be cancelled." = "在「設定」中選擇存放的檔案夾。搬移時會顯示進度，而且可以取消。";
+"A new look for Settings" = "全新的設定外觀";
+"Each setting has a glass icon of its own." = "每個設定都有自己的玻璃圖像。";
+"Choose your menu bar icon" = "選擇你的選單列圖像";
+"Six to pick from in Settings, from the classic moon to a ringed planet." = "在「設定」中有六款可選，從經典的月亮到帶環的行星。";
+"Fixed" = "已修正";
+"A crash on macOS 14" = "在 macOS 14 上當機";
+"Muro 6.0 and 6.0.1 quit the moment they opened on macOS 14." = "Muro 6.0 和 6.0.1 在 macOS 14 上一打開就結束。";
+"A crash when Muro opened" = "Muro 打開時當機";
+"On some Macs, Apple's older aerial list made Muro 6.0 quit the moment it opened." = "在部分 Mac 上，Apple 較舊的空拍列表會讓 Muro 6.0 一打開就結束。";
+"The flick at the loop" = "循環時的閃動";
+"Some wallpapers stopped for a moment every time they looped, on the desktop, the lock screen and the screen saver." = "部分背景圖片在桌面、鎖定畫面和螢幕保護程式上每次循環時都會停頓一下。";
+"The lock screen and the screen saver on new Macs" = "新款 Mac 上的鎖定畫面和螢幕保護程式";
+"Setting one also changed the other." = "設定其中一個時，另一個也會跟著改變。";
+"The lock screen on some Macs" = "部分 Mac 上的鎖定畫面";
+"It stayed on Apple's wallpaper because macOS never switched Muro on for it. Muro now does that itself." = "由於 macOS 從未替鎖定畫面啟用 Muro，鎖定畫面一直停在 Apple 的背景圖片上。現在 Muro 會自己完成這一步。";
+"Playlists keep your choices" = "播放列表會保留你的選擇";
+"A wallpaper you set by hand, or a pause, was undone at the next step." = "你手動設定的背景圖片或暫停，曾在下一個步驟時被還原。";
+"Clear keeps playlist wallpapers" = "清除時會保留播放列表中的背景圖片";
+"Clearing the library deleted wallpapers your playlists and automations use." = "清除資料庫曾會刪除播放列表和自動化正在使用的背景圖片。";
+"A crash in the Custom boxes" = "「自訂」輸入框中的當機";
+"A very long number made Muro quit." = "輸入很長的數字會讓 Muro 結束。";
+"Lighter" = "更輕巧";
+"The gallery lets go of its pictures when it is closed, so Muro uses less memory." = "圖庫視窗關閉後會釋放其中的圖片，因此 Muro 使用的記憶體更少。";
+"Some other major bug fixes and improvements" = "其他重要的錯誤修正和改進";
+"Across the gallery, the Library, the menu bar and Settings." = "涵蓋圖庫、資料庫、選單列和設定。";
+"IN THE VERSION YOU HAVE" = "你目前版本中的內容";
+"What's New" = "新功能";
+"UPDATE AVAILABLE" = "有可用的更新項目";
+"The notes for this release are on the release page." = "此版本的說明在發佈頁面上。";
+"Download Muro %@" = "下載 Muro %@";
+"Release Notes" = "版本說明";
+"The notes for this update are on the way" = "此更新的說明即將推出";
+"Everything that changed will be listed right here: what is new, what got better, and what was fixed." = "所有變更都會列在這裡：新增了什麼、改進了什麼、修正了什麼。";
+"You are running Muro %@, the latest version" = "你正在使用 Muro %@，這是最新版本";
+"You are running Muro %@" = "你正在使用 Muro %@";
+"Earlier releases" = "較早的版本";
+
+/* Categories (stored in English, shown in the chosen language) */
+"Abstract@@category" = "抽象";
+"Anime@@category" = "動漫";
+"Cars@@category" = "汽車";
+"Movies@@category" = "影視";
+"Nature@@category" = "自然";
+"Sci-fi@@category" = "科幻";
+"Video Games@@category" = "遊戲";
+"My Videos@@category" = "我的影片";
+"Other@@category" = "其他";
+"Yours@@category" = "你的";
+"Screen Savers@@category" = "螢幕保護程式";
+
+/* Apple's screen savers (Apple's own names) */
+"Arabesque@@saver" = "阿拉伯式花紋";
+"Drift@@saver" = "漂移";
+"Flurry@@saver" = "幻彩";
+"Hello@@saver" = "哈囉";
+"Monterey@@saver" = "Monterey";
+"Shell@@saver" = "Shell";
+"Ventura@@saver" = "文圖拉";
+"Word of the Day@@saver" = "每日一詞";

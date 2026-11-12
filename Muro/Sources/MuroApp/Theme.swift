@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Observation
+import MuroKit
 
 // Design tokens from the Figma file "Muro — App Design":
 // bg #0A0C10 · accent (moonbeam) #A9C4FF · secondary #98A0AC · green #7DE8A8
@@ -25,9 +26,9 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .standard: return "Default"
-        case .dark: return "Dark"
-        case .light: return "Light"
+        case .standard: return L("Default", ctx: "look")
+        case .dark: return L("Dark", ctx: "look")
+        case .light: return L("Light", ctx: "look")
         }
     }
 }
@@ -342,12 +343,68 @@ func formatSize(_ bytes: Int64) -> String {
     // 1,048,576-byte units, so a card said 129 MB for a file Finder lists as
     // 135 MB (full check, 2026-10-01).
     let mb = Double(bytes) / 1_000_000
-    if mb >= 1000 { return String(format: "%.2f GB", mb / 1000) }
+    if mb >= 1000 { return L("%@ GB", decimalText(mb / 1000, places: 2)) }
     // Under a megabyte, one decimal. Whole numbers made a real half-second
     // clip read "0 MB" (full check, 2026-10-01), and anything with bytes in
     // it is at least "0.1 MB".
-    if bytes > 0, mb < 0.95 { return String(format: "%.1f MB", max(mb, 0.1)) }
-    return String(format: "%.0f MB", mb)
+    if bytes > 0, mb < 0.95 { return L("%@ MB", decimalText(max(mb, 0.1), places: 1)) }
+    return L("%@ MB", decimalText(mb, places: 0))
+}
+
+/// A number with a fixed count of decimals, written the way the chosen
+/// language writes it: "1.25" in English, "1,25" in German.
+func decimalText(_ value: Double, places: Int) -> String {
+    DecimalWriter.shared.text(value, places: places)
+}
+
+/// Keeps one number formatter per language and count of decimals. A formatter
+/// is slow to make, and a grid of cards asks for a size on every card.
+private final class DecimalWriter: @unchecked Sendable {
+    static let shared = DecimalWriter()
+    private let lock = NSLock()
+    private var formatters: [String: NumberFormatter] = [:]
+
+    func text(_ value: Double, places: Int) -> String {
+        let language = Localization.shared.language
+        let key = "\(language.rawValue)#\(places)"
+        return lock.withLock {
+            let formatter = formatters[key] ?? {
+                let made = NumberFormatter()
+                made.locale = language.locale
+                made.numberStyle = .decimal
+                made.usesGroupingSeparator = false
+                made.minimumFractionDigits = places
+                made.maximumFractionDigits = places
+                formatters[key] = made
+                return made
+            }()
+            return formatter.string(from: NSNumber(value: value)) ?? String(format: "%.\(places)f", value)
+        }
+    }
+}
+
+/// A line with one part in bold. The bold part sits between two stars in the
+/// text itself: "uses *more power* than the rest".
+func emphasisedText(_ line: String) -> Text {
+    line.components(separatedBy: "*").enumerated().reduce(Text(verbatim: "")) { text, part in
+        text + (part.offset % 2 == 1
+            ? Text(verbatim: part.element).fontWeight(.semibold)
+            : Text(verbatim: part.element))
+    }
+}
+
+/// "A, B and C", joined the way the chosen language joins a list.
+func listText(_ items: [String]) -> String {
+    let formatter = ListFormatter()
+    formatter.locale = Localization.shared.locale
+    return formatter.string(from: items) ?? items.joined(separator: ", ")
+}
+
+/// A wallpaper's category in the chosen language. The category itself is
+/// stored and compared in English, the way the catalog names it; only what is
+/// shown goes through here. One Muro has no word for comes back unchanged.
+func categoryTitle(_ category: String) -> String {
+    L(category, ctx: "category")
 }
 
 func formatDuration(_ seconds: Double) -> String {

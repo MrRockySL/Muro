@@ -69,12 +69,12 @@ public enum ScreenSaverDelay {
     /// setting: there is no system-wide plist to fall back to, and loginwindow
     /// uses a number compiled into itself that it does not publish anywhere.
     /// Muro says so instead of inventing a duration and showing it as fact.
-    public static let systemDefaultLabel = "System default"
+    public static var systemDefaultLabel: String { L("System default") }
 
     /// The menu wording for a delay, or for not knowing one.
     public static func label(_ seconds: Int?) -> String {
         guard let seconds else { return systemDefaultLabel }
-        return seconds <= 0 ? "Never" : durationLabel(seconds)
+        return seconds <= 0 ? L("Never") : durationLabel(seconds)
     }
 
     /// What macOS will actually wait, or nil when nobody has ever set it.

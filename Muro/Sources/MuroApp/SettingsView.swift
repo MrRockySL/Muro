@@ -44,9 +44,9 @@ struct SettingsView: View {
                     .padding(.top, 30)
                     .id("settings-top")
 
-                section("GENERAL") {
-                    row(icon: .launchAtLogin, title: "Launch at Login",
-                        subtitle: "Starts quietly in the background") {
+                section(L("GENERAL")) {
+                    row(icon: .launchAtLogin, title: L("Launch at Login"),
+                        subtitle: L("Starts quietly in the background")) {
                         Toggle("", isOn: $launchAtLogin)
                             .toggleStyle(.switch)
                             .tint(Color.muroSwitch)
@@ -56,7 +56,7 @@ struct SettingsView: View {
                             }
                     }
                     divider
-                    row(icon: .menuBar, title: "Show Menu Bar Icon",
+                    row(icon: .menuBar, title: L("Show Menu Bar Icon"),
                         subtitle: menuBarSubtitle) {
                         Toggle("", isOn: $showMenuBarIcon)
                             .toggleStyle(.switch)
@@ -64,8 +64,8 @@ struct SettingsView: View {
                             .labelsHidden()
                     }
                     divider
-                    row(icon: .dockIcon, title: "Show Dock Icon",
-                        subtitle: "Off keeps Muro in the menu bar only") {
+                    row(icon: .dockIcon, title: L("Show Dock Icon"),
+                        subtitle: L("Off keeps Muro in the menu bar only")) {
                         Toggle("", isOn: $showDockIcon)
                             .toggleStyle(.switch)
                             .tint(Color.muroSwitch)
@@ -80,8 +80,8 @@ struct SettingsView: View {
                     // same glass in black and white; Light is white with dark
                     // buttons (owner, 2026-10-02). It changes at once, in
                     // every window and the menu bar.
-                    row(icon: .appearance, title: "Appearance",
-                        subtitle: "Default, Light or Dark") {
+                    row(icon: .appearance, title: L("Appearance"),
+                        subtitle: L("Default, Light or Dark")) {
                         CapsuleSegments(
                             options: [AppearanceMode.standard, .light, .dark].map { ($0.title, $0.rawValue) },
                             selection: Binding(
@@ -95,8 +95,8 @@ struct SettingsView: View {
                     // the owner picked from ten drawn in Figma. The menu shows
                     // each glyph beside its name, and the menu bar changes the
                     // moment one is chosen (StatusBarController).
-                    row(icon: .menuBarIcon, title: "Menu Bar Icon",
-                        subtitle: "The icon Muro shows in the menu bar") {
+                    row(icon: .menuBarIcon, title: L("Menu Bar Icon"),
+                        subtitle: L("The icon Muro shows in the menu bar")) {
                         GlassDropdown(width: 170, align: .trailing, options: {
                             MenuBarIconStyle.allCases.map { style in
                                 MenuOption(
@@ -124,11 +124,33 @@ struct SettingsView: View {
                             .glassCapsule(fill: 0.09, stroke: 0.15)
                         }
                     }
+                    divider
+                    // The language Muro is in (issue #62). It changes at once,
+                    // in every window and the menu bar, and it is the same
+                    // choice macOS keeps for Muro in its own Language & Region.
+                    row(icon: .language, title: L("Language"),
+                        subtitle: L("The language Muro is in")) {
+                        GlassDropdown(width: 260, align: .trailing, options: {
+                            LanguageMenu.options(store: store)
+                        }) {
+                            HStack(spacing: 6) {
+                                Text(LanguageMenu.current)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.muroInk)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundStyle(Color.muroInk.opacity(0.6))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5.5)
+                            .glassCapsule(fill: 0.09, stroke: 0.15)
+                        }
+                    }
                 }
 
-                section("PLAYBACK") {
-                    row(icon: .playbackSpeed, title: "Playback Speed",
-                        subtitle: "How fast wallpapers play") {
+                section(L("PLAYBACK")) {
+                    row(icon: .playbackSpeed, title: L("Playback Speed"),
+                        subtitle: L("How fast wallpapers play")) {
                         GlassDropdown(width: 120, align: .trailing, options: {
                             [0.5, 0.75, 1.0, 1.25, 1.5].map { speed in
                                 MenuOption(
@@ -151,10 +173,10 @@ struct SettingsView: View {
                         }
                     }
                     divider
-                    row(icon: .defaultQuality, title: "Default Quality",
-                        subtitle: "Efficient caps at 30 fps for lower CPU") {
+                    row(icon: .defaultQuality, title: L("Default Quality"),
+                        subtitle: L("Efficient caps at 30 fps for lower CPU")) {
                         CapsuleSegments(
-                            options: [("Smooth", "smooth"), ("Efficient", "efficient")],
+                            options: [(L("Smooth"), "smooth"), (L("Efficient"), "efficient")],
                             selection: $defaultMode
                         )
                     }
@@ -163,10 +185,10 @@ struct SettingsView: View {
                     // every live wallpaper Muro publishes is silent. Off by
                     // default, and the menu bar's sound button only appears
                     // while this is on.
-                    row(icon: .sound, title: "Live Wallpaper Sound",
+                    row(icon: .sound, title: L("Live Wallpaper Sound"),
                         subtitle: store.soundEnabled
-                            ? "Your own videos play with sound"
-                            : "All live wallpapers stay silent") {
+                            ? L("Your own videos play with sound")
+                            : L("All live wallpapers stay silent")) {
                         Toggle("", isOn: Binding(
                             get: { store.soundEnabled },
                             set: { store.setSoundEnabled($0) }
@@ -174,19 +196,19 @@ struct SettingsView: View {
                         .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
-                    row(icon: .pauseAfter, title: "Pause After",
+                    row(icon: .pauseAfter, title: L("Pause After"),
                         subtitle: pauseAfterSubtitle) {
                         GlassDropdown(width: 150, align: .trailing, options: {
                             SettingsView.pauseAfterChoices.map { seconds in
                                 MenuOption(
-                                    title: seconds == 0 ? "Off" : durationLabel(seconds),
+                                    title: seconds == 0 ? L("Off") : durationLabel(seconds),
                                     checked: store.pauseAfterSeconds == seconds
                                 ) { store.setPauseAfter(seconds) }
-                            } + [.divider, MenuOption(title: "Custom") { customPauseAfter = true }]
+                            } + [.divider, MenuOption(title: L("Custom")) { customPauseAfter = true }]
                         }) {
                             HStack(spacing: 6) {
                                 Text(store.pauseAfterSeconds == 0
-                                     ? "Off" : durationLabel(store.pauseAfterSeconds))
+                                     ? L("Off") : durationLabel(store.pauseAfterSeconds))
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundStyle(Color.muroInk)
                                 Image(systemName: "chevron.down")
@@ -210,7 +232,7 @@ struct SettingsView: View {
                     // from Pause After stands where its icon would be. A box
                     // around the pair was tried first: it pushed both rows in,
                     // out of line with every other icon and control.
-                    subRow(title: "Replay on Clear Desktop", subtitle: replaySubtitle) {
+                    subRow(title: L("Replay on Clear Desktop"), subtitle: replaySubtitle) {
                         Toggle("", isOn: Binding(
                             get: { store.replayOnClearDesktop },
                             set: { store.setReplayOnClearDesktop($0) }
@@ -224,7 +246,7 @@ struct SettingsView: View {
                     // the same key Apple's own panel writes, and loginwindow
                     // picks it up at its next idle check with nothing to
                     // restart. See MuroKit/ScreenSaverDelay.swift.
-                    row(icon: .screenSaver, title: "Start Screen Saver",
+                    row(icon: .screenSaver, title: L("Start Screen Saver"),
                         subtitle: screenSaverSubtitle) {
                         GlassDropdown(width: 150, align: .trailing, options: {
                             ScreenSaverDelay.choices.map { seconds in
@@ -252,9 +274,9 @@ struct SettingsView: View {
                     }
                 }
 
-                section("ENERGY") {
-                    row(icon: .lowPower, title: "Auto-pause in Low Power Mode",
-                        subtitle: "Freeze while saving energy") {
+                section(L("ENERGY")) {
+                    row(icon: .lowPower, title: L("Auto-pause in Low Power Mode"),
+                        subtitle: L("Freeze while saving energy")) {
                         Toggle("", isOn: Binding(
                             get: { store.autoPauseLowPower },
                             set: { store.setAutoPauseLowPower($0) }
@@ -262,8 +284,8 @@ struct SettingsView: View {
                         .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
-                    row(icon: .lowBattery, title: "Auto-pause below 20% battery",
-                        subtitle: "Resumes automatically on power") {
+                    row(icon: .lowBattery, title: L("Auto-pause below 20% battery"),
+                        subtitle: L("Resumes automatically on power")) {
                         Toggle("", isOn: Binding(
                             get: { store.autoPauseBattery },
                             set: { store.setAutoPauseBattery($0) }
@@ -271,8 +293,8 @@ struct SettingsView: View {
                         .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
-                    row(icon: .covered, title: "Auto-pause when covered",
-                        subtitle: "Freeze when a window or full screen app covers it") {
+                    row(icon: .covered, title: L("Auto-pause when covered"),
+                        subtitle: L("Freeze when a window or full screen app covers it")) {
                         Toggle("", isOn: Binding(
                             get: { store.autoPauseFullScreen },
                             set: { store.setAutoPauseFullScreen($0) }
@@ -282,8 +304,8 @@ struct SettingsView: View {
                     divider
                     // Issue #22. Any app window open on a screen freezes that
                     // screen's wallpaper, and a clear desktop plays it.
-                    row(icon: .desktopOnly, title: "Play only on desktop",
-                        subtitle: "Freeze while a window is open on that screen") {
+                    row(icon: .desktopOnly, title: L("Play only on desktop"),
+                        subtitle: L("Freeze while a window is open on that screen")) {
                         Toggle("", isOn: Binding(
                             get: { store.playOnlyOnDesktop },
                             set: { store.setPlayOnlyOnDesktop($0) }
@@ -292,12 +314,12 @@ struct SettingsView: View {
                     }
                 }
 
-                section("DISPLAYS") {
+                section(L("DISPLAYS")) {
                     ForEach(Array(store.displays.enumerated()), id: \.element.id) { index, display in
                         if index > 0 { divider }
                         row(icon: display.isBuiltIn ? .builtInDisplay : .externalDisplay,
                             title: display.displayName,
-                            subtitle: "\(display.kindLabel) display") {
+                            subtitle: display.kindLabel) {
                             Text("\(display.pixelsW) × \(display.pixelsH)")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Color.muroSecondary)
@@ -305,14 +327,14 @@ struct SettingsView: View {
                     }
                 }
 
-                section("STORAGE") {
-                    row(icon: .storage, title: "Library & Cache",
-                        subtitle: store.clearStatus ?? "Keeps the wallpaper in use") {
+                section(L("STORAGE")) {
+                    row(icon: .storage, title: L("Library & Cache"),
+                        subtitle: store.clearStatus ?? L("Keeps the wallpaper in use")) {
                         HStack(spacing: 10) {
                             Text(formatSize(store.libraryBytes))
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Color.muroSecondary)
-                            Button("Clear") { confirmClear = true }
+                            Button(L("Clear")) { confirmClear = true }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(Color.muroInk)
@@ -323,27 +345,27 @@ struct SettingsView: View {
                     }
                     // The share of it that came from the Apple section, which
                     // can be most of it: one aerial alone can be 1.5 GB.
-                    subRow(title: "Apple Downloads",
-                           subtitle: "Aerials and pictures from the Apple section") {
+                    subRow(title: L("Apple Downloads"),
+                           subtitle: L("Aerials and pictures from the Apple section")) {
                         Text(formatSize(store.appleDownloadBytes))
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color.muroSecondary)
                     }
                     divider
-                    row(icon: .downloadFolder, title: "Download Folder",
+                    row(icon: .downloadFolder, title: L("Download Folder"),
                         subtitle: downloadFolder.subtitle) {
                         HStack(spacing: 8) {
                             // A move can take minutes on a slow drive, and it
                             // could not be stopped (full check, 2026-10-01).
                             if downloadFolder.moving != nil {
-                                settingsPill("Cancel") { downloadFolder.cancel() }
+                                settingsPill(L("Cancel")) { downloadFolder.cancel() }
                                     .disabled(downloadFolder.cancelling)
                                     .opacity(downloadFolder.cancelling ? 0.45 : 1)
                             } else {
                                 if downloadFolder.isCustom {
-                                    settingsPill("Default") { downloadFolder.reset() }
+                                    settingsPill(L("Default", ctx: "folder")) { downloadFolder.reset() }
                                 }
-                                settingsPill("Change") { downloadFolder.choose() }
+                                settingsPill(L("Change")) { downloadFolder.choose() }
                             }
                         }
                     }
@@ -359,16 +381,16 @@ struct SettingsView: View {
                 // Explore. Still overridable via `defaults write … catalogURL`
                 // for the owner's own testing.
 
-                section("ABOUT") {
+                section(L("ABOUT")) {
                     row(icon: .softwareUpdate,
-                        title: "Software Update",
+                        title: L("Software Update"),
                         subtitle: updateSubtitle) {
                         updateControl
                     }
                     divider
                     row(icon: .support,
-                        title: "Support Muro",
-                        subtitle: "Muro is free. Sponsoring keeps it that way.") {
+                        title: L("Support Muro"),
+                        subtitle: L("Muro is free. Sponsoring keeps it that way.")) {
                         sponsorControl
                     }
                 }
@@ -409,17 +431,17 @@ struct SettingsView: View {
         .frame(width: 560, height: 600)
         .menuHost()
         .background(SettingsWindowConfigurator())
-        .alert("Download Folder", isPresented: Binding(
+        .alert(L("Download Folder"), isPresented: Binding(
             get: { downloadFolder.message != nil },
             set: { if !$0 { downloadFolder.message = nil } }
         )) {
-            Button("OK", role: .cancel) { downloadFolder.message = nil }
+            Button(L("OK"), role: .cancel) { downloadFolder.message = nil }
         } message: {
             Text(downloadFolder.message ?? "")
         }
-        .alert("Clear the library?", isPresented: $confirmClear) {
-            Button("Cancel", role: .cancel) {}
-            Button("Clear", role: .destructive) { store.clearDownloadedCache() }
+        .alert(L("Clear the library?"), isPresented: $confirmClear) {
+            Button(L("Cancel"), role: .cancel) {}
+            Button(L("Clear"), role: .destructive) { store.clearDownloadedCache() }
         } message: {
             Text(clearMessage)
         }
@@ -430,13 +452,13 @@ struct SettingsView: View {
     static let pauseAfterChoices = [0, 10, 30, 60, 120, 300, 900, 3600]
 
     static func pauseAfterLabel(_ seconds: Int) -> String {
-        seconds <= 0 ? "Off" : durationLabel(seconds)
+        seconds <= 0 ? L("Off") : durationLabel(seconds)
     }
 
     private var pauseAfterSubtitle: String {
         store.pauseAfterSeconds == 0
-            ? "Wallpapers keep playing"
-            : "Plays for \(durationLabel(store.pauseAfterSeconds)), then holds on a frame"
+            ? L("Wallpapers keep playing")
+            : L("Plays for %@, then holds on a frame", durationLabel(store.pauseAfterSeconds))
     }
 
     /// Says what macOS will do, not what the menu is called. "System default"
@@ -459,14 +481,14 @@ struct SettingsView: View {
         // has. "Saved. macOS uses it after the current wait ends..." read
         // oddly under Never (full check, 2026-10-01).
         if screenSaverDelayJustChanged, let seconds = screenSaverDelay, seconds > 0 {
-            return "Saved. macOS uses it after the current wait ends, or now if you lock the screen."
+            return L("Saved. macOS uses it after the current wait ends, or now if you lock the screen.")
         }
         guard let seconds = screenSaverDelay else {
-            return "macOS is deciding. Pick a time to set it."
+            return L("macOS is deciding. Pick a time to set it.")
         }
         return seconds <= 0
-            ? "The screen saver never starts"
-            : "Starts after \(durationLabel(seconds)) with no activity"
+            ? L("The screen saver never starts")
+            : L("Starts after %@ with no activity", durationLabel(seconds))
     }
 
     /// Says what is about to happen in counts, and names the part that cannot
@@ -476,35 +498,29 @@ struct SettingsView: View {
         let plan = store.clearPlan
         guard !plan.isEmpty else {
             return plan.keptForSchedules > 0
-                ? "Nothing to clear. Every wallpaper here is playing, or in a playlist or an automation."
-                : "Nothing to clear. The only wallpapers here are the ones in use."
+                ? L("Nothing to clear. Every wallpaper here is playing, or in a playlist or an automation.")
+                : L("Nothing to clear. The only wallpapers here are the ones in use.")
         }
         let count = plan.removed.count + plan.apple.count
-        var text = "This removes \(count) "
-            + (count == 1 ? "wallpaper" : "wallpapers")
-            + " and frees about \(formatSize(plan.bytes + plan.appleBytes))."
+        // Whole sentences, each counted on its own, so every language can
+        // say it its own way.
+        var text = [LN("This removes %@ wallpapers and frees about %@.",
+                       count, formatSize(plan.bytes + plan.appleBytes))]
         if !plan.apple.isEmpty {
-            text += plan.apple.count == 1
-                ? " 1 of them is from the Apple section and can be downloaded again."
-                : " \(plan.apple.count) of them are from the Apple section and can be downloaded again."
+            text.append(LN("%@ of them are from the Apple section and can be downloaded again.",
+                           plan.apple.count))
         }
         let keptPlaying = plan.kept - plan.keptForSchedules
         if keptPlaying > 0 {
-            text += keptPlaying == 1
-                ? " The one that is playing stays."
-                : " The \(keptPlaying) in use stay."
+            text.append(LN("The %@ in use stay.", keptPlaying))
         }
         if plan.keptForSchedules > 0 {
-            text += plan.keptForSchedules == 1
-                ? " The one in your playlists and automations stays."
-                : " The \(plan.keptForSchedules) in your playlists and automations stay."
+            text.append(LN("The %@ in your playlists and automations stay.", plan.keptForSchedules))
         }
         if plan.personal > 0 {
-            text += plan.personal == 1
-                ? " 1 of them is your own video and cannot be recovered."
-                : " \(plan.personal) of them are your own videos and cannot be recovered."
+            text.append(LN("%@ of them are your own videos and cannot be recovered.", plan.personal))
         }
-        return text
+        return joinSentences(text)
     }
 
     // MARK: - Pieces
@@ -516,20 +532,20 @@ struct SettingsView: View {
             Text("Muro")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Color.muroInk)
-            Text("Version \(AppStore.appVersion)")
+            Text(L("Version %@", AppStore.appVersion))
                 .font(.system(size: 11))
                 .foregroundStyle(Color.muroSecondary)
             if let version = store.latestRelease?.version {
                 Button {
                     openWhatsNew(store)
                 } label: {
-                    Text("Muro \(version) is available. See what's new.")
+                    Text(L("Muro %@ is available. See what's new.", version))
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color.muroAccent)
                 }
                 .buttonStyle(.plain)
             }
-            CreditLink(text: "Designed & developed by \(Credits.name)", size: 10)
+            CreditLink(text: L("Designed & developed by %@", Credits.name), size: 10)
                 .padding(.top, 2)
         }
     }
@@ -584,8 +600,8 @@ struct SettingsView: View {
     /// replays that one.
     private var replaySubtitle: String {
         store.pauseAfterSeconds == 0
-            ? "Works with a Pause After time"
-            : "Plays \(durationLabel(store.pauseAfterSeconds)) again each time the desktop clears"
+            ? L("Works with a Pause After time")
+            : L("Plays %@ again each time the desktop clears", durationLabel(store.pauseAfterSeconds))
     }
 
     // MARK: - Software update
@@ -593,11 +609,11 @@ struct SettingsView: View {
     private var updateSubtitle: String {
         switch store.updateCheck {
         case .idle:      return "Muro \(AppStore.appVersion)"
-        case .checking:  return "Checking GitHub…"
-        case .upToDate:  return "Muro \(AppStore.appVersion) is the latest version"
+        case .checking:  return L("Checking GitHub…")
+        case .upToDate:  return L("Muro %@ is the latest version", AppStore.appVersion)
         case .available(let version, _):
-            return "Version \(version) is available on GitHub"
-        case .failed:    return "Couldn't check. Check your connection."
+            return L("Version %@ is available on GitHub", version)
+        case .failed:    return L("Couldn't check. Check your connection.")
         }
     }
 
@@ -610,7 +626,7 @@ struct SettingsView: View {
         case .available:
             // Muro is not self-updating, so this hands over the DMG itself
             // when the release has one and the release page when it does not.
-            Button("Download ↗") { store.downloadUpdate() }
+            Button(L("Download ↗")) { store.downloadUpdate() }
                 .buttonStyle(.plain)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.muroOnAccent)
@@ -618,7 +634,7 @@ struct SettingsView: View {
                 .padding(.vertical, 5.5)
                 .background(Capsule().fill(Color.muroAccent))
         default:
-            Button("Check Now") {
+            Button(L("Check Now")) {
                 Task { await store.checkForUpdates(userInitiated: true) }
             }
             .buttonStyle(.plain)
@@ -672,8 +688,8 @@ struct SettingsView: View {
     /// combination where nothing on screen leads back to it.
     private var menuBarSubtitle: String {
         showMenuBarIcon || showDockIcon
-            ? "Quick controls from the menu bar"
-            : "Open Muro from Launchpad or Spotlight"
+            ? L("Quick controls from the menu bar")
+            : L("Open Muro from Launchpad or Spotlight")
     }
 
     private var currentMenuBarIcon: MenuBarIconStyle {

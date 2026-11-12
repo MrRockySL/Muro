@@ -55,6 +55,7 @@ struct LibraryView: View {
         store.searchText.isEmpty
             || item.title.localizedCaseInsensitiveContains(store.searchText)
             || item.category.localizedCaseInsensitiveContains(store.searchText)
+            || categoryTitle(item.category).localizedCaseInsensitiveContains(store.searchText)
     }
 
     private var searched: [WallpaperItem] {
@@ -193,16 +194,16 @@ struct LibraryView: View {
             PillSegments(
                 options: [
                     PillOption(
-                        LibTab.all.rawValue, "Downloaded",
+                        LibTab.all.rawValue, L("Downloaded"),
                         count: store.localItems.count + store.appleLibraryItems.count + saverItems.count
                     ),
                     PillOption(
-                        LibTab.liked.rawValue, "Liked",
+                        LibTab.liked.rawValue, L("Liked"),
                         count: store.likedItems.count + store.likedAppleItems.count
                             + saverItems.filter(\.liked).count
                     ),
                     PillOption(
-                        LibTab.schedules.rawValue, "Playlists & Automations",
+                        LibTab.schedules.rawValue, L("Playlists & Automations"),
                         count: store.playlists.count + store.automations.count
                     )
                 ],
@@ -257,7 +258,7 @@ struct LibraryView: View {
             HStack(spacing: 7) {
                 Image(systemName: selecting ? "xmark" : "checkmark.circle")
                     .font(.system(size: 11, weight: .semibold))
-                Text(selecting ? "Done" : "Select")
+                Text(selecting ? L("Done") : L("Select"))
                     .font(.system(size: 12.5, weight: .semibold))
             }
             .foregroundStyle(selecting ? Color.muroOnInk : Color.muroInk.opacity(0.88))
@@ -280,7 +281,7 @@ struct LibraryView: View {
     private var selectAllButton: some View {
         let all = Set(visibleItems.map(\.id))
         let everything = !all.isEmpty && selected.isSuperset(of: all)
-        return Button(everything ? "Select None" : "Select All") {
+        return Button(everything ? L("Select None") : L("Select All")) {
             selected = everything ? [] : all
         }
         .buttonStyle(.plain)
@@ -296,13 +297,13 @@ struct LibraryView: View {
     /// grid without pushing anything, the way the pill bar does in the preview.
     private var batchBar: some View {
         HStack(spacing: 14) {
-            Text("\(selected.count) selected")
+            Text(L("%@ selected", selected.count))
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(Color.muroInk)
                 .lineLimit(1)
                 .fixedSize()
             Rectangle().fill(Color.muroInk.opacity(0.14)).frame(width: 1, height: 18)
-            Button("Clear") { selected = [] }
+            Button(L("Clear")) { selected = [] }
                 .buttonStyle(.plain)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Color.muroSecondary)
@@ -314,7 +315,7 @@ struct LibraryView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "trash")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("Delete")
+                    Text(L("Delete"))
                         .font(.system(size: 12.5, weight: .semibold))
                         .lineLimit(1)
                         .fixedSize()
@@ -354,10 +355,10 @@ struct LibraryView: View {
             PlusBubble(size: 56, hovering: lit, pressed: pressingDrop)
             VStack(alignment: .leading, spacing: 4) {
                 Text(store.importStatus ?? addedNote ?? store.importNote
-                     ?? "Drop videos or screen savers here, or click to import")
+                     ?? L("Drop videos or screen savers here, or click to import"))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.muroInk)
-                Text("MP4, MOV and M4V videos, and .saver screen savers")
+                Text(L("MP4, MOV and M4V videos, and .saver screen savers"))
                     .font(.system(size: 11.5))
                     .foregroundStyle(Color.muroSecondary)
             }
@@ -431,13 +432,13 @@ struct LibraryView: View {
     private func note(_ result: (added: [String], already: [String])) {
         let text: String
         if result.added.count == 1 {
-            text = "\(result.added[0]) added."
+            text = L("%@ added.", result.added[0])
         } else if result.added.count > 1 {
-            text = "\(result.added.count) screen savers added."
+            text = L("%@ screen savers added.", result.added.count)
         } else if result.already.count == 1 {
-            text = "\(result.already[0]) is already added."
+            text = L("%@ is already added.", result.already[0])
         } else if !result.already.isEmpty {
-            text = "Those screen savers are already added."
+            text = L("Those screen savers are already added.")
         } else {
             return
         }
@@ -493,7 +494,7 @@ struct LibraryView: View {
     @ViewBuilder private func saverGroup(_ items: [WallpaperItem]) -> some View {
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
-                SectionLabel("YOUR SCREEN SAVERS", trailing: "\(items.count)")
+                SectionLabel(L("YOUR SCREEN SAVERS"), trailing: "\(items.count)")
                 grid(items: items)
             }
             .padding(.top, 6)
@@ -506,7 +507,7 @@ struct LibraryView: View {
     @ViewBuilder private func appleGroup(_ items: [WallpaperItem]) -> some View {
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: 14) {
-                SectionLabel("FROM APPLE", trailing: "\(items.count)")
+                SectionLabel(L("FROM APPLE"), trailing: "\(items.count)")
                 grid(items: items)
             }
             .padding(.top, 6)
@@ -524,8 +525,8 @@ struct LibraryView: View {
             VStack(alignment: .leading, spacing: 18) {
                 PillSegments(
                     options: [
-                        PillOption(ScheduleKind.playlists.rawValue, "Playlists", count: store.playlists.count),
-                        PillOption(ScheduleKind.automations.rawValue, "Automations", count: store.automations.count)
+                        PillOption(ScheduleKind.playlists.rawValue, L("Playlists"), count: store.playlists.count),
+                        PillOption(ScheduleKind.automations.rawValue, L("Automations"), count: store.automations.count)
                     ],
                     selection: Binding(
                         get: { scheduleKind.rawValue },
@@ -561,8 +562,8 @@ struct LibraryView: View {
                 }
             }
             NewThingCard(
-                title: "New Playlist",
-                subtitle: "Pick wallpapers and cycle them on a schedule",
+                title: L("New Playlist"),
+                subtitle: L("Pick wallpapers and cycle them on a schedule"),
                 height: 200
             ) { editorTarget = .new }
         }
@@ -578,8 +579,8 @@ struct LibraryView: View {
                 }
             }
             NewThingCard(
-                title: "New Automation",
-                subtitle: "Give each wallpaper its own time of day, or its own length",
+                title: L("New Automation"),
+                subtitle: L("Give each wallpaper its own time of day, or its own length"),
                 height: 200
             ) { automationTarget = .new }
         }
@@ -646,9 +647,9 @@ struct PlaylistCard: View {
 
     private var intervalText: String {
         switch playlist.intervalMinutes {
-        case ..<60: return "Every \(playlist.intervalMinutes) min"
-        case 60: return "Every hour"
-        default: return "Every \(playlist.intervalMinutes / 60) hr"
+        case ..<60: return L("Every %@ min", playlist.intervalMinutes)
+        case 60: return L("Every hour")
+        default: return L("Every %@ hr", playlist.intervalMinutes / 60)
         }
     }
 
@@ -668,10 +669,10 @@ struct PlaylistCard: View {
             HStack(spacing: 8) {
                 MetaChip(
                     systemImage: "rectangle.stack",
-                    text: "\(playlist.wallpaperIDs.count) wallpaper\(playlist.wallpaperIDs.count == 1 ? "" : "s")"
+                    text: LN("%@ wallpapers", playlist.wallpaperIDs.count)
                 )
                 MetaChip(systemImage: "clock", text: intervalText)
-                MetaChip(systemImage: "shuffle", text: playlist.shuffle ? "Shuffle on" : "Shuffle off")
+                MetaChip(systemImage: "shuffle", text: playlist.shuffle ? L("Shuffle on") : L("Shuffle off"))
             }
             .padding(.top, 11)
             Spacer(minLength: 8)
@@ -696,14 +697,14 @@ struct PlaylistCard: View {
 
     private var menuOptions: [MenuOption] {
         [
-            MenuOption(title: "Edit Playlist") { onEdit() },
-            MenuOption(title: playlist.shuffle ? "Shuffle Off" : "Shuffle On") {
+            MenuOption(title: L("Edit Playlist")) { onEdit() },
+            MenuOption(title: playlist.shuffle ? L("Shuffle Off") : L("Shuffle On")) {
                 var updated = playlist
                 updated.shuffle.toggle()
                 store.updatePlaylist(updated)
             },
             .divider,
-            MenuOption(title: "Delete Playlist", destructive: true) {
+            MenuOption(title: L("Delete Playlist"), destructive: true) {
                 confirmingDelete = true
             }
         ]
@@ -788,27 +789,27 @@ struct AutomationCard: View {
         let count = automation.steps.count
         let wallpapers = MetaChip(
             systemImage: "rectangle.stack",
-            text: "\(count) wallpaper\(count == 1 ? "" : "s")"
+            text: LN("%@ wallpapers", count)
         )
         // With every wallpaper deleted out of it, an automation still said
         // "Covers the whole day" over an empty timeline (full check,
         // 2026-10-01). An empty schedule covers nothing and plays nothing.
         guard count > 0 else {
             return [wallpapers, MetaChip(systemImage: "exclamationmark.triangle",
-                                         text: "Nothing to play", tint: Color.muroWarn)]
+                                         text: L("Nothing to play"), tint: Color.muroWarn)]
         }
         switch automation.mode {
         case .timer:
             return [wallpapers, MetaChip(systemImage: "arrow.triangle.2.circlepath",
-                                         text: "\(durationLabel(automation.cycleSeconds)) cycle")]
+                                         text: L("%@ cycle", durationLabel(automation.cycleSeconds)))]
         case .clock:
             let gaps = automation.uncoveredWindows
             return [
                 wallpapers,
                 gaps.isEmpty
-                    ? MetaChip(systemImage: "checkmark.circle", text: "Covers the whole day")
+                    ? MetaChip(systemImage: "checkmark.circle", text: L("Covers the whole day"))
                     : MetaChip(systemImage: "exclamationmark.triangle",
-                               text: "\(gaps.count) gap\(gaps.count == 1 ? "" : "s")",
+                               text: LN("%@ gaps", gaps.count),
                                tint: Color.muroWarn)
             ]
         }
@@ -821,7 +822,7 @@ struct AutomationCard: View {
               let step = automation.clockStep(at: AutomationScheduler.minuteOfDay()),
               let item = store.item(id: step.wallpaperID)
         else { return nil }
-        return "Now: \(item.title) until \(clockLabel(step.end))"
+        return L("Now: %@ until %@", item.title, clockLabel(step.end))
     }
 
     var body: some View {
@@ -833,7 +834,7 @@ struct AutomationCard: View {
                     .lineLimit(1)
                 MetaChip(
                     systemImage: automation.mode == .clock ? "clock" : "timer",
-                    text: automation.mode == .clock ? "CLOCK" : "TIMER",
+                    text: automation.mode == .clock ? L("CLOCK") : L("TIMER"),
                     tint: Color.muroAccent
                 )
                 if let playingLabel { PlayingChip(text: playingLabel) }
@@ -879,7 +880,7 @@ struct AutomationCard: View {
                     timerStep(step, index: index)
                 }
                 if automation.steps.isEmpty {
-                    Text("No wallpapers in this automation yet")
+                    Text(L("No wallpapers in this automation yet"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Color.muroSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -925,9 +926,9 @@ struct AutomationCard: View {
 
     private var menuOptions: [MenuOption] {
         [
-            MenuOption(title: "Edit Automation") { onEdit() },
+            MenuOption(title: L("Edit Automation")) { onEdit() },
             .divider,
-            MenuOption(title: "Delete Automation", destructive: true) {
+            MenuOption(title: L("Delete Automation"), destructive: true) {
                 confirmingDelete = true
             }
         ]
@@ -973,7 +974,7 @@ struct PlaylistEditorView: View {
     /// Short enough to stay on one line. "Every 15 min" wrapped and made that
     /// one segment taller than the bar around it.
     private static func shortLabel(_ minutes: Int) -> String {
-        minutes < 60 ? "\(minutes) min" : "\(minutes / 60) hr"
+        minutes < 60 ? L("%@ min", minutes) : L("%@ hr", minutes / 60)
     }
 
     private var isNew: Bool {
@@ -996,7 +997,7 @@ struct PlaylistEditorView: View {
         guard !name.isEmpty else { return nil }
         let existing = store.playlists.map { (id: $0.id, name: $0.name) }
         return nameIsTaken(name, in: existing, excluding: editingID)
-            ? "Name already in use" : nil
+            ? L("Name already in use") : nil
     }
 
     private var editingID: String? {
@@ -1016,23 +1017,23 @@ struct PlaylistEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SheetHeader(title: isNew ? "New Playlist" : "Edit Playlist") { dismiss() }
+            SheetHeader(title: isNew ? L("New Playlist") : L("Edit Playlist")) { dismiss() }
                 .padding(.horizontal, 26)
                 .padding(.top, 26)
             GlassTextField(
-                label: "NAME", placeholder: "Playlist name",
+                label: L("NAME"), placeholder: L("Playlist name"),
                 text: $name, problem: nameProblem
             )
             .padding(.horizontal, 26)
             .padding(.top, 20)
 
-            SectionLabel("CHANGE WALLPAPER EVERY")
+            SectionLabel(L("CHANGE WALLPAPER EVERY"))
                 .padding(.horizontal, 26)
                 .padding(.top, 22)
             HStack(spacing: 14) {
                 PillSegments(
                     options: Self.presets.map { PillOption("\($0)", Self.shortLabel($0)) }
-                        + [PillOption("custom", "Custom")],
+                        + [PillOption("custom", L("Custom"))],
                     selection: Binding(
                         get: { intervalIsCustom ? "custom" : "\(intervalMinutes)" },
                         set: { raw in
@@ -1080,9 +1081,9 @@ struct PlaylistEditorView: View {
             .padding(.top, 10)
 
             HStack(spacing: 10) {
-                SectionLabel("CHOOSE WALLPAPERS")
+                SectionLabel(L("CHOOSE WALLPAPERS"))
                 Spacer()
-                Text("\(selected.count) selected")
+                Text(L("%@ selected", selected.count))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.muroSecondary)
                 selectAllButton
@@ -1117,11 +1118,11 @@ struct PlaylistEditorView: View {
                     .foregroundStyle(Color.muroSecondary)
             } actions: {
                 if !isNew {
-                    DangerPill(title: "Delete") { confirmingDelete = true }
+                    DangerPill(title: L("Delete")) { confirmingDelete = true }
                 }
-                GhostPill(title: "Cancel") { dismiss() }
+                GhostPill(title: L("Cancel")) { dismiss() }
                 PrimaryPill(
-                    title: isNew ? "Create Playlist" : "Save",
+                    title: isNew ? L("Create Playlist") : L("Save"),
                     enabled: canSave,
                     returnKeyEnabled: !showCustomInterval
                 ) { save() }
@@ -1139,7 +1140,8 @@ struct PlaylistEditorView: View {
 
     private var summaryLine: String {
         let count = selected.count
-        return "\(count) wallpaper\(count == 1 ? "" : "s")  ·  \(intervalLabel(intervalMinutes).lowercased())  ·  shuffle \(shuffle ? "on" : "off")"
+        let shuffled = shuffle ? L("Shuffle on") : L("Shuffle off")
+        return "\(LN("%@ wallpapers", count))  ·  \(intervalLabel(intervalMinutes).lowercased())  ·  \(shuffled.lowercased())"
     }
 
     private var shuffleToggle: some View {
@@ -1150,7 +1152,7 @@ struct PlaylistEditorView: View {
                 Image(systemName: "shuffle")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(shuffle ? Color.muroAccent : Color.muroInk.opacity(0.6))
-                Text("Shuffle")
+                Text(L("Shuffle"))
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(Color.muroInk.opacity(shuffle ? 0.95 : 0.75))
                 MiniSwitch(on: shuffle)
@@ -1171,7 +1173,7 @@ struct PlaylistEditorView: View {
     private var selectAllButton: some View {
         let pickable = store.scheduleItems
         let allSelected = selected.count == pickable.count && !pickable.isEmpty
-        return Button(allSelected ? "Select None" : "Select All") {
+        return Button(allSelected ? L("Select None") : L("Select All")) {
             selected = allSelected ? [] : Set(pickable.map(\.id))
         }
         .buttonStyle(.plain)
@@ -1191,7 +1193,7 @@ struct PlaylistEditorView: View {
             // "New Playlist 2", not a second "New Playlist". The warning below
             // is there for names typed by hand; a default that walks straight
             // into it would be the app's own fault.
-            name = uniqueName(base: "New Playlist", taken: store.playlists.map(\.name))
+            name = uniqueName(base: L("New Playlist"), taken: store.playlists.map(\.name))
         case .edit(let playlist):
             name = playlist.name
             selected = Set(playlist.wallpaperIDs)
@@ -1202,8 +1204,8 @@ struct PlaylistEditorView: View {
 
     private func intervalLabel(_ minutes: Int) -> String {
         minutes < 60
-            ? "Every \(minutes) min"
-            : (minutes % 60 == 0 ? "Every \(minutes / 60) hr" : "Every \(minutes / 60) hr \(minutes % 60) min")
+            ? L("Every %@ min", minutes)
+            : (minutes % 60 == 0 ? L("Every %@ hr", minutes / 60) : L("Every %@ hr %@ min", minutes / 60, minutes % 60))
     }
 
     private func save() {
@@ -1245,12 +1247,12 @@ struct CustomIntervalPicker: View {
 
     var body: some View {
         CustomValueCard(
-            title: "Custom interval",
+            title: L("Custom interval"),
             amount: $amount,
-            applyLabel: "Every \(resolved < 60 ? "\(resolved) min" : "\(resolved / 60) hr")"
+            applyLabel: resolved < 60 ? L("Every %@ min", resolved) : L("Every %@ hr", resolved / 60)
         ) {
             PillSegments(
-                options: [PillOption("1", "min"), PillOption("60", "hr")],
+                options: [PillOption("1", L("min")), PillOption("60", L("hr"))],
                 selection: $unit,
                 height: 32,
                 labelSize: 12,
@@ -1281,11 +1283,13 @@ extension View {
         name: String,
         delete: @escaping () -> Void
     ) -> some View {
-        alert("Delete “\(name)”?", isPresented: isPresented) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive, action: delete)
+        alert(L("Delete “%@”?", name), isPresented: isPresented) {
+            Button(L("Cancel"), role: .cancel) {}
+            Button(L("Delete"), role: .destructive, action: delete)
         } message: {
-            Text("This \(kind) is deleted for good. Its wallpapers stay in your Library.")
+            Text(kind == "playlist"
+                 ? L("This playlist is deleted for good. Its wallpapers stay in your Library.")
+                 : L("This automation is deleted for good. Its wallpapers stay in your Library."))
         }
     }
 }

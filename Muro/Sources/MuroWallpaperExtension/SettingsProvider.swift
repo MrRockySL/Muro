@@ -2,6 +2,14 @@
 // copyright 2026 kageroumado; see THIRD_PARTY_NOTICES.md.
 import Foundation
 
+/// What System Settings shows for Muro in its Wallpaper pane (issue #62).
+/// System Settings is in the Mac's own language, so these come from the
+/// extension's own tables, the way any bundle's text does, and not from the
+/// language picked inside Muro.
+private func settingsText(_ key: String) -> String {
+    Bundle.main.localizedString(forKey: key, value: key, table: nil)
+}
+
 struct ExtensionWallpaperEntry: Codable {
     let id: String
     let title: String
@@ -82,7 +90,7 @@ func makeSettingsResponse() -> AnyObject? {
             provider: provider,
             identifier: entry.id,
             name: entry.title,
-            localizedDescription: "Muro live wallpaper",
+            localizedDescription: settingsText("Muro live wallpaper"),
             thumbnail: .image(url: thumbnail),
             isDownloaded: true,
             options: []
@@ -102,7 +110,7 @@ func makeSettingsResponse() -> AnyObject? {
     let group = SettingsGroup(
         id: GroupID(id: "muro-live-wallpapers"),
         items: items,
-        localizedName: "Muro — Live Wallpapers",
+        localizedName: settingsText("Muro — Live Wallpapers"),
         disposability: .none,
         sortOrder: -90,
         sortID: GroupSortID(id: "com.apple.wallpaper.aerials"),
