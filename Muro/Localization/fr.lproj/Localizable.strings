@@ -298,6 +298,10 @@
 "Version %@" = "Version %@";
 "Play the sound" = "Lire le son";
 "Pause the sound" = "Mettre le son en pause";
+"SOUND" = "AVEC SON";
+"NO SOUND" = "SANS SON";
+"Previous display" = "Écran précédent";
+"Next display" = "Écran suivant";
 "PAUSED" = "EN PAUSE";
 "%@ DISPLAYS#one" = "%@ ÉCRAN";
 "%@ DISPLAYS#other" = "%@ ÉCRANS";

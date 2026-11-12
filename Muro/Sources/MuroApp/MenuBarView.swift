@@ -8,13 +8,6 @@ struct MenuBarView: View {
         store.currentAppliedID.flatMap { store.item(id: $0) }
     }
 
-    /// The live wallpaper being heard, while there is sound (issue #54). The
-    /// header shows it rather than the main display's, so the sound button
-    /// sits on the picture the sound comes from.
-    private var soundItem: WallpaperItem? {
-        store.soundWallpaperID.flatMap { store.item(id: $0) }
-    }
-
     var body: some View {
         VStack(spacing: 12) {
             header
@@ -38,40 +31,24 @@ struct MenuBarView: View {
 
     // MARK: - Header
 
+    /// The panel's width inside its padding, and so the width of a page.
+    private static let headerWidth: CGFloat = 274
+    private static let headerHeight: CGFloat = 122
+
+    @StateObject private var displayScroller = RowScroller(stride: MenuBarView.headerWidth)
+
+    /// With one display, the live wallpaper on it. With more, a page for each
+    /// display (issue #54): its name, the live wallpaper on it and that
+    /// display's own sound button, so one display's sound can be turned off
+    /// while another's plays on. Arrows and a swipe move between the pages.
     @ViewBuilder private var header: some View {
+        let displays = store.displays
         VStack(spacing: 6) {
-            if let item = soundItem ?? currentItem {
-                ZStack(alignment: .bottomLeading) {
-                    Color.black
-                        .frame(height: 122)
-                        .overlay(ThumbImage(item: item))
-                        .clipped()
-                    LinearGradient(
-                        colors: [.clear, .black.opacity(0.75)],
-                        startPoint: .center, endPoint: .bottom
-                    )
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.muroInk)
-                        HStack(spacing: 5) {
-                            Circle()
-                                .fill(store.isPaused || store.desktopResting ? Color.muroSecondary : Color.muroGreen)
-                                .frame(width: 5, height: 5)
-                            Text(statusLine(item))
-                                .font(.system(size: 8.5, weight: .semibold))
-                                .tracking(0.8)
-                                .foregroundStyle(Color.muroInk.opacity(0.75))
-                        }
-                    }
-                    // A long name stops short of the sound button.
-                    .padding(.trailing, soundItem != nil ? 40 : 0)
-                    .padding(12)
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if soundItem != nil { soundButton }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            if displays.count > 1 {
+                displayPages(displays)
+            } else if let item = currentItem {
+                wallpaperPage(item, display: displays.first, named: false)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             } else {
                 Text(L("No wallpaper applied"))
                     .font(.system(size: 12.5, weight: .medium))
@@ -100,16 +77,131 @@ struct MenuBarView: View {
         }
     }
 
-    /// Issue #54. Pauses and plays the sound, never the live wallpaper. Only
-    /// shown while Live Wallpaper Sound is on and a live wallpaper with sound
-    /// is on a display; otherwise the panel is exactly as it was. The heart's
-    /// circle from the cards, a little smaller, in the picture's corner the
-    /// way a video's mute button sits.
-    private var soundButton: some View {
-        Button {
-            store.setSoundMuted(!store.soundMuted)
+    /// Every display's page side by side, one in view. The same live
+    /// wallpaper on two displays is still two pages, one for each display.
+    /// The panel opens on the page of the display its icon was clicked on.
+    private func displayPages(_ displays: [DisplayInfo]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(displays) { display in
+                    displayPage(display)
+                        .frame(width: Self.headerWidth, height: Self.headerHeight)
+                }
+            }
+            .background(RowScrollerProbe(scroller: displayScroller))
+        }
+        .frame(height: Self.headerHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(alignment: .leading) {
+            if displayScroller.canGoBack {
+                rowArrow("chevron.left") { pageDisplays(-1) }
+                    .accessibilityLabel(L("Previous display"))
+            }
+        }
+        .overlay(alignment: .trailing) {
+            if displayScroller.canGoForward {
+                rowArrow("chevron.right") { pageDisplays(1) }
+                    .accessibilityLabel(L("Next display"))
+            }
+        }
+        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: displayScroller.canGoBack)
+        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: displayScroller.canGoForward)
+        .onChange(of: displays.map(\.id)) { displayScroller.scroll(to: 0, animated: false) }
+        .onReceive(NotificationCenter.default.publisher(for: .muroMenuBarPanelOpening)) { note in
+            let index = (note.object as? String)
+                .flatMap { uuid in store.displays.firstIndex { $0.id == uuid } } ?? 0
+            displayScroller.scroll(to: CGFloat(index) * Self.headerWidth, animated: false)
+        }
+    }
+
+    private func pageDisplays(_ direction: Int) {
+        let current = (displayScroller.offset / Self.headerWidth).rounded()
+        displayScroller.scroll(to: (current + CGFloat(direction)) * Self.headerWidth, animated: true)
+    }
+
+    @ViewBuilder private func displayPage(_ display: DisplayInfo) -> some View {
+        if let item = store.wallpaperID(onDisplay: display.id).flatMap({ store.item(id: $0) }) {
+            wallpaperPage(item, display: display, named: true)
+        } else {
+            Text(L("No wallpaper applied"))
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(Color.muroSecondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .glass(cornerRadius: 12)
+                .overlay(alignment: .topLeading) { displayChip(display) }
+        }
+    }
+
+    /// A live wallpaper's picture with its name and what it is doing. `named`
+    /// puts the display's name on it, for a page among several.
+    private func wallpaperPage(_ item: WallpaperItem, display: DisplayInfo?, named: Bool) -> some View {
+        let sound = display.map { store.hasSoundButton(display: $0.id) } ?? false
+        return ZStack(alignment: .bottomLeading) {
+            Color.black
+                .frame(height: Self.headerHeight)
+                .overlay(ThumbImage(item: item))
+                .clipped()
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.75)],
+                startPoint: .center, endPoint: .bottom
+            )
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.muroInk)
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(store.isPaused || store.desktopResting ? Color.muroSecondary : Color.muroGreen)
+                        .frame(width: 5, height: 5)
+                    Text(statusLine(item, on: named ? display : nil))
+                        .font(.system(size: 8.5, weight: .semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(Color.muroInk.opacity(0.75))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            // A long name stops short of the sound button.
+            .padding(.trailing, sound ? 40 : 0)
+            .padding(12)
+        }
+        .overlay(alignment: .topLeading) {
+            if named, let display { displayChip(display) }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if sound, let display { soundButton(display) }
+        }
+    }
+
+    /// The display a page is for, in the sound button's black wash so it
+    /// reads on any picture.
+    private func displayChip(_ display: DisplayInfo) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: display.symbolName)
+                .font(.system(size: 9, weight: .semibold))
+            Text(display.name)
+                .font(.system(size: 9.5, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .frame(height: 20)
+        .background(Capsule().fill(Color.black.opacity(0.4)))
+        .padding(10)
+    }
+
+    /// Issue #54. Turns a display's sound off and on, never the live
+    /// wallpaper. Only on a page whose live wallpaper has sound, while Live
+    /// Wallpaper Sound is on; otherwise the panel is exactly as it was. The
+    /// heart's circle from the cards, a little smaller, in the picture's
+    /// corner the way a video's mute button sits.
+    private func soundButton(_ display: DisplayInfo) -> some View {
+        let on = store.soundIsOn(display: display.id)
+        return Button {
+            store.setSound(!on, display: display.id)
         } label: {
-            Image(systemName: store.soundMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+            Image(systemName: on ? "speaker.wave.2.fill" : "speaker.slash.fill")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white)
                 .frame(width: 28, height: 28)
@@ -118,25 +210,33 @@ struct MenuBarView: View {
         .buttonStyle(.plain)
         .padding(.trailing, 12)
         .padding(.bottom, 13)
-        .accessibilityLabel(store.soundMuted ? L("Play the sound") : L("Pause the sound"))
+        .accessibilityLabel(on ? L("Pause the sound") : L("Play the sound"))
     }
 
-    private func statusLine(_ item: WallpaperItem) -> String {
-        let displays = store.appliedDisplays(for: item.id).count
+    /// `page` is the display a page is for; nil with one display, where the
+    /// line is what it always was.
+    private func statusLine(_ item: WallpaperItem, on page: DisplayInfo?) -> String {
         let state = store.isPaused || store.desktopResting ? L("PAUSED") : L("PLAYING")
-        // Look up the mode on a display actually showing this wallpaper —
-        // the bare all-displays entry can be stale after per-display applies.
-        let mode = store.displays
-            .compactMap { store.config.assignment(forDisplayUUID: $0.id) }
-            .first { $0.wallpaperID == item.id }?.mode
-        let fps = mode == "efficient" ? 30 : standardFrameRate(item.fps)
-        let base = "\(state) · \(LN("%@ DISPLAYS", displays)) · \(L("%@ FPS", fps))"
         // While something is scheduling the wallpaper, its name matters more
         // than the frame rate does.
         if let schedule = store.runningScheduleName {
             return "\(state) · \(schedule.uppercased())"
         }
-        return base
+        // Look up the mode on a display actually showing this wallpaper —
+        // the bare all-displays entry can be stale after per-display applies.
+        let mode = page.flatMap { store.config.assignment(forDisplayUUID: $0.id)?.mode }
+            ?? store.displays
+                .compactMap { store.config.assignment(forDisplayUUID: $0.id) }
+                .first { $0.wallpaperID == item.id }?.mode
+        let fps = L("%@ FPS", mode == "efficient" ? 30 : standardFrameRate(item.fps))
+        guard page != nil else {
+            let displays = store.appliedDisplays(for: item.id).count
+            return "\(state) · \(LN("%@ DISPLAYS", displays)) · \(fps)"
+        }
+        // A page is one display, so it says whether there is sound to hear
+        // in place of how many displays, while Live Wallpaper Sound is on.
+        guard store.soundEnabled else { return "\(state) · \(fps)" }
+        return "\(state) · \(fps) · \(store.hasSound(item.id) ? L("SOUND") : L("NO SOUND"))"
     }
 
     // MARK: - Transport
@@ -260,12 +360,12 @@ struct MenuBarView: View {
             .frame(height: 38)
             .overlay(alignment: .leading) {
                 if hoveringRecents, recentsScroller.canGoBack {
-                    recentsArrow("chevron.left") { pageRecents(-1) }
+                    rowArrow("chevron.left") { pageRecents(-1) }
                 }
             }
             .overlay(alignment: .trailing) {
                 if hoveringRecents, recentsScroller.canGoForward {
-                    recentsArrow("chevron.right") { pageRecents(1) }
+                    rowArrow("chevron.right") { pageRecents(1) }
                 }
             }
             .animation(.spring(response: 0.22, dampingFraction: 0.72), value: hoveringRecents)
@@ -291,7 +391,7 @@ struct MenuBarView: View {
 
     /// The heart's black wash and white glyph, smaller, so it reads on any
     /// thumbnail, the bright ones included.
-    private func recentsArrow(_ systemName: String, action: @escaping () -> Void) -> some View {
+    private func rowArrow(_ systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 9, weight: .bold))
@@ -603,9 +703,17 @@ final class RowScroller: ObservableObject {
         return max(0, content - scrollView.contentView.bounds.width)
     }
 
+    /// Where to be once the row is laid out. The panel's first opening asks
+    /// for a display's page before there is a row to move.
+    private var pending: CGFloat?
+
     /// Moves to `x` points from the start, kept inside the row.
     func scroll(to x: CGFloat, animated: Bool) {
-        guard let scrollView else { return }
+        pending = nil
+        guard let scrollView, animated || x <= maximum + 0.5 else {
+            pending = x
+            return
+        }
         let clip = scrollView.contentView
         let target = NSPoint(x: min(max(x, 0), maximum), y: clip.bounds.origin.y)
         if animated {
@@ -627,6 +735,10 @@ final class RowScroller: ObservableObject {
     }
 
     fileprivate func update() {
+        if let wanted = pending, scrollView != nil, wanted <= maximum + 0.5 {
+            scroll(to: wanted, animated: false)
+            return
+        }
         let back = offset > 1
         let forward = offset < maximum - 1
         if back != canGoBack { canGoBack = back }

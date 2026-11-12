@@ -2,9 +2,8 @@ import XCTest
 import AVFoundation
 @testable import MuroKit
 
-/// Issue #54: a video the person adds keeps its sound, and only one live
-/// wallpaper is heard at a time. The displays are the owner's: a MacBook and
-/// a DELL.
+/// Issue #54: a video the person adds keeps its sound, and every display has
+/// a sound of its own. The displays are the owner's: a MacBook and a DELL.
 final class WallpaperSoundTests: XCTestCase {
     let macBook = "37D8832A-2D66-02CA-B9F7-8F30A301B230"
     let dell = "C4497200-61AC-4C2C-B727-10348E552634"
@@ -20,43 +19,97 @@ final class WallpaperSoundTests: XCTestCase {
         try? FileManager.default.removeItem(at: root)
     }
 
-    // MARK: - One sound at a time
+    // MARK: - A sound for each display
+
+    /// What `WallpaperSound` hears with these live wallpapers on the two
+    /// displays; a name ending in "silent" has no sound.
+    private func heard(
+        enabled: Bool = true, off: Set<String> = [], macBook: String?, dell: String?
+    ) -> Set<String> {
+        let on = [self.macBook: macBook, self.dell: dell].compactMapValues { $0 }
+        return WallpaperSound.displays(
+            enabled: enabled,
+            off: off,
+            displays: [self.macBook, self.dell].filter { on[$0] != nil },
+            wallpaper: { on[$0] },
+            hasSound: { !(on[$0] ?? "silent").hasSuffix("silent") }
+        )
+    }
 
     func testSwitchedOffNothingIsHeard() {
-        XCTAssertNil(WallpaperSound.display(
-            enabled: false, preferred: macBook, displays: [macBook, dell], hasSound: { _ in true }
-        ))
+        XCTAssertEqual(heard(enabled: false, macBook: "a", dell: "b"), [])
     }
 
-    func testTheDisplayAppliedLastIsHeard() {
-        XCTAssertEqual(WallpaperSound.display(
-            enabled: true, preferred: dell, displays: [macBook, dell], hasSound: { _ in true }
-        ), dell)
+    /// Both sounds turned on from the menu bar.
+    func testTwoLiveWallpapersCanBothBeHeard() {
+        XCTAssertEqual(heard(macBook: "a", dell: "b"), [macBook, dell])
     }
 
-    /// The DELL's sound was replaced by a silent live wallpaper: the MacBook's
-    /// still has sound, so that is what plays now.
-    func testWhenTheLastOneIsSilentTheOtherIsHeard() {
-        XCTAssertEqual(WallpaperSound.display(
-            enabled: true, preferred: dell, displays: [macBook, dell], hasSound: { $0 == self.macBook }
-        ), macBook)
+    func testADisplayTurnedOffIsSilentAndTheOtherPlaysOn() {
+        XCTAssertEqual(heard(off: [macBook], macBook: "a", dell: "b"), [dell])
+        XCTAssertEqual(heard(off: [dell], macBook: "a", dell: "b"), [macBook])
+        XCTAssertEqual(heard(off: [macBook, dell], macBook: "a", dell: "b"), [])
     }
 
-    /// Nothing applied with sound yet, or the display it was applied to is
-    /// unplugged: the main display comes first.
-    func testWithoutALastOneTheMainDisplayComesFirst() {
-        XCTAssertEqual(WallpaperSound.display(
-            enabled: true, preferred: nil, displays: [macBook, dell], hasSound: { _ in true }
-        ), macBook)
-        XCTAssertEqual(WallpaperSound.display(
-            enabled: true, preferred: "unplugged", displays: [macBook, dell], hasSound: { _ in true }
-        ), macBook)
+    /// From both displays it would be heard twice, a moment out of step.
+    func testOneLiveWallpaperOnBothDisplaysPlaysOnce() {
+        XCTAssertEqual(heard(macBook: "a", dell: "a"), [macBook])
+        // The main display's turned off, it plays from the other.
+        XCTAssertEqual(heard(off: [macBook], macBook: "a", dell: "a"), [dell])
+        XCTAssertEqual(heard(off: [macBook, dell], macBook: "a", dell: "a"), [])
     }
 
-    func testNoSoundAnywhereIsSilence() {
-        XCTAssertNil(WallpaperSound.display(
-            enabled: true, preferred: macBook, displays: [macBook, dell], hasSound: { _ in false }
-        ))
+    func testASilentLiveWallpaperIsNeverHeard() {
+        XCTAssertEqual(heard(macBook: "silent", dell: "b"), [dell])
+        XCTAssertEqual(heard(macBook: "a silent", dell: "b silent"), [])
+        XCTAssertEqual(heard(macBook: nil, dell: "b"), [dell])
+    }
+
+    /// A display that was unplugged keeps its place in the list for when it
+    /// comes back, and changes nothing meanwhile.
+    func testAnUnpluggedDisplayTurnedOffChangesNothing() {
+        XCTAssertEqual(heard(off: ["unplugged"], macBook: "a", dell: nil), [macBook])
+    }
+
+    // MARK: - The one applied last is heard
+
+    private func off(
+        afterApplying id: String, off: Set<String> = [], macBook: String?, dell: String?
+    ) -> Set<String> {
+        let on = [self.macBook: macBook, self.dell: dell].compactMapValues { $0 }
+        return WallpaperSound.off(
+            afterApplying: id,
+            off: off,
+            displays: [self.macBook, self.dell].filter { on[$0] != nil },
+            wallpaper: { on[$0] },
+            hasSound: { !(on[$0] ?? "silent").hasSuffix("silent") }
+        )
+    }
+
+    /// "b" has just gone on the DELL: the MacBook's "a" goes quiet.
+    func testApplyingASecondOneQuietsTheFirst() {
+        let now = off(afterApplying: "b", macBook: "a", dell: "b")
+        XCTAssertEqual(now, [macBook])
+        XCTAssertEqual(heard(off: now, macBook: "a", dell: "b"), [dell])
+    }
+
+    /// Its own display's sound was off: applying it by hand turns it on.
+    func testApplyingOneTurnsItsOwnSoundBackOn() {
+        let now = off(afterApplying: "a", off: [macBook], macBook: "a", dell: "b")
+        XCTAssertEqual(now, [dell])
+        XCTAssertEqual(heard(off: now, macBook: "a", dell: "b"), [macBook])
+    }
+
+    func testAppliedToEveryDisplayItPlaysOnce() {
+        let now = off(afterApplying: "a", off: [macBook, dell], macBook: "a", dell: "a")
+        XCTAssertEqual(now, [])
+        XCTAssertEqual(heard(off: now, macBook: "a", dell: "a"), [macBook])
+    }
+
+    /// A display with no sound is left out of it.
+    func testASilentDisplayIsLeftAlone() {
+        XCTAssertEqual(off(afterApplying: "b", macBook: "silent", dell: "b"), [])
+        XCTAssertEqual(off(afterApplying: "b", macBook: nil, dell: "b"), [])
     }
 
     // MARK: - Keeping the sound

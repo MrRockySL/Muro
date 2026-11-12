@@ -283,6 +283,10 @@
 "Version %@" = "버전 %@";
 "Play the sound" = "사운드 재생";
 "Pause the sound" = "사운드 일시 정지";
+"SOUND" = "사운드 있음";
+"NO SOUND" = "사운드 없음";
+"Previous display" = "이전 디스플레이";
+"Next display" = "다음 디스플레이";
 "PAUSED" = "일시 정지됨";
 "%@ DISPLAYS#other" = "디스플레이 %@대";
 "RECENTS" = "최근 항목";

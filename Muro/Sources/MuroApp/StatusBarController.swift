@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import MuroKit
 
 /// Custom menu bar item + dropdown panel. Replaces MenuBarExtra(.window):
 /// on macOS 26+ its system window draws a large glass sheet of its own
@@ -150,8 +151,13 @@ final class StatusBarController: NSObject {
         // fires on the very first open and never again: a check made on Monday
         // was still saying "Muro is up to date" on Friday.
         store.clearUpdateCheckResult()
-        // Same reason: the recents row is told here to start at the newest.
-        NotificationCenter.default.post(name: .muroMenuBarPanelOpening, object: nil)
+        // Same reason: the recents row is told here to start at the newest,
+        // and the header which display the panel is opening on, so it shows
+        // that display's page.
+        NotificationCenter.default.post(
+            name: .muroMenuBarPanelOpening,
+            object: buttonWindow.screen.flatMap { displayUUID(for: $0) }
+        )
         let size = hostingView.fittingSize
         let anchor = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
         var x = anchor.midX - size.width / 2

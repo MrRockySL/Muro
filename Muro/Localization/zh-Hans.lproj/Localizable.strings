@@ -283,6 +283,10 @@
 "Version %@" = "版本 %@";
 "Play the sound" = "播放声音";
 "Pause the sound" = "暂停声音";
+"SOUND" = "有声音";
+"NO SOUND" = "无声音";
+"Previous display" = "上一个显示器";
+"Next display" = "下一个显示器";
 "PAUSED" = "已暂停";
 "%@ DISPLAYS#other" = "%@ 台显示器";
 "RECENTS" = "最近使用";

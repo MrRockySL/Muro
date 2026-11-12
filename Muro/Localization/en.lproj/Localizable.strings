@@ -296,6 +296,10 @@
 "Version %@" = "Version %@";
 "Play the sound" = "Play the sound";
 "Pause the sound" = "Pause the sound";
+"SOUND" = "SOUND";
+"NO SOUND" = "NO SOUND";
+"Previous display" = "Previous display";
+"Next display" = "Next display";
 "PAUSED" = "PAUSED";
 "%@ DISPLAYS#one" = "%@ DISPLAY";
 "%@ DISPLAYS#other" = "%@ DISPLAYS";

@@ -283,6 +283,10 @@
 "Version %@" = "バージョン %@";
 "Play the sound" = "サウンドを再生";
 "Pause the sound" = "サウンドを一時停止";
+"SOUND" = "サウンドあり";
+"NO SOUND" = "サウンドなし";
+"Previous display" = "前のディスプレイ";
+"Next display" = "次のディスプレイ";
 "PAUSED" = "一時停止中";
 "%@ DISPLAYS#other" = "%@ 台のディスプレイ";
 "RECENTS" = "最近の項目";

@@ -293,6 +293,10 @@
 "Version %@" = "Versión %@";
 "Play the sound" = "Reproducir el sonido";
 "Pause the sound" = "Pausar el sonido";
+"SOUND" = "CON SONIDO";
+"NO SOUND" = "SIN SONIDO";
+"Previous display" = "Pantalla anterior";
+"Next display" = "Pantalla siguiente";
 "PAUSED" = "EN PAUSA";
 "%@ DISPLAYS#one" = "%@ PANTALLA";
 "%@ DISPLAYS#other" = "%@ PANTALLAS";

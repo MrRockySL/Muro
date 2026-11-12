@@ -299,6 +299,10 @@
 "Version %@" = "Versão %@";
 "Play the sound" = "Tocar o som";
 "Pause the sound" = "Pausar o som";
+"SOUND" = "COM SOM";
+"NO SOUND" = "SEM SOM";
+"Previous display" = "Tela anterior";
+"Next display" = "Próxima tela";
 "PAUSED" = "EM PAUSA";
 "%@ DISPLAYS#one" = "%@ TELA";
 "%@ DISPLAYS#other" = "%@ TELAS";
