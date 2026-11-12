@@ -96,6 +96,18 @@ cp "$DIR/Icon/InApp/MuroIcon-Default.png" "$DIR/Icon/InApp/MuroIcon-Light.png" \
     "$DIR/Icon/InApp/MuroIcon-Dark.png" "$APP/Contents/Resources/"
 cp "$DIR/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
+# The first-launch welcome's two films (WelcomeView.swift): the Muro moon
+# turning, with a see-through background, and the 8 second intro. A build
+# without them still works; the welcome falls back to the icon and skips the
+# intro.
+for film in WelcomeMoon WelcomeIntro; do
+    if [ -f "$DIR/Welcome/$film.mov" ]; then
+        cp "$DIR/Welcome/$film.mov" "$APP/Contents/Resources/$film.mov"
+    else
+        echo "warning: Welcome/$film.mov missing, the welcome will do without it" >&2
+    fi
+done
+
 # Muro's languages (issue #62): one folder per language, read by
 # Localization.swift, and named in Info.plist below so macOS offers them in
 # System Settings > General > Language & Region > Applications. The extension

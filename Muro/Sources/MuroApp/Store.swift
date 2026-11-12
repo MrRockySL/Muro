@@ -299,6 +299,25 @@ final class AppStore: ObservableObject {
     /// anything else that should open it later (the menu bar, a first run
     /// after an update) has one switch to flip.
     @Published var whatsNewOpen = false
+    /// The first-launch welcome (`WelcomeView.swift`) is in the gallery window.
+    /// Kept until it is finished, so quitting halfway brings it back next time.
+    @Published var welcomeActive = UserDefaults.standard.bool(forKey: AppStore.welcomePendingKey)
+    /// The welcome's window has grown to the gallery's size and the gallery
+    /// is built under its film, ready for the film to fade into it.
+    @Published var welcomeHandoff = false
+    static let welcomePendingKey = "welcomePending"
+
+    /// A new install: the gallery window greets before it shows anything.
+    func beginWelcome() {
+        UserDefaults.standard.set(true, forKey: Self.welcomePendingKey)
+        welcomeActive = true
+    }
+
+    func finishWelcome() {
+        UserDefaults.standard.removeObject(forKey: Self.welcomePendingKey)
+        welcomeActive = false
+        welcomeHandoff = false
+    }
     /// Whether Home's banner is behind the top bar, for the light look's top
     /// bar, which stays white over the playing wallpaper and turns dark once
     /// the page scrolls under it. Set by Home only when it changes.

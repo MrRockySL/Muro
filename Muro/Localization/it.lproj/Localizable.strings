@@ -596,3 +596,10 @@
 "Shell@@saver" = "Shell";
 "Ventura@@saver" = "Ventura";
 "Word of the Day@@saver" = "Parola di oggi";
+
+/* The first-launch welcome (WelcomeView.swift). */
+"Welcome to Muro" = "Ti diamo il benvenuto in Muro";
+"Choose your language" = "Scegli la lingua";
+"You can change it later in Settings." = "Puoi modificarla più tardi in Impostazioni.";
+"Continue" = "Continua";
+"Skip" = "Salta";

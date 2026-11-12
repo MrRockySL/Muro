@@ -600,3 +600,10 @@
 "Shell@@saver" = "Shell";
 "Ventura@@saver" = "Ventura";
 "Word of the Day@@saver" = "Слово дня";
+
+/* The first-launch welcome (WelcomeView.swift). */
+"Welcome to Muro" = "Добро пожаловать в Muro";
+"Choose your language" = "Выберите язык";
+"You can change it later in Settings." = "Его можно изменить позже в Настройках.";
+"Continue" = "Продолжить";
+"Skip" = "Пропустить";

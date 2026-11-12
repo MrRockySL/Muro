@@ -603,3 +603,10 @@
 "Shell@@saver" = "Shell";
 "Ventura@@saver" = "Ventura";
 "Word of the Day@@saver" = "Mot du jour";
+
+/* The first-launch welcome (WelcomeView.swift). */
+"Welcome to Muro" = "Bienvenue dans Muro";
+"Choose your language" = "Choisissez votre langue";
+"You can change it later in Settings." = "Vous pourrez la modifier plus tard dans les Réglages.";
+"Continue" = "Continuer";
+"Skip" = "Passer";

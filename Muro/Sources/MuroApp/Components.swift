@@ -508,13 +508,14 @@ func showMainWindow() {
         // keyboard has to wait for it. `openWindow` has already put it in
         // front, this is only insurance.
         DispatchQueue.main.async {
-            if let window = mainWindow { GallerySize.openAtOpeningSize(window) }
+            if let window = mainWindow, !AppStore.shared.welcomeActive { GallerySize.openAtOpeningSize(window) }
             mainWindow?.makeKeyAndOrderFront(nil)
         }
         return
     }
     // Only when it opens: a window already on screen keeps the size it has.
-    if !window.isVisible { GallerySize.openAtOpeningSize(window) }
+    // The first launch's welcome sets the window's size itself.
+    if !window.isVisible, !AppStore.shared.welcomeActive { GallerySize.openAtOpeningSize(window) }
     window.makeKeyAndOrderFront(nil)
 }
 

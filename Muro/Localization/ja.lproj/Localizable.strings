@@ -578,3 +578,10 @@
 "Shell@@saver" = "Shell";
 "Ventura@@saver" = "Ventura";
 "Word of the Day@@saver" = "今日の一言";
+
+/* The first-launch welcome (WelcomeView.swift). */
+"Welcome to Muro" = "Muro へようこそ";
+"Choose your language" = "言語を選んでください";
+"You can change it later in Settings." = "あとから設定で変更できます。";
+"Continue" = "続ける";
+"Skip" = "スキップ";

@@ -50,15 +50,22 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         // The single exception is the first launch after installing, where a
         // menu bar icon and nothing else would read as an app that failed to
         // start.
-        if Self.isFirstEverLaunch() {
+        //
+        // A welcome that was never finished is shown the same way, so quitting
+        // in the middle of it brings it back rather than losing it.
+        let firstLaunch = Self.isFirstEverLaunch()
+        if firstLaunch { AppStore.shared.beginWelcome() }
+        if firstLaunch || AppStore.shared.welcomeActive {
             NSApp.activate(ignoringOtherApps: true)
             // A new install starts with both battery savers on. They were off
             // until someone found them in Settings, which is the opposite of
             // what an app promising very low CPU should do by default (full
             // check, 2026-10-01). Only here, so nothing changes for anyone
             // who already has Muro: their choice, or the old default, stays.
-            AppStore.shared.setAutoPauseLowPower(true)
-            AppStore.shared.setAutoPauseBattery(true)
+            if firstLaunch {
+                AppStore.shared.setAutoPauseLowPower(true)
+                AppStore.shared.setAutoPauseBattery(true)
+            }
         } else {
             // No time limit. Any request for the gallery ends this
             // immediately, and a launch that is slow to put the window up must
@@ -283,7 +290,6 @@ struct MuroApp: App {
                 .environmentObject(store)
                 // Its cards let go of their pictures while the window is hidden.
                 .tracksGalleryVisibility()
-                .frame(minWidth: GallerySize.opening.width, minHeight: GallerySize.opening.height)
                 .muroColorScheme()
                 .onAppear {
                     // Here rather than in the delegate: the window is what is
@@ -320,41 +326,59 @@ struct RootView: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {
+        // The welcome's small window, until its film has the window full size.
+        let welcoming = store.welcomeActive && !store.welcomeHandoff
         ZStack(alignment: .top) {
             Color.muroBG.ignoresSafeArea()
 
-            // A straight crossfade. The per-tab .id makes SwiftUI treat each
-            // page as insert/remove so the transition actually fires.
-            //
-            // No slide here, unlike everywhere else in the app. See
-            // `.muroTab`: these are whole windows, so moving one moves its
-            // background and resizes the glass tray's corners with it.
-            Group {
-                switch store.tab {
-                case .home: HomeView()
-                case .explore: ExploreView()
-                case .apple: AppleGalleryView()
-                case .library: LibraryView()
+            // The gallery is not built under the welcome until its window has
+            // grown to the gallery's size: a gallery laid out at the welcome's
+            // size would be laid out again, and its minimum size would pull
+            // the window, in the middle of the grow.
+            if !store.welcomeActive || store.welcomeHandoff {
+                // A straight crossfade. The per-tab .id makes SwiftUI treat
+                // each page as insert/remove so the transition actually fires.
+                //
+                // No slide here, unlike everywhere else in the app. See
+                // `.muroTab`: these are whole windows, so moving one moves its
+                // background and resizes the glass tray's corners with it.
+                Group {
+                    switch store.tab {
+                    case .home: HomeView()
+                    case .explore: ExploreView()
+                    case .apple: AppleGalleryView()
+                    case .library: LibraryView()
+                    }
+                }
+                .id(store.tab)
+                .transition(.opacity)
+
+                TopBar()
+
+                if let preview = store.previewItem {
+                    PreviewView(itemID: preview.id)
+                        .zIndex(10)
+                        .transition(.opacity)
+                }
+
+                // Over everything, top bar included, so the section waits for it.
+                if store.appleNoticeOpen, store.tab == .apple {
+                    AppleNoticeCard()
+                        .zIndex(20)
+                        .transition(.opacity)
                 }
             }
-            .id(store.tab)
-            .transition(.opacity)
 
-            TopBar()
-
-            if let preview = store.previewItem {
-                PreviewView(itemID: preview.id)
-                    .zIndex(10)
-                    .transition(.opacity)
-            }
-
-            // Over everything, top bar included, so the section waits for it.
-            if store.appleNoticeOpen, store.tab == .apple {
-                AppleNoticeCard()
-                    .zIndex(20)
+            if store.welcomeActive {
+                WelcomeFlow()
+                    .zIndex(100)
                     .transition(.opacity)
             }
         }
+        // While the greeting is up its window sets its own size; the floor
+        // only has to stay out of its way.
+        .frame(minWidth: welcoming ? 600 : GallerySize.opening.width,
+               minHeight: welcoming ? 400 : GallerySize.opening.height)
         .animation(.muroTab, value: store.tab)
         .animation(.easeInOut(duration: 0.18), value: store.previewItem?.id)
         .animation(.easeOut(duration: 0.2), value: store.appleNoticeOpen)
