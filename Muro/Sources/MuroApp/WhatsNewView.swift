@@ -41,7 +41,7 @@ enum WhatsNew {
     /// Built each time it is read, so it comes out in the language Muro is in
     /// at that moment and not the one it started in.
     static var current: WhatsNewRelease { WhatsNewRelease(
-        version: "6.1",
+        version: "6.1.1",
         date: L("November 2026"),
         headline: L("Interactive wallpapers move with your pointer and your music, Muro speaks eleven languages, and your own videos can play their sound."),
         sections: [
