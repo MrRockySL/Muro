@@ -256,6 +256,19 @@ final class RendererState: @unchecked Sendable {
     private var presentationMode: String?
     private var activityState = "active"
 
+    /// Issues #52 and #64. Whether a screen saver is on screen.
+    ///
+    /// macOS reports the session as locked for as long as a screen saver runs,
+    /// password or not, so the desktop rule (`shouldPlayNow`) played every
+    /// lock screen surface behind it. Measured on a Mac with two displays on
+    /// 2026-11-13: five videos decoding at once, for the two anybody could
+    /// see. Set when macOS builds or reuses a screen saver surface. Cleared by
+    /// the next presentation macOS sends that is not the screen saver (the
+    /// desktop, or the lock screen after it), or when the last screen saver
+    /// surface goes. While it is set, the other surfaces hold still. A rule of
+    /// its own beside `shouldPlayNow`, which the lock screen depends on.
+    private var screenSaverOnScreen = false
+
     /// The pixel size of the last real surface macOS asked for, so a snapshot
     /// is made at the size of the screen it will be shown on rather than at a
     /// guess. Zero until the first acquire.
@@ -352,6 +365,7 @@ final class RendererState: @unchecked Sendable {
         lock.lock()
         presentationMode = mode
         activityState = activity
+        if mode != "idle" { screenSaverOnScreen = false }
         lock.unlock()
         extensionLog("presentation mode=\(mode) activity=\(activity)")
         // The picture is drawn again, not only re-paused. Unlocking, and
@@ -416,24 +430,38 @@ final class RendererState: @unchecked Sendable {
         return !activity.contains("suspended")
     }
 
+    /// A screen saver surface is installed or reused. The surfaces behind it
+    /// stop at once rather than at the next policy pass.
+    func screenSaverAppeared() {
+        lock.lock()
+        screenSaverOnScreen = true
+        lock.unlock()
+        applyCurrentPlaybackPolicy()
+    }
+
     func applyCurrentPlaybackPolicy() {
         let shouldPlay = shouldPlayNow()
         let saverPlays = shouldScreenSaverPlay()
+        lock.lock()
+        let behindSaver = screenSaverOnScreen
+        lock.unlock()
         // The line `7ee55c0` asked for and nobody added. A desktop that comes
         // back wrong is answered by this and nothing else: it says, per
         // surface, what was decided and whether there was a picture to decide
         // it with.
         extensionLog(
-            "policy desktop=\(shouldPlay ? "play" : "still") "
+            "policy desktop=\(shouldPlay && !behindSaver ? "play" : "still") "
                 + "saver=\(saverPlays ? "play" : "still") "
                 + "covered=\(ScreenState.isCovered()) "
+                + (behindSaver ? "saver-on-screen " : "")
                 + surfaceSummary()
         )
         forEachWallpaper { wallpaper in
             // The desktop's answer is not the screen saver's. While the screen
             // saver is up the desktop is behind it and holding still, and
             // giving that answer to both is what froze the screen saver.
-            let play = wallpaper.isScreenSaverSurface ? saverPlays : shouldPlay
+            // The lock screen is behind it too (issues #52, #64).
+            let play = wallpaper.isScreenSaverSurface ? saverPlays : (shouldPlay && !behindSaver)
             // A playlist or automation surface that skipped steps while nobody
             // could see it holds an earlier step. It stays on its picture until
             // the current step has a frame, rather than showing the old video
@@ -514,6 +542,16 @@ final class RendererState: @unchecked Sendable {
         if removed != nil {
             extensionLog("released surface d=\(key.displayID) left=\(activeCount)")
         }
+        // The last screen saver surface gone means no screen saver is on
+        // screen, whatever macOS has or has not said since. Whatever was held
+        // behind it plays again, a lock screen still showing above all.
+        guard removed?.isScreenSaverSurface == true else { return }
+        lock.lock()
+        let saverLeft = active.values.contains(where: \.isScreenSaverSurface)
+        let wasOnScreen = screenSaverOnScreen
+        if !saverLeft { screenSaverOnScreen = false }
+        lock.unlock()
+        if !saverLeft, wasOnScreen { applyCurrentPlaybackPolicy() }
     }
 
     // MARK: - Playlist steps

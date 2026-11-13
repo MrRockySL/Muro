@@ -34,6 +34,17 @@ final class VideoRenderer: @unchecked Sendable {
     private var isRunning = true
     private var isPaused = false
 
+    /// The frame report, for a screen saver surface. See `reportFrames`.
+    private var reportTimer: DispatchSourceTimer?
+    private var lastMetrics: (frames: Int, dropped: Int, delay: Double, optimized: Int)?
+    /// How far ahead of the clock the video was kept at its closest, how long
+    /// the layer went without asking for more, and how often the decoder had
+    /// to be flushed, since the last report.
+    private var minLead = Double.infinity
+    private var maxFeedGap = 0.0
+    private var lastFeedAt = 0.0
+    private var flushes = 0
+
     /// `behind` puts the video under any video already on the surface rather
     /// than over it. A playlist or automation step is built that way, so the
     /// video on screen stays in front until the new one can take over.
@@ -194,6 +205,8 @@ final class VideoRenderer: @unchecked Sendable {
     func stop() {
         queue.async {
             self.isRunning = false
+            self.reportTimer?.cancel()
+            self.reportTimer = nil
             self.renderer.stopRequestingMediaData()
             self.currentReader?.cancelReading()
             self.nextReader?.cancelReading()
@@ -269,6 +282,8 @@ final class VideoRenderer: @unchecked Sendable {
             }
             queue.asyncAfter(deadline: .now() + seconds) { [self] in
                 isRunning = false
+                reportTimer?.cancel()
+                reportTimer = nil
                 renderer.stopRequestingMediaData()
                 currentReader?.cancelReading()
                 nextReader?.cancelReading()
@@ -279,6 +294,93 @@ final class VideoRenderer: @unchecked Sendable {
                 CATransaction.flush()
             }
         }
+    }
+
+    // MARK: - Frame report (issues #52, #64)
+
+    /// Writes one line to the extension log every ten seconds while this video
+    /// plays: how many frames macOS should have shown and how many it dropped,
+    /// how late they were in total, how far ahead of the clock the video was
+    /// kept at its closest, how long the layer went without asking for more,
+    /// and how often the decoder had to be flushed.
+    ///
+    /// For the screen saver. It stuttered on some Macs while decoding was fast
+    /// and nothing in this process ran at the stutter's rhythm, so a reporter's
+    /// log has to be able to say where the time went. One short line, because
+    /// the log is capped at 32 KB.
+    func reportFrames(as label: String) {
+        queue.async { [self] in
+            guard isRunning, reportTimer == nil else { return }
+            let timer = DispatchSource.makeTimerSource(queue: queue)
+            timer.schedule(deadline: .now() + 10, repeating: 10, leeway: .seconds(1))
+            timer.setEventHandler { [weak self] in self?.report(label) }
+            reportTimer = timer
+            timer.resume()
+        }
+    }
+
+    /// Each time the layer asks for more video.
+    private func noteFeed() {
+        guard reportTimer != nil, !isPaused else {
+            lastFeedAt = 0
+            return
+        }
+        let now = CACurrentMediaTime()
+        if lastFeedAt > 0 { maxFeedGap = max(maxFeedGap, now - lastFeedAt) }
+        lastFeedAt = now
+        noteLead()
+    }
+
+    private func noteLead() {
+        let lead = CMTimeSubtract(lastEnqueuedEnd, CMTimebaseGetTime(timebase)).seconds
+        if lead.isFinite { minLead = min(minLead, lead) }
+    }
+
+    private func report(_ label: String) {
+        guard isRunning else { return }
+        guard !isPaused else {
+            lastFeedAt = 0
+            return
+        }
+        noteLead()
+        let lead = minLead.isFinite ? Int((minLead * 1000).rounded()) : -1
+        let gap = Int((maxFeedGap * 1000).rounded())
+        let flushed = flushes
+        minLead = .infinity
+        maxFeedGap = 0
+        flushes = 0
+        renderer.loadVideoPerformanceMetrics { [weak self] metrics in
+            let now = metrics.map {
+                (
+                    frames: $0.totalNumberOfFrames,
+                    dropped: $0.numberOfDroppedFrames,
+                    delay: $0.totalAccumulatedFrameDelay,
+                    optimized: $0.numberOfFramesDisplayedUsingOptimizedCompositing
+                )
+            }
+            self?.queue.async { [weak self] in
+                self?.writeReport(label, now: now, lead: lead, gap: gap, flushes: flushed)
+            }
+        }
+    }
+
+    private func writeReport(
+        _ label: String,
+        now: (frames: Int, dropped: Int, delay: Double, optimized: Int)?,
+        lead: Int,
+        gap: Int,
+        flushes: Int
+    ) {
+        var line = "frames \(label):"
+        if let now {
+            let before = lastMetrics ?? (frames: 0, dropped: 0, delay: 0, optimized: 0)
+            lastMetrics = now
+            line += " frames \(now.frames - before.frames) dropped \(now.dropped - before.dropped)"
+                + String(format: " delay %.2f s", now.delay - before.delay)
+                + " optimized \(now.optimized - before.optimized)"
+        }
+        line += " lead-min \(lead) ms feed-gap-max \(gap) ms flushes \(flushes)"
+        extensionLog(line)
     }
 
     private func makeOutput() -> AVAssetReaderTrackOutput {
@@ -316,7 +418,11 @@ final class VideoRenderer: @unchecked Sendable {
                 renderer.stopRequestingMediaData()
                 return
             }
-            if renderer.requiresFlushToResumeDecoding { renderer.flush() }
+            if renderer.requiresFlushToResumeDecoding {
+                renderer.flush()
+                flushes += 1
+            }
+            noteFeed()
 
             while renderer.isReadyForMoreMediaData {
                 guard let sample = currentOutput?.copyNextSampleBuffer() else {

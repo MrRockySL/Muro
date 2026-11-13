@@ -213,6 +213,9 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                 id: info.choiceID, preview: info.isPreview, ok: true, detail: "reused"
             )
             reply(response, nil)
+            if info.isScreenSaver, !info.isPreview {
+                RendererState.shared.screenSaverAppeared()
+            }
             return
         }
 
@@ -326,6 +329,12 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
                     detail: composited ? "rendering" : "still only"
                 )
                 reply(responseBox.value, nil)
+            }
+            // Issues #52 and #64: the surfaces behind a screen saver hold
+            // still, and the screen saver writes a frame report to the log.
+            if info.isScreenSaver, !info.isPreview {
+                renderer.reportFrames(as: "d=\(info.displayID.map(String.init) ?? "-") saver")
+                RendererState.shared.screenSaverAppeared()
             }
         } catch {
             extensionLog("renderer creation failed: \(error)")
