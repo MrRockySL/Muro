@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "Muro liest hier dein Schreibtischbild, damit es auf dem Schreibtisch bleibt, während ein Live-Hintergrundbild auf dem Sperrbildschirm ist, und spielt die Live-Hintergrundbilder ab, die du hier aufbewahrst.";
 "NSRemovableVolumesUsageDescription" = "Muro liest hier dein Schreibtischbild, damit es auf dem Schreibtisch bleibt, während ein Live-Hintergrundbild auf dem Sperrbildschirm ist, und spielt die Live-Hintergrundbilder ab, die du hier aufbewahrst.";
 "NSNetworkVolumesUsageDescription" = "Muro liest hier dein Schreibtischbild, damit es auf dem Schreibtisch bleibt, während ein Live-Hintergrundbild auf dem Sperrbildschirm ist, und spielt die Live-Hintergrundbilder ab, die du hier aufbewahrst.";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "Muro hört den Ton, den dein Mac abspielt, damit sich ein interaktives Hintergrundbild dazu bewegen kann. Der Ton wird nie aufgenommen, gespeichert oder irgendwohin gesendet.";

@@ -293,7 +293,9 @@ extension AppStore {
     /// A playlist only holds ids, and every place that plays one already
     /// finds an aerial by its id, so nothing downstream had to change.
     var scheduleItems: [WallpaperItem] {
-        localItems + downloadedAppleItems
+        // Not interactive wallpapers: a playlist can play on the lock screen
+        // and the screen saver, where those cannot go.
+        localItems.filter { !$0.isInteractive } + downloadedAppleItems
     }
 
     /// Fetches one aerial from Apple's CDN, beside Muro's own wallpapers.

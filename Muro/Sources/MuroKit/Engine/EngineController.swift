@@ -36,12 +36,25 @@ public final class EngineController {
 
     private func updateResting() {
         settled.formIntersection(controllers.keys)
-        let now = !controllers.isEmpty && settled.count == controllers.count
+        // An interactive wallpaper never rests: Pause After is for videos.
+        let now = !controllers.isEmpty && settled.count == controllers.count && pages.isEmpty
         guard now != resting else { return }
         resting = now
         onRestingChange?(now)
     }
     private let desktopWindows = DesktopWindowMonitor()
+
+    /// Issue #59. A screen showing an interactive wallpaper has one of these
+    /// instead of a `WallpaperWindowController`, never both, apart from the
+    /// moment one fades in over the other.
+    private var pages: [String: InteractiveWindowController] = [:]
+    /// What each page was built from: the screen's frame and the wallpaper.
+    private var pageKeys: [String: String] = [:]
+    /// What a screen showed before a page took it, kept until the page has
+    /// faded in over it.
+    private var leaving: [String: [() -> Void]] = [:]
+    /// Runs only while a page is on a screen.
+    private let pointer = PointerWatcher()
 
     public init() {}
 
@@ -100,6 +113,7 @@ public final class EngineController {
     public func stopAll() {
         for controller in controllers.values { controller.stop() }
         controllers.removeAll()
+        stopAllPages()
         updateResting()
         frames.removeAll()
         videos.removeAll()
@@ -143,15 +157,29 @@ public final class EngineController {
         // assigning one resolves like any other wallpaper and Muro's library
         // file is left exactly as the user's own wallpapers left it.
         manifest.wallpapers += AppleAerials.libraryEntries(libraryRoot: root)
+        // Muro's own interactive wallpapers, which come inside the app.
+        manifest.wallpapers += InteractiveWallpapers.builtInEntries()
         let config = EngineConfig.load(root: root)
 
         var desired: [String: (screen: NSScreen, url: URL, frame: String,
                                video: String, pauseAfter: Int?, id: String, hasSound: Bool)] = [:]
+        var desiredPages: [String: (screen: NSScreen, index: URL, key: String)] = [:]
         for screen in NSScreen.screens {
             guard let uuid = displayUUID(for: screen) else { continue }
             guard let assignment = config.assignment(forDisplayUUID: uuid),
                   let entry = manifest.wallpapers.first(where: { $0.id == assignment.wallpaperID })
             else { continue }
+            // An interactive wallpaper is a page, shown by a controller of its
+            // own. This screen then wants no video.
+            if entry.isInteractive {
+                let index = resolveLibraryFile(entry.file, root: root)
+                if FileManager.default.fileExists(atPath: index.path) {
+                    desiredPages[uuid] = (screen, index, "\(NSStringFromRect(screen.frame))|\(entry.id)")
+                } else {
+                    EngineLog.log("skipping \(entry.title) — missing page \(index.lastPathComponent)")
+                }
+                continue
+            }
             let url = resolveVideoURL(entry: entry, mode: assignment.mode, root: root)
             guard FileManager.default.fileExists(atPath: url.path) else {
                 EngineLog.log("skipping \(entry.title) — missing file \(url.lastPathComponent)")
@@ -173,6 +201,17 @@ public final class EngineController {
                 entry.id,
                 entry.hasSound == true
             )
+        }
+
+        // A screen going from a video to a page keeps its video on until the
+        // page has faded in over it, so it is taken out of the way here
+        // rather than torn down below.
+        for uuid in desiredPages.keys {
+            guard let controller = controllers[uuid] else { continue }
+            controllers[uuid] = nil
+            frames[uuid] = nil
+            videos[uuid] = nil
+            leaving[uuid, default: []].append { controller.stop() }
         }
 
         // Tear down displays that lost their assignment, or whose geometry
@@ -213,6 +252,8 @@ public final class EngineController {
             videos[uuid] = want.video
         }
 
+        reconcilePages(desiredPages, videoTookOver: Set(desired.keys))
+
         // A screen that went away is no longer resting.
         updateResting()
 
@@ -228,6 +269,10 @@ public final class EngineController {
         }
         for (uuid, controller) in controllers {
             controller.setSound(heard.contains(uuid))
+        }
+        for page in pages.values {
+            page.setUserPaused(paused)
+            page.setAutoPauseFullScreen(pauseWhenCovered)
         }
         applyPowerState(config: config)
         applyDesktopRules(config: config)
@@ -262,6 +307,7 @@ public final class EngineController {
                 playOnlyOnDesktop: playOnlyOnDesktop, replayOnClearDesktop: replayOnClearDesktop
             )
         }
+        for page in pages.values { page.setPlayOnlyOnDesktop(playOnlyOnDesktop) }
         if DesktopPlayback.needsWindowCheck(
             playOnlyOnDesktop: playOnlyOnDesktop, replayOnClearDesktop: replayOnClearDesktop
         ) {
@@ -269,12 +315,16 @@ public final class EngineController {
         } else {
             desktopWindows.stop()
             for controller in controllers.values { controller.setDesktopCovered(nil) }
+            for page in pages.values { page.setDesktopCovered(nil) }
         }
     }
 
     private func applyDesktopCoverage(_ covered: Set<String>) {
         for (uuid, controller) in controllers {
             controller.setDesktopCovered(covered.contains(uuid))
+        }
+        for (uuid, page) in pages {
+            page.setDesktopCovered(covered.contains(uuid))
         }
     }
 
@@ -288,5 +338,70 @@ public final class EngineController {
         for controller in controllers.values {
             controller.setPowerPause(lowPower: lowPower, lowBattery: lowBattery)
         }
+        for page in pages.values {
+            page.setPowerPause(lowPower: lowPower, lowBattery: lowBattery)
+        }
+    }
+
+    // MARK: - Interactive wallpapers (issue #59)
+
+    /// Brings every screen's page in line with what is wanted. A new page
+    /// loads unseen and fades in over what the screen showed, which is only
+    /// taken away once it is covered, so nothing blinks.
+    private func reconcilePages(
+        _ desired: [String: (screen: NSScreen, index: URL, key: String)],
+        videoTookOver: Set<String>
+    ) {
+        // Pages no longer wanted. Where a video has just started on the same
+        // screen, the page stays under it for a moment while its first frame
+        // arrives.
+        for (uuid, page) in pages where desired[uuid] == nil {
+            pages[uuid] = nil
+            pageKeys[uuid] = nil
+            if videoTookOver.contains(uuid) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { page.stop() }
+            } else {
+                page.stop()
+            }
+        }
+        for (uuid, want) in desired where pageKeys[uuid] != want.key {
+            if let old = pages[uuid] {
+                leaving[uuid, default: []].append { old.stop() }
+            }
+            let page = InteractiveWindowController(screen: want.screen, index: want.index)
+            page.onShown = { [weak self] in self?.finishLeaving(uuid) }
+            pages[uuid] = page
+            pageKeys[uuid] = want.key
+            page.start()
+            EngineLog.log("applied \(want.index.deletingLastPathComponent().lastPathComponent) → \(want.screen.localizedName)")
+        }
+        // A screen whose page went before it ever faded in still has
+        // something waiting to be taken away.
+        for uuid in Array(leaving.keys) where pages[uuid] == nil { finishLeaving(uuid) }
+
+        if pages.isEmpty {
+            pointer.stop()
+        } else if !pointer.isRunning {
+            pointer.onMove = { [weak self] point, onDesktop in
+                self?.pages.values.forEach { $0.pointer(at: point, onDesktop: onDesktop) }
+            }
+            pointer.onClick = { [weak self] point in
+                self?.pages.values.forEach { $0.click(at: point) }
+            }
+            pointer.start()
+        }
+    }
+
+    private func finishLeaving(_ uuid: String) {
+        guard let waiting = leaving.removeValue(forKey: uuid) else { return }
+        waiting.forEach { $0() }
+    }
+
+    private func stopAllPages() {
+        for page in pages.values { page.stop() }
+        pages.removeAll()
+        pageKeys.removeAll()
+        for uuid in Array(leaving.keys) { finishLeaving(uuid) }
+        pointer.stop()
     }
 }

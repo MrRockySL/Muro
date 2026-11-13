@@ -228,7 +228,10 @@ struct MenuBarView: View {
             ?? store.displays
                 .compactMap { store.config.assignment(forDisplayUUID: $0.id) }
                 .first { $0.wallpaperID == item.id }?.mode
-        let fps = L("%@ FPS", mode == "efficient" ? 30 : standardFrameRate(item.fps))
+        // An interactive wallpaper has no frame rate of its own to name.
+        let fps = item.isInteractive
+            ? L("INTERACTIVE")
+            : L("%@ FPS", mode == "efficient" ? 30 : standardFrameRate(item.fps))
         guard page != nil else {
             let displays = store.appliedDisplays(for: item.id).count
             return "\(state) · \(LN("%@ DISPLAYS", displays)) · \(fps)"

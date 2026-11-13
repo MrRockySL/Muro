@@ -131,7 +131,7 @@
 "A new version of Muro is available" = "Muro 有新版本可用";
 "What's New in Muro" = "Muro 的新功能";
 "New update available" = "有新的更新項目";
-"Import your own video" = "輸入你自己的影片";
+"Import your own video or interactive wallpaper" = "輸入你自己的影片或互動背景圖片";
 "NEW" = "新";
 "Delete wallpaper" = "刪除背景圖片";
 "Remove Download (%@)" = "移除下載項目（%@）";
@@ -220,8 +220,8 @@
 "Select All" = "全選";
 "%@ selected" = "已選取 %@ 個";
 "Clear" = "清除";
-"Drop videos or screen savers here, or click to import" = "將影片或螢幕保護程式拖到這裡，或按一下來輸入";
-"MP4, MOV and M4V videos, and .saver screen savers" = "MP4、MOV 和 M4V 影片，以及 .saver 螢幕保護程式";
+"Drop videos, screen savers or interactive wallpapers here, or click to import" = "將影片、螢幕保護程式或互動背景圖片拖到這裡，或按一下來輸入";
+"MP4, MOV and M4V videos, .saver screen savers, and interactive wallpapers (HTML)" = "MP4、MOV 和 M4V 影片，.saver 螢幕保護程式，以及互動背景圖片（HTML）";
 "%@ added." = "已加入「%@」。";
 "%@ screen savers added." = "已加入 %@ 個螢幕保護程式。";
 "%@ is already added." = "「%@」已經加入過了。";
@@ -474,7 +474,7 @@
 "%@ PLACES#other" = "%@ 個位置";
 "Applied everywhere" = "已套用到所有位置";
 "Applied in %@ places#other" = "已套用到 %@ 個位置";
-"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro 可以輸入 MP4、MOV 和 M4V 影片，以及 .saver 螢幕保護程式。沒有加入任何內容。";
+"Muro imports MP4, MOV and M4V videos, .saver screen savers and interactive wallpapers (an HTML page, or a folder with one). Nothing was added." = "Muro 可以輸入 MP4、MOV 和 M4V 影片、.saver 螢幕保護程式，以及互動背景圖片（HTML 頁面，或包含 HTML 頁面的檔案夾）。沒有加入任何內容。";
 "Importing" = "正在輸入";
 "Importing %@ of %@" = "正在輸入第 %@ 個，共 %@ 個";
 "%@ is already in your Library." = "「%@」已在你的資料庫中。";
@@ -568,6 +568,7 @@
 "Other@@category" = "其他";
 "Yours@@category" = "你的";
 "Screen Savers@@category" = "螢幕保護程式";
+"Interactive Wallpapers@@category" = "互動背景圖片";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "阿拉伯式花紋";
@@ -585,3 +586,14 @@
 "You can change it later in Settings." = "之後可以在「設定」中更改。";
 "Continue" = "繼續";
 "Skip" = "略過";
+
+/* Interactive wallpapers (issue #59). */
+"Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "互動背景圖片。比動態背景圖片使用更多 CPU 和記憶體。只能在桌面上使用。";
+"Desktop only" = "僅限桌面";
+"An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "互動背景圖片會隨著指標和 Mac 的聲音而動。鎖定畫面和螢幕保護程式兩者都沒有，因此它在桌面上播放。";
+"INTERACTIVE" = "互動";
+"%@ is too large. An interactive wallpaper can be up to 500 MB." = "「%@」太大。互動背景圖片最大為 500 MB。";
+"%@ has no HTML page in it." = "「%@」中沒有 HTML 頁面。";
+"%@ interactive wallpapers added." = "已加入 %@ 張互動背景圖片。";
+"Those interactive wallpapers are already in your Library." = "這些互動背景圖片已在你的資料庫中。";
+"%@ interactive wallpapers#other" = "%@ 張互動背景圖片";

@@ -138,7 +138,7 @@
 "A new version of Muro is available" = "Há uma nova versão do Muro disponível";
 "What's New in Muro" = "Novidades do Muro";
 "New update available" = "Nova atualização disponível";
-"Import your own video" = "Importar seu próprio vídeo";
+"Import your own video or interactive wallpaper" = "Importar seu próprio vídeo ou imagem de fundo interativa";
 "NEW" = "NOVO";
 "Delete wallpaper" = "Apagar imagem de fundo";
 "Remove Download (%@)" = "Remover Download (%@)";
@@ -235,8 +235,8 @@
 "Select All" = "Selecionar Tudo";
 "%@ selected" = "Selecionadas: %@";
 "Clear" = "Limpar";
-"Drop videos or screen savers here, or click to import" = "Solte vídeos ou protetores de tela aqui, ou clique para importar";
-"MP4, MOV and M4V videos, and .saver screen savers" = "Vídeos MP4, MOV e M4V, e protetores de tela .saver";
+"Drop videos, screen savers or interactive wallpapers here, or click to import" = "Solte vídeos, protetores de tela ou imagens de fundo interativas aqui, ou clique para importar";
+"MP4, MOV and M4V videos, .saver screen savers, and interactive wallpapers (HTML)" = "Vídeos MP4, MOV e M4V, protetores de tela .saver e imagens de fundo interativas (HTML)";
 "%@ added." = "“%@” adicionado.";
 "%@ screen savers added." = "%@ protetores de tela adicionados.";
 "%@ is already added." = "“%@” já foi adicionado.";
@@ -498,7 +498,7 @@
 "Applied everywhere" = "Aplicada em todos os lugares";
 "Applied in %@ places#one" = "Aplicada em %@ lugar";
 "Applied in %@ places#other" = "Aplicada em %@ lugares";
-"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "O Muro importa vídeos MP4, MOV e M4V, e protetores de tela .saver. Nada foi adicionado.";
+"Muro imports MP4, MOV and M4V videos, .saver screen savers and interactive wallpapers (an HTML page, or a folder with one). Nothing was added." = "O Muro importa vídeos MP4, MOV e M4V, protetores de tela .saver e imagens de fundo interativas (uma página HTML ou uma pasta que contenha uma). Nada foi adicionado.";
 "Importing" = "Importando";
 "Importing %@ of %@" = "Importando %@ de %@";
 "%@ is already in your Library." = "“%@” já está na sua Biblioteca.";
@@ -594,6 +594,7 @@
 "Other@@category" = "Outras";
 "Yours@@category" = "Seus";
 "Screen Savers@@category" = "Protetores de Tela";
+"Interactive Wallpapers@@category" = "Imagens de fundo interativas";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "Arabesque";
@@ -611,3 +612,15 @@
 "You can change it later in Settings." = "Você pode alterar depois em Ajustes.";
 "Continue" = "Continuar";
 "Skip" = "Pular";
+
+/* Interactive wallpapers (issue #59). */
+"Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "Imagem de fundo interativa. Usa mais CPU e RAM do que uma imagem de fundo animada. Funciona apenas na mesa.";
+"Desktop only" = "Somente na mesa";
+"An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "Uma imagem de fundo interativa se move com o cursor e com o som do Mac. A Tela Bloqueada e o protetor de tela não têm nenhum dos dois, então ela é reproduzida na mesa.";
+"INTERACTIVE" = "INTERATIVA";
+"%@ is too large. An interactive wallpaper can be up to 500 MB." = "“%@” é grande demais. Uma imagem de fundo interativa pode ter até 500 MB.";
+"%@ has no HTML page in it." = "“%@” não contém nenhuma página HTML.";
+"%@ interactive wallpapers added." = "%@ imagens de fundo interativas adicionadas.";
+"Those interactive wallpapers are already in your Library." = "Essas imagens de fundo interativas já estão na sua Biblioteca.";
+"%@ interactive wallpapers#one" = "%@ imagem de fundo interativa";
+"%@ interactive wallpapers#other" = "%@ imagens de fundo interativas";

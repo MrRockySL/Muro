@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "Muro は、ロック画面にライブ壁紙があるあいだもデスクトップにあなたのピクチャを表示し続けるために、ここにあるデスクトップピクチャを読み込みます。また、ここに保存されているライブ壁紙を再生します。";
 "NSRemovableVolumesUsageDescription" = "Muro は、ロック画面にライブ壁紙があるあいだもデスクトップにあなたのピクチャを表示し続けるために、ここにあるデスクトップピクチャを読み込みます。また、ここに保存されているライブ壁紙を再生します。";
 "NSNetworkVolumesUsageDescription" = "Muro は、ロック画面にライブ壁紙があるあいだもデスクトップにあなたのピクチャを表示し続けるために、ここにあるデスクトップピクチャを読み込みます。また、ここに保存されているライブ壁紙を再生します。";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "Muro は、インタラクティブ壁紙がサウンドに合わせて動けるように、Mac で再生中のサウンドを聞き取ります。サウンドが録音、保存、送信されることはありません。";

@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here.";
 "NSRemovableVolumesUsageDescription" = "Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here.";
 "NSNetworkVolumesUsageDescription" = "Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here.";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "Muro listens to the sound your Mac is playing so an interactive wallpaper can move with it. The sound is never recorded, kept or sent anywhere.";

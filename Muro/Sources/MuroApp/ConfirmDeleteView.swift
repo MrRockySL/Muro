@@ -26,7 +26,11 @@ struct ConfirmDeleteView: View {
     private static let danger = Color(hex: 0xFF6B6B)
 
     private var items: [WallpaperItem] { request.items }
-    private var personal: [WallpaperItem] { items.filter { $0.remote == nil } }
+    /// The person's own videos and pages. Muro's own interactive wallpapers
+    /// have no catalog entry either, but Download puts them back any time.
+    private var personal: [WallpaperItem] {
+        items.filter { $0.remote == nil && !$0.isBuiltInInteractive }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

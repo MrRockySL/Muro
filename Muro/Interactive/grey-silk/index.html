@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Grey Silk</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #6f7682; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<script>
+/*
+  Grey Silk. An interactive wallpaper for Muro.
+
+  A sheet of grey silk, slowly moving, with a drop of clear glass resting on
+  it and a row of smaller drops along the bottom.
+
+  The music is in the glass. The drop in the middle trembles and swells with
+  the low notes and sends a slow wave out through the silk, and the small
+  drops along the bottom stretch up with the music, low notes in the middle.
+
+  The pointer is under the silk. Wherever it goes the cloth lifts over it and
+  the folds follow, and the light on every drop turns towards it. A click
+  sends a ripple through the cloth.
+*/
+
+(() => {
+'use strict';
+
+// How long this one rests between frames while nothing is happening, in
+// thousandths of a second.
+const REST = 66;
+
+const FRAGMENT = `
+precision highp float;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec3 uMouse;   // where, in the picture's own space, and how present
+uniform vec4 uAudio;   // bass, mid, treble, level
+uniform float uBeat;
+uniform sampler2D uBands;
+uniform sampler2D uPast;
+uniform float uHead;
+uniform vec3 uClick;   // where, and how long ago
+
+const vec2 DROP = vec2(0., .045);
+const float DROP_R = .098;
+const float PILL_W = .0330;
+
+float hash21(vec2 p) {
+  vec3 q = fract(vec3(p.xyx) * .1031);
+  q += dot(q, q.yzx + 33.33);
+  return fract((q.x + q.y) * q.z);
+}
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3. - 2. * f);
+  return mix(mix(hash21(i), hash21(i + vec2(1., 0.)), u.x),
+             mix(hash21(i + vec2(0., 1.)), hash21(i + vec2(1., 1.)), u.x), u.y);
+}
+float band(float u) { return texture2D(uBands, vec2(clamp(u, 0., 1.) * .96 + .02, .5)).r; }
+// What the low notes were doing this many seconds ago. Four seconds are kept.
+float past(float seconds) {
+  return texture2D(uPast, vec2(uHead - min(seconds, 3.9) * 60. / 256., .5)).r * smoothstep(3.9, 2.7, seconds);
+}
+
+// The height of the cloth at a point. The folds all run one way, up and to
+// the right, and wander slowly, the way a hung sheet moves in still air.
+float cloth(vec2 p) {
+  float t = uTime;
+  float along = dot(p, vec2(.83, .56));
+  float across = dot(p, vec2(-.56, .83));
+  float w1 = noise(vec2(along * .55 + t * .020, across * .90 - t * .015));
+  float w2 = noise(vec2(along * .33 - t * .012 + 7.1, across * 1.60 + 3.3));
+  float x = across + (w1 - .5) * .58 + (w2 - .5) * .26;
+  float h = .56 * sin(x * 6.6 + t * .105);
+  h += .24 * sin(x * 12.4 - t * .085 + w2 * 3.0);
+  h += .09 * sin(x * 22.0 + w1 * 5.0 + t * .120);
+  h += .62 * (noise(p * .85 + vec2(t * .018, -t * .014)) - .5);
+
+  // The pointer is under the cloth and lifts it.
+  vec2 m = p - uMouse.xy;
+  float md = dot(m, m);
+  h += uMouse.z * (.50 * exp(-md / .017) + .32 * exp(-md / .085));
+
+  // A slow wave from the drop in the middle, one for every beat.
+  float out_ = max(length(p - DROP) - DROP_R, 0.);
+  float wave = (past(out_ / .36 - .07) + past(out_ / .36) * 2. + past(out_ / .36 + .07)) * .25;
+  h += wave * .17 * exp(-out_ * 1.7) * smoothstep(0., .05, out_);
+
+  // A click sends a ripple through it.
+  float rc = length(p - uClick.xy);
+  h += cos((rc - uClick.z * .40) * 46.) * exp(-pow((rc - uClick.z * .40) * 7., 2.)) * exp(-uClick.z * 1.2) * .26;
+  return h;
+}
+
+vec3 silk(vec2 p, vec2 from) {
+  float px = 2. / uRes.y;
+  float h = cloth(p);
+  vec3 n = normalize(vec3((h - cloth(p + vec2(px, 0.))) / px, (h - cloth(p + vec2(0., px))) / px, 8.6));
+  vec3 light = normalize(vec3(from, .92));
+  float diffuse = dot(n, light);
+  float shine = pow(max(dot(n, normalize(light + vec3(0., 0., 1.))), 0.), 14.);
+
+  vec3 deep = vec3(.232, .256, .302);
+  vec3 mid = vec3(.448, .478, .524);
+  vec3 pale = vec3(.742, .752, .768);
+  vec3 col = mix(deep, mid, smoothstep(-.05, .74, diffuse));
+  col = mix(col, pale, smoothstep(.72, 1.0, diffuse) * .70);
+  col += vec3(.115, .112, .105) * shine;
+  // The weave.
+  col *= .978 + .044 * noise(p * vec2(520., 900.));
+  return col;
+}
+
+// How far a point is outside (+) or inside (-) one of the small drops along
+// the bottom, and which way is out.
+float pill(vec2 p, out vec2 outward, out float radius) {
+  float halfWidth = uRes.x / uRes.y * .5;
+  float i = floor(p.x / PILL_W + .5);
+  float u = abs(i) * PILL_W / halfWidth;
+  float low = band(pow(u, .85));
+  float tall = .0240 + .27 * low * low + .02 * low;
+  float keep = smoothstep(1.0, .93, u);
+  radius = PILL_W * .365;
+  vec2 centre = vec2(i * PILL_W, -.5 + .042 + tall * .5);
+  vec2 o = p - centre;
+  vec2 d = abs(o) - vec2(radius, tall * .5) + radius;
+  float sd = length(max(d, 0.)) + min(max(d.x, d.y), 0.) - radius;
+  vec2 g = d.x > 0. && d.y > 0. ? normalize(d) : (d.x > d.y ? vec2(1., 0.) : vec2(0., 1.));
+  outward = g * sign(o);
+  return mix(1., sd, keep);
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec2 p = (gl_FragCoord.xy - .5 * uRes) / uRes.y;
+
+  // Light from the upper left, leaning the way the pointer goes.
+  vec2 lean = uMouse.xy - p;
+  lean = lean / (length(lean) + .40);
+  vec2 from = mix(vec2(-.46, .58), lean * 1.15, .55 * uMouse.z);
+  vec2 fromDir = normalize(from);
+
+  // The drop in the middle: it swells with the low notes and its edge trembles.
+  vec2 e = p - DROP;
+  float r = length(e);
+  float angle = atan(e.y, e.x);
+  float tremble = sin(angle * 3. + uTime * 2.3) * .5 + sin(angle * 5. - uTime * 3.1) * .32 + sin(angle * 2. + uTime * 1.2) * .4;
+  float dropR = DROP_R * (1. + .050 * uAudio.x + .050 * uBeat) + DROP_R * tremble * (.006 + .034 * uAudio.x + .020 * uBeat);
+
+  float sd = r - dropR;
+  vec2 outward = e / max(r, 1e-4);
+  float size = dropR;
+  vec2 pillOut; float pillR;
+  float ps = pill(p, pillOut, pillR);
+  if (ps < sd) { sd = ps; outward = pillOut; size = pillR; }
+
+  // Glass bends what is under it: most at its edge, hardly at all in the middle.
+  float depth = clamp(-sd / size, 0., 1.);
+  float inside = smoothstep(.0012, -.0012, sd);
+  float bend = pow(1. - depth, 2.3);
+  vec2 look = p - outward * size * inside * (bend * .78 + depth * .16);
+
+  vec3 col = silk(look, from);
+
+  // The glass itself, lit the way a drop of water is: dark where the light
+  // comes in, bright where it gathers on the far side, one clear highlight.
+  float facing = dot(outward, fromDir);
+  float edge = smoothstep(.55, 0., depth);
+  vec3 glass = col * (1.04 - .30 * edge * smoothstep(-.2, 1., facing)) + .012;
+  glass += vec3(.56, .58, .62) * pow(edge, 1.6) * pow(max(0., -facing), 1.4) * .95;
+  glass += vec3(.9, .92, .96) * smoothstep(.07, 0., depth) * .22;
+  float spot = exp(-pow((depth - .40) / .13, 2.)) * pow(max(0., facing), 5.);
+  glass += vec3(1.) * spot * .95;
+  glass += vec3(.9, .93, 1.) * exp(-pow((depth - .30) / .10, 2.)) * pow(max(0., -facing), 9.) * .16;
+  // It lights up a little with the music.
+  glass += vec3(.13, .14, .16) * (uBeat * .55 + uAudio.x * .30) * (1. - depth * .5);
+  col = mix(col, glass, inside);
+
+  // Its shadow on the silk, and the light it gathers beyond itself.
+  vec2 away = -fromDir * .014;
+  float dropShade = smoothstep(dropR + .036, dropR - .022, length(p - away * 1.7 - DROP));
+  vec2 unusedOut; float unusedR;
+  float pillShade = smoothstep(.013, -.006, pill(p - away, unusedOut, unusedR));
+  col *= 1. - (1. - inside) * (dropShade * .34 + pillShade * .28);
+  vec2 focus = p - (DROP - fromDir * dropR * 1.22);
+  col += vec3(.20, .205, .215) * (1. - inside) * exp(-dot(focus, focus) / (dropR * dropR * .17));
+
+  col *= 1. - .22 * dot(p * vec2(.62, 1.), p * vec2(.62, 1.));
+  col += (hash21(gl_FragCoord.xy + fract(uTime) * 91.7) - .5) * (1.6 / 255.);
+  gl_FragColor = vec4(clamp(col, 0., 1.), 1.);
+}
+`;
+
+// ---------------------------------------------------------------------------
+// The same few lines run every Muro interactive wallpaper: a full-screen
+// picture drawn by the graphics chip, told where the pointer is and what the
+// Mac is playing. It is drawn at the screen's full rate while somebody plays
+// with it on the desktop or music plays, and a few times a second the rest of
+// the day.
+// ---------------------------------------------------------------------------
+const canvas = document.getElementById('view');
+const gl = canvas.getContext('webgl', {
+  alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'low-power'
+});
+if (!gl) return;
+
+const shader = (type, source) => {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, source);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s));
+  return s;
+};
+const program = gl.createProgram();
+gl.attachShader(program, shader(gl.VERTEX_SHADER, 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+gl.attachShader(program, shader(gl.FRAGMENT_SHADER, FRAGMENT));
+gl.linkProgram(program);
+gl.useProgram(program);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0);
+gl.bindAttribLocation(program, 0, 'a');
+gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+const U = {};
+['uRes', 'uTime', 'uMouse', 'uAudio', 'uBeat', 'uBands', 'uPast', 'uHead', 'uClick']
+  .forEach(n => { U[n] = gl.getUniformLocation(program, n); });
+
+const BANDS = 64, PAST = 256;
+const strip = (unit, width, wrap) => {
+  const t = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, width, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array(width));
+  return t;
+};
+strip(0, BANDS, gl.CLAMP_TO_EDGE);
+strip(1, PAST, gl.REPEAT);
+gl.uniform1i(U.uBands, 0);
+gl.uniform1i(U.uPast, 1);
+
+// How sharp to draw: every pixel of an ordinary screen, and no more than a
+// big screen's worth on a Retina one, where this picture is soft anyway.
+const BUDGET = 2.3e6;
+let aspect = 1;
+const resize = () => {
+  const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight);
+  const scale = Math.min(devicePixelRatio || 1, Math.sqrt(BUDGET / (w * h)));
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.uniform2f(U.uRes, canvas.width, canvas.height);
+  aspect = canvas.width / canvas.height;
+};
+addEventListener('resize', resize);
+resize();
+
+const heard = new Float32Array(BANDS), bands = new Float32Array(BANDS), soft = new Float32Array(BANDS);
+const bandBytes = new Uint8Array(BANDS), pastBytes = new Uint8Array(PAST);
+let head = 0, pastClock = 0, heardAt = -1e9, loudAt = -1e9;
+let bass = 0, mid = 0, treble = 0, level = 0, slowBass = 0, beat = 0, swell = 0;
+const pointer = { x: .5, y: .38, tx: .5, ty: .38, inside: false, presence: 0, movedAt: -1e9 };
+const click = { x: 0, y: 0, at: -1e9 };
+
+// The next frame comes after a wait: none while somebody is playing with the
+// wallpaper or music plays, a longer one at rest. Anything that calls for a
+// shorter wait than the one running ends it.
+const NOW = 0;
+let waiting = 0, waitingFor = 0, asked = false;
+const next = wait => {
+  if (asked) return;
+  if (waiting) {
+    if (wait >= waitingFor) return;
+    clearTimeout(waiting);
+    waiting = 0;
+  }
+  if (wait <= 0) {
+    asked = true;
+    requestAnimationFrame(draw);
+    return;
+  }
+  waitingFor = wait;
+  waiting = setTimeout(() => { waiting = 0; asked = true; requestAnimationFrame(draw); }, wait);
+};
+
+// Muro says `inside` only while the pointer is on this display's desktop
+// itself, never over an app window. Coming back after it has faded away, it
+// starts where the pointer is instead of sliding over from where it left.
+const movePointer = (x, y, inside) => {
+  if (inside && !pointer.inside && pointer.presence < .05) { pointer.x = x; pointer.y = y; }
+  if (inside || pointer.inside) pointer.movedAt = performance.now();
+  pointer.tx = x; pointer.ty = y; pointer.inside = inside;
+  next(NOW);
+};
+const hearClick = (x, y) => { click.x = x; click.y = y; click.at = performance.now(); next(NOW); };
+const hear = a => {
+  const now = performance.now();
+  heardAt = now;
+  for (let i = 0; i < BANDS; i++) heard[i] = a.bands[i] || 0;
+  if (a.level > .004) { loudAt = now; next(NOW); }
+};
+if (window.muro) {
+  addEventListener('muro:mouse', e => movePointer(e.detail.x, e.detail.y, e.detail.inside));
+  addEventListener('muro:click', e => hearClick(e.detail.x, e.detail.y));
+} else {
+  addEventListener('mousemove', e => movePointer(e.clientX / innerWidth, e.clientY / innerHeight, true));
+  document.addEventListener('mouseleave', () => { pointer.inside = false; });
+  addEventListener('mousedown', e => hearClick(e.clientX / innerWidth, e.clientY / innerHeight));
+}
+addEventListener('muro:audio', e => hear(e.detail));
+
+let last = 0, clock = 0;
+function draw(now) {
+  asked = false;
+  const dt = Math.min(.12, Math.max(.001, (now - last) / 1000));
+  last = now;
+  clock += dt;
+
+  // Sound, eased: quick to rise, slower to fall, and gone if it stops coming.
+  if (now - heardAt > 400) heard.fill(0);
+  const up = 1 - Math.exp(-dt * 30), down = 1 - Math.exp(-dt * 6.5);
+  let low = 0, middle = 0, high = 0, all = 0;
+  for (let i = 0; i < BANDS; i++) {
+    const v = heard[i];
+    bands[i] += (v - bands[i]) * (v > bands[i] ? up : down);
+    all += bands[i];
+    if (i < 10) low += bands[i]; else if (i < 38) middle += bands[i]; else high += bands[i];
+  }
+  for (let i = 0; i < BANDS; i++) {
+    const a = bands[Math.max(0, i - 1)], b = bands[i], c = bands[Math.min(BANDS - 1, i + 1)];
+    soft[i] = a * .25 + b * .5 + c * .25;
+    bandBytes[i] = Math.max(0, Math.min(255, Math.round(soft[i] * 255)));
+  }
+  bass = low / 10; mid = middle / 28; treble = high / (BANDS - 38); level = all / BANDS;
+  slowBass += (bass - slowBass) * (1 - Math.exp(-dt * 2.2));
+  const hit = Math.max(0, bass - slowBass - .02) * 4.5;
+  beat += (Math.min(1, hit) - beat) * (hit > beat ? 1 - Math.exp(-dt * 40) : 1 - Math.exp(-dt * 7));
+
+  // What the low notes were doing a moment ago, kept for the waves that
+  // travel outwards. Rounded off a little, so a wave has no hard front.
+  swell += (bass * .55 + beat * .6 - swell) * (1 - Math.exp(-dt * 13));
+  pastClock += dt * 60;
+  while (pastClock >= 1) {
+    pastClock -= 1;
+    head = (head + 1) % PAST;
+    pastBytes[head] = Math.max(0, Math.min(255, Math.round(swell * 255)));
+  }
+
+  // The pointer, followed a little behind so it feels like it has weight.
+  const follow = 1 - Math.exp(-dt * 9);
+  pointer.x += (pointer.tx - pointer.x) * follow;
+  pointer.y += (pointer.ty - pointer.y) * follow;
+  pointer.presence += ((pointer.inside ? 1 : 0) - pointer.presence) * (1 - Math.exp(-dt * 3.5));
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, BANDS, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, bandBytes);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, PAST, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, pastBytes);
+  gl.uniform1f(U.uTime, clock);
+  gl.uniform3f(U.uMouse, (pointer.x - .5) * aspect, .5 - pointer.y, pointer.presence);
+  gl.uniform4f(U.uAudio, bass, mid, treble, level);
+  gl.uniform1f(U.uBeat, beat);
+  gl.uniform1f(U.uHead, (head + .5) / PAST);
+  gl.uniform3f(U.uClick, (click.x - .5) * aspect, .5 - click.y, Math.min(60, (now - click.at) / 1000));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  // Full speed while somebody plays with it, a click's ripple is spreading or
+  // music plays, and a rest between frames otherwise.
+  const busy = now - pointer.movedAt < 1100 || now - click.at < 2800
+    || now - loudAt < 900 || level > .003 || beat > .003 || swell > .003;
+  next(busy ? NOW : REST);
+}
+next(NOW);
+})();
+</script>
+</body>
+</html>

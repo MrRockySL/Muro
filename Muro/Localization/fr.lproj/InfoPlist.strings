@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "Muro lit ici votre image de bureau pour la garder sur le bureau pendant qu’un fond d’écran animé est sur l’écran verrouillé, et joue les fonds d’écran animés que vous conservez ici.";
 "NSRemovableVolumesUsageDescription" = "Muro lit ici votre image de bureau pour la garder sur le bureau pendant qu’un fond d’écran animé est sur l’écran verrouillé, et joue les fonds d’écran animés que vous conservez ici.";
 "NSNetworkVolumesUsageDescription" = "Muro lit ici votre image de bureau pour la garder sur le bureau pendant qu’un fond d’écran animé est sur l’écran verrouillé, et joue les fonds d’écran animés que vous conservez ici.";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "Muro écoute le son que votre Mac diffuse pour qu’un fond d’écran interactif puisse bouger avec lui. Le son n’est jamais enregistré, conservé ni envoyé où que ce soit.";

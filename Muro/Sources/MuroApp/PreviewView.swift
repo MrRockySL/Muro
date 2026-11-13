@@ -46,6 +46,8 @@ struct PreviewView: View {
     @State private var setButtonWidth: CGFloat = 0
     @State private var heldSetButtonWidth: CGFloat?
     @State private var customPauseAfter = false
+    /// Hands a click on a running interactive wallpaper to its page.
+    @State private var pageLink = InteractivePreviewLink()
     @StateObject private var loader = PreviewLoader()
     /// Apple's aerials learn their real size and their sharp picture while
     /// this is open, and this has to redraw when they do.
@@ -82,6 +84,11 @@ struct PreviewView: View {
     /// Asks for the aerial's real size and its sharp picture at once, so the
     /// bar never shows a guess for longer than one small request takes.
     private func prepareAerial() {
+        // An interactive wallpaper goes on the desktop and nowhere else.
+        if item?.isInteractive == true {
+            store.applySurface = .desktop
+            return
+        }
         // A screen saver opens on the Screen saver place, the one it is for.
         // Desktop and Lock screen are still one click away in the panel.
         if itemID.hasPrefix(AppleScreenSavers.idPrefix), store.lockScreenAvailable {
@@ -104,7 +111,9 @@ struct PreviewView: View {
     @ViewBuilder private func media(_ item: WallpaperItem) -> some View {
         GeometryReader { proxy in
             Group {
-                if let url = store.videoURL(for: item, mode: store.previewMode) ??
+                if item.isInteractive {
+                    interactiveMedia(item, size: proxy.size)
+                } else if let url = store.videoURL(for: item, mode: store.previewMode) ??
                              store.videoURL(for: item, mode: "smooth") {
                     // Downloaded → the real master, full quality.
                     LoopingPlayerView(url: url)
@@ -121,6 +130,24 @@ struct PreviewView: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
+        }
+    }
+
+    /// An interactive wallpaper runs here as it will on the desktop: it
+    /// follows the pointer, answers a click, and moves with the Mac's sound.
+    @ViewBuilder private func interactiveMedia(_ item: WallpaperItem, size: CGSize) -> some View {
+        if let page = store.pageURL(for: item) {
+            ZStack {
+                ThumbImage(item: item, maxPixels: ImageCache.fullPixels)
+                InteractivePreview(page: page, link: pageLink)
+            }
+            .contentShape(Rectangle())
+            .gesture(SpatialTapGesture().onEnded { tap in
+                guard size.width > 0, size.height > 0 else { return }
+                pageLink.click?(tap.location.x / size.width, tap.location.y / size.height)
+            })
+        } else {
+            ThumbImage(item: item, maxPixels: ImageCache.fullPixels)
         }
     }
 
@@ -174,10 +201,21 @@ struct PreviewView: View {
                     .foregroundStyle(Color.muroInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
-                Text(metaLine(item))
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(Color.muroSecondary)
-                if let fitWarning = fitWarning(item) {
+                if item.isInteractive {
+                    // Said here, small, on the wallpaper's own page: what it
+                    // is, what it costs and where it works (owner, 2026-11-12).
+                    Text(L("Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop."))
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(Color.muroSecondary)
+                        .lineSpacing(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(width: 240, alignment: .leading)
+                } else {
+                    Text(metaLine(item))
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(Color.muroSecondary)
+                }
+                if !item.isInteractive, let fitWarning = fitWarning(item) {
                     Text(fitWarning)
                         .font(.system(size: 10.5, weight: .semibold))
                         .foregroundStyle(Color.muroWarn)
@@ -209,7 +247,7 @@ struct PreviewView: View {
                 fpsToggle(item)
             }
 
-            if item.isDownloaded, !isAerial { pauseAfterPill(item) }
+            if item.isDownloaded, !isAerial, !item.isInteractive { pauseAfterPill(item) }
 
             HeartButton(item: item, size: 40)
 
@@ -652,6 +690,9 @@ struct ChooseDisplayPopover: View {
     /// pills used to be simply disabled with a small "26+" badge, which says
     /// there is a rule without ever saying what it is.
     @State private var showLockRequirement = false
+    /// Shown when someone picks anywhere but the desktop for an interactive
+    /// wallpaper, which can only react where there is a pointer.
+    @State private var showDesktopOnly = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -673,9 +714,11 @@ struct ChooseDisplayPopover: View {
             // whole card appears to jump (owner, 2026-07-20).
             ZStack {
                 chooser
-                    .opacity(showLockRequirement ? 0 : 1)
-                    .allowsHitTesting(!showLockRequirement)
-                if showLockRequirement {
+                    .opacity(showLockRequirement || showDesktopOnly ? 0 : 1)
+                    .allowsHitTesting(!showLockRequirement && !showDesktopOnly)
+                if showDesktopOnly {
+                    desktopOnlyCard.transition(.opacity)
+                } else if showLockRequirement {
                     lockRequirementCard.transition(.opacity)
                 }
             }
@@ -711,6 +754,45 @@ struct ChooseDisplayPopover: View {
 
             Button {
                 withAnimation(Self.ease) { showLockRequirement = false }
+            } label: {
+                Text(L("Set my desktop instead"))
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(Color.muroInk)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(Color.muroInk.opacity(0.12)))
+                    .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.2), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Why an interactive wallpaper has only the desktop, in the same voice.
+    private var desktopOnlyCard: some View {
+        VStack(spacing: 9) {
+            ZStack {
+                Circle().fill(Color.muroInk.opacity(0.10))
+                Image(systemName: "cursorarrow.rays")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.muroInk)
+            }
+            .frame(width: 40, height: 40)
+
+            Text(L("Desktop only"))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.muroInk)
+
+            Text(L("An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop."))
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(Color.muroSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(1.5)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                withAnimation(Self.ease) { showDesktopOnly = false }
             } label: {
                 Text(L("Set my desktop instead"))
                     .font(.system(size: 11.5, weight: .semibold))
@@ -916,10 +998,19 @@ struct ChooseDisplayPopover: View {
 
     private func surfacePill(_ surface: ApplySurface) -> some View {
         let selected = store.applySurface == surface
-        let enabled = !surface.needsAppleExtension || store.lockScreenAvailable
+        // An interactive wallpaper has the desktop and nothing else.
+        let desktopOnly = item.isInteractive && surface != .desktop
+        let enabled = (!surface.needsAppleExtension || store.lockScreenAvailable) && !desktopOnly
         // Constant font weight: weight changes used to resize the labels and
         // make "Lockscreen" jump sideways when switching Both → Desktop.
         return Button {
+            guard !desktopOnly else {
+                withAnimation(Self.ease) {
+                    showLockRequirement = false
+                    showDesktopOnly = true
+                }
+                return
+            }
             guard enabled else {
                 // Not disabled any more. A dead button tells someone their
                 // click failed; this tells them what the rule is.
@@ -928,6 +1019,7 @@ struct ChooseDisplayPopover: View {
             }
             withAnimation(Self.ease) {
                 showLockRequirement = false
+                showDesktopOnly = false
                 store.applySurface = surface
             }
         } label: {
@@ -945,7 +1037,7 @@ struct ChooseDisplayPopover: View {
                     }
                 }
                 .overlay(alignment: .topTrailing) {
-                    if !enabled {
+                    if !enabled, !desktopOnly {
                         Text("26+")
                             .font(.system(size: 6.5, weight: .bold))
                             .tracking(0.6)
@@ -961,7 +1053,7 @@ struct ChooseDisplayPopover: View {
         .buttonStyle(.plain)
         .accessibilityLabel(L("Apply to %@", surface.title))
         .accessibilityValue(selected ? L("Selected") : L("Not selected"))
-        .help(enabled ? "" : L("The lock screen and screen saver require macOS 26 or later"))
+        .help(enabled || desktopOnly ? "" : L("The lock screen and screen saver require macOS 26 or later"))
     }
 
     private var allPill: some View {

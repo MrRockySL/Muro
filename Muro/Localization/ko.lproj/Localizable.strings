@@ -131,7 +131,7 @@
 "A new version of Muro is available" = "Muro의 새로운 버전을 사용할 수 있습니다";
 "What's New in Muro" = "Muro의 새로운 기능";
 "New update available" = "새로운 업데이트 있음";
-"Import your own video" = "직접 만든 비디오 가져오기";
+"Import your own video or interactive wallpaper" = "직접 만든 비디오 또는 인터랙티브 배경화면 가져오기";
 "NEW" = "신규";
 "Delete wallpaper" = "배경화면 삭제";
 "Remove Download (%@)" = "다운로드 제거(%@)";
@@ -220,8 +220,8 @@
 "Select All" = "전체 선택";
 "%@ selected" = "%@개 선택됨";
 "Clear" = "지우기";
-"Drop videos or screen savers here, or click to import" = "비디오나 화면 보호기를 여기에 놓거나 클릭하여 가져오십시오";
-"MP4, MOV and M4V videos, and .saver screen savers" = "MP4, MOV 및 M4V 비디오와 .saver 화면 보호기";
+"Drop videos, screen savers or interactive wallpapers here, or click to import" = "비디오, 화면 보호기 또는 인터랙티브 배경화면을 여기에 놓거나 클릭하여 가져오십시오";
+"MP4, MOV and M4V videos, .saver screen savers, and interactive wallpapers (HTML)" = "MP4, MOV 및 M4V 비디오, .saver 화면 보호기, 인터랙티브 배경화면(HTML)";
 "%@ added." = "‘%@’이(가) 추가되었습니다.";
 "%@ screen savers added." = "화면 보호기 %@개가 추가되었습니다.";
 "%@ is already added." = "‘%@’은(는) 이미 추가되어 있습니다.";
@@ -474,7 +474,7 @@
 "%@ PLACES#other" = "%@곳";
 "Applied everywhere" = "모든 곳에 적용됨";
 "Applied in %@ places#other" = "%@곳에 적용됨";
-"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro는 MP4, MOV 및 M4V 비디오와 .saver 화면 보호기를 가져올 수 있습니다. 아무것도 추가되지 않았습니다.";
+"Muro imports MP4, MOV and M4V videos, .saver screen savers and interactive wallpapers (an HTML page, or a folder with one). Nothing was added." = "Muro는 MP4, MOV 및 M4V 비디오, .saver 화면 보호기, 인터랙티브 배경화면(HTML 페이지 또는 HTML 페이지가 든 폴더)을 가져올 수 있습니다. 아무것도 추가되지 않았습니다.";
 "Importing" = "가져오는 중";
 "Importing %@ of %@" = "가져오는 중(%@/%@)";
 "%@ is already in your Library." = "‘%@’은(는) 이미 보관함에 있습니다.";
@@ -568,6 +568,7 @@
 "Other@@category" = "기타";
 "Yours@@category" = "나의 항목";
 "Screen Savers@@category" = "화면 보호기";
+"Interactive Wallpapers@@category" = "인터랙티브 배경화면";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "아라베스크 양식";
@@ -585,3 +586,14 @@
 "You can change it later in Settings." = "나중에 설정에서 변경할 수 있습니다.";
 "Continue" = "계속";
 "Skip" = "건너뛰기";
+
+/* Interactive wallpapers (issue #59). */
+"Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "인터랙티브 배경화면. 라이브 배경화면보다 CPU와 RAM을 더 많이 사용합니다. 데스크탑에서만 작동합니다.";
+"Desktop only" = "데스크탑 전용";
+"An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "인터랙티브 배경화면은 포인터와 Mac의 사운드에 맞춰 움직입니다. 잠금 화면과 화면 보호기에는 둘 다 없으므로 데스크탑에서 재생됩니다.";
+"INTERACTIVE" = "인터랙티브";
+"%@ is too large. An interactive wallpaper can be up to 500 MB." = "‘%@’은(는) 너무 큽니다. 인터랙티브 배경화면은 최대 500MB까지 가능합니다.";
+"%@ has no HTML page in it." = "‘%@’에 HTML 페이지가 없습니다.";
+"%@ interactive wallpapers added." = "인터랙티브 배경화면 %@개가 추가되었습니다.";
+"Those interactive wallpapers are already in your Library." = "해당 인터랙티브 배경화면은 이미 보관함에 있습니다.";
+"%@ interactive wallpapers#other" = "인터랙티브 배경화면 %@개";

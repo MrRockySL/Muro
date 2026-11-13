@@ -439,10 +439,10 @@ struct ImportButton: View {
             }
         }
         .onHover { hovering = $0 }
-        .help(store.importStatus ?? L("Import your own video"))
+        .help(store.importStatus ?? L("Import your own video or interactive wallpaper"))
         .fileImporter(
             isPresented: $showImporter,
-            allowedContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie],
+            allowedContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie, .html, .folder],
             allowsMultipleSelection: true
         ) { result in
             if case .success(let urls) = result { store.importFiles(urls) }
@@ -1019,6 +1019,27 @@ struct NewBadge: View {
     }
 }
 
+/// Marks an interactive wallpaper on its card, wherever cards are shown, so
+/// it can be told from a live wallpaper before it is opened (issue #59).
+struct InteractiveBadge: View {
+    var body: some View {
+        HStack(spacing: 4.5) {
+            Image(systemName: "cursorarrow.rays")
+                .font(.system(size: 8.5, weight: .bold))
+            Text(L("INTERACTIVE"))
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.9)
+                .lineLimit(1)
+        }
+        .foregroundStyle(.white.opacity(0.95))
+        .padding(.leading, 8)
+        .padding(.trailing, 9.5)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color.black.opacity(0.45)))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+    }
+}
+
 struct HeartButton: View {
     @EnvironmentObject var store: AppStore
     let item: WallpaperItem
@@ -1210,7 +1231,9 @@ struct WallpaperCard: View {
                 destructive: true
             ) { store.removeDownload(item) }]
         }
-        guard item.isDownloaded, !showsDelete else { return [] }
+        // Muro's own interactive wallpapers are part of the app: nothing to
+        // remove and nothing to delete.
+        guard item.isDownloaded, !showsDelete, !item.isBuiltInInteractive else { return [] }
         if item.remote == nil {
             return [MenuOption(
                 title: L("Delete Wallpaper (%@)", formatSize(item.sizeBytes)),
@@ -1230,7 +1253,9 @@ struct WallpaperCard: View {
     /// aerial macOS keeps for itself is liked like any other, but a trash can
     /// on it would do nothing. A screen saver the person added can go too.
     private var deletable: Bool {
-        !AppleAerials.isAppleID(item.id) || store.appleDownloadedIDs.contains(item.id)
+        // Muro's own interactive wallpapers: out of the Library, never off the Mac.
+        if item.isBuiltInInteractive { return item.isDownloaded }
+        return !AppleAerials.isAppleID(item.id) || store.appleDownloadedIDs.contains(item.id)
             || store.canDeleteScreenSaver(item.id)
     }
 
@@ -1284,6 +1309,8 @@ struct WallpaperCard: View {
                 .padding(12)
         } else if store.isNew(item) {
             NewBadge().padding(12)
+        } else if item.isInteractive {
+            InteractiveBadge().padding(12)
         }
     }
 

@@ -63,7 +63,19 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
     /// list by hand was one more chance to forget the preview or the
     /// efficient variant and leave it on disk forever.
     public var relativeFiles: [String] {
-        [file, efficientFile, previewFile, thumbnail].compactMap { $0 }
+        // An interactive wallpaper is a whole folder, of which `file` is only
+        // the page it opens with. Only ever a folder of its own inside
+        // `Interactive`: a path of any other shape names the page alone, so
+        // nothing above it can be deleted by mistake.
+        if isInteractive {
+            let parts = file.split(separator: "/", omittingEmptySubsequences: false)
+            if parts.count == 3, parts[0] == InteractiveWallpapers.folderName,
+               !parts[1].isEmpty, parts[1] != ".", parts[1] != ".." {
+                return ["\(parts[0])/\(parts[1])", thumbnail]
+            }
+            return file.hasPrefix("/") ? [] : [file, thumbnail]
+        }
+        return [file, efficientFile, previewFile, thumbnail].compactMap { $0 }
     }
 }
 

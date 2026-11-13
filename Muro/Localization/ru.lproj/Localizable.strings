@@ -135,7 +135,7 @@
 "A new version of Muro is available" = "Доступна новая версия Muro";
 "What's New in Muro" = "Что нового в Muro";
 "New update available" = "Доступно обновление";
-"Import your own video" = "Импортировать свое видео";
+"Import your own video or interactive wallpaper" = "Импортировать свое видео или интерактивные обои";
 "NEW" = "НОВОЕ";
 "Delete wallpaper" = "Удалить обои";
 "Remove Download (%@)" = "Убрать загрузку (%@)";
@@ -227,8 +227,8 @@
 "Select All" = "Выбрать все";
 "%@ selected" = "Выбрано: %@";
 "Clear" = "Очистить";
-"Drop videos or screen savers here, or click to import" = "Перетащите сюда видео или заставки либо нажмите, чтобы импортировать";
-"MP4, MOV and M4V videos, and .saver screen savers" = "Видео MP4, MOV и M4V, а также заставки .saver";
+"Drop videos, screen savers or interactive wallpapers here, or click to import" = "Перетащите сюда видео, заставки или интерактивные обои либо нажмите, чтобы импортировать";
+"MP4, MOV and M4V videos, .saver screen savers, and interactive wallpapers (HTML)" = "Видео MP4, MOV и M4V, заставки .saver и интерактивные обои (HTML)";
 "%@ added." = "«%@» добавлено.";
 "%@ screen savers added." = "Добавлено заставок: %@.";
 "%@ is already added." = "«%@» уже добавлено.";
@@ -493,7 +493,7 @@
 "Applied in %@ places#few" = "Применено в %@ местах";
 "Applied in %@ places#many" = "Применено в %@ местах";
 "Applied in %@ places#other" = "Применено в %@ местах";
-"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro импортирует видео MP4, MOV и M4V, а также заставки .saver. Ничего не добавлено.";
+"Muro imports MP4, MOV and M4V videos, .saver screen savers and interactive wallpapers (an HTML page, or a folder with one). Nothing was added." = "Muro импортирует видео MP4, MOV и M4V, заставки .saver и интерактивные обои (страницу HTML или папку с ней). Ничего не добавлено.";
 "Importing" = "Импорт";
 "Importing %@ of %@" = "Импорт: %@ из %@";
 "%@ is already in your Library." = "«%@» уже есть в медиатеке.";
@@ -590,6 +590,7 @@
 "Other@@category" = "Другое";
 "Yours@@category" = "Ваши";
 "Screen Savers@@category" = "Заставки";
+"Interactive Wallpapers@@category" = "Интерактивные обои";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "Арабеска";
@@ -607,3 +608,14 @@
 "You can change it later in Settings." = "Его можно изменить позже в Настройках.";
 "Continue" = "Продолжить";
 "Skip" = "Пропустить";
+
+/* Interactive wallpapers (issue #59). */
+"Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "Интерактивные обои. Используют больше ресурсов процессора и памяти, чем живые обои. Работают только на рабочем столе.";
+"Desktop only" = "Только рабочий стол";
+"An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "Интерактивные обои двигаются вслед за указателем и звуком Mac. На экране блокировки и в заставке нет ни того, ни другого, поэтому они работают на рабочем столе.";
+"INTERACTIVE" = "ИНТЕРАКТИВНЫЕ";
+"%@ is too large. An interactive wallpaper can be up to 500 MB." = "«%@» слишком велик. Интерактивные обои могут занимать до 500 МБ.";
+"%@ has no HTML page in it." = "В «%@» нет страницы HTML.";
+"%@ interactive wallpapers added." = "Добавлено интерактивных обоев: %@.";
+"Those interactive wallpapers are already in your Library." = "Эти интерактивные обои уже есть в медиатеке.";
+"%@ interactive wallpapers#other" = "Интерактивных обоев: %@";

@@ -33,7 +33,9 @@ uses so that you can make an informed decision before installing it.
 
 The current app does not request microphone, camera, Screen Recording,
 Accessibility, Full Disk Access, or administrator permission. It does not run
-as root.
+as root. The one permission it can ask for is System Audio Recording, and only
+when you show an interactive wallpaper that moves with sound (see
+**Interactive wallpapers** below).
 
 The main app is signed with no entitlements and is not sandboxed. The embedded
 wallpaper extension's only declared entitlement is the App Sandbox entitlement.
@@ -54,7 +56,9 @@ The main app uses normal user-level access to:
   through macOS's wallpaper store, when you pick one
 - Read the position, size, layer and opacity of on-screen windows, never their
   names or contents, and only while **Play only on desktop** or **Replay on
-  Clear Desktop** is on
+  Clear Desktop** is on, or an interactive wallpaper is shown
+- Run an interactive wallpaper's page, tell it where the pointer is, and tell
+  it how loud the Mac's sound is, only while an interactive wallpaper is shown
 
 Imported videos stay on your Mac and are not uploaded.
 
@@ -257,6 +261,55 @@ hidden window off every screen, and keeps one frame as its card picture in
 only the helper down. The helper is not sandboxed, and macOS runs the same code
 whenever that screen saver is in use, so only import screen savers you trust.
 
+### Interactive wallpapers
+
+Since 6.1, a wallpaper can be an interactive wallpaper: a web page on the
+desktop instead of a video. Muro comes with a few of its own, and the Library's
+import bar takes yours, as an HTML page or a folder with one in it. Muro copies
+what you choose into `Interactive` in its own library folder and leaves your
+original where it was. None of this runs unless an interactive wallpaper is on
+your desktop or open on its page in Muro: no web view is made and nothing is
+listened to.
+
+**The page.** An interactive wallpaper is shown by macOS's own web engine
+(WebKit), in separate processes that macOS sandboxes. A page you import is code
+written by someone else, so Muro keeps what it can reach small:
+
+- It can read its own folder and nothing else on your Mac.
+- Every request to the internet (`http`, `https`, `ws`, `wss`, `ftp`) is blocked
+  before it leaves, and the page cannot go to another address. Muro's own
+  interactive wallpapers ask the internet for nothing.
+- It keeps nothing between runs: no cookies, no storage, no cache.
+- It cannot open a window, show a dialog, or use the camera or the microphone.
+- It never gets the keyboard, and it gets no real mouse events either: the
+  wallpaper window lets every click through to your desktop.
+
+**The pointer.** A wallpaper window cannot see the mouse, so while an
+interactive wallpaper is shown, Muro observes global mouse-move events and
+left clicks and tells the page where the pointer is on that display, but only
+while the pointer is over the desktop itself. When it moves over an app window
+the page is told only that the pointer has gone, and a click is passed on only
+when it lands on the desktop. Muro checks this from the position and layer of
+on-screen windows, never their names or contents. The page is told a position
+between 0 and 1 and nothing about what is under it. Key events are never
+observed. Nothing is stored or uploaded.
+
+**The sound.** A page can ask to move with the sound your Mac is playing. The
+first time one does, macOS asks whether Muro may record system audio, and
+without your yes the page hears silence. With it, Muro taps the Mac's sound
+output (a Core Audio process tap, macOS 14.2 or later), measures how loud 64
+frequency bands are about forty times a second, and gives the page those 64
+numbers. The sound itself is never kept, written to disk or sent anywhere, and
+the page never receives it. Muro listens only while a page that asked for sound
+is on screen and moving: it stops when the wallpaper is paused, covered, or
+removed, when the Mac is locked or the display sleeps. You can take the
+permission back in System Settings > Privacy & Security > Screen & System Audio
+Recording.
+
+A page still uses your Mac's processor, graphics chip and memory, more than a
+video does, and a badly written one can use a lot. Only import interactive
+wallpapers you trust.
+
 ### Download Folder
 
 Since 6.0, Settings has a **Download Folder** row. If you choose a folder, Muro
@@ -393,6 +446,9 @@ assets expected by `Muro/build-app.sh`.
   wallpaper records, which Apple can change without notice.
 - Imported `.saver` screen savers are third-party code: macOS runs them as your
   screen saver, and Muro's picture helper runs them briefly, without a sandbox.
+- An imported interactive wallpaper is third-party code. It runs in macOS's web
+  engine, held to its own folder and off the internet, but it is not reviewed
+  by anyone.
 - Muro trusts the URLs and metadata supplied by the default HTTPS catalog.
   The catalog and wallpaper assets have no separate cryptographic signatures,
   hashes, or host pinning.

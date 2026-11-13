@@ -140,7 +140,7 @@
 "A new version of Muro is available" = "A new version of Muro is available";
 "What's New in Muro" = "What's New in Muro";
 "New update available" = "New update available";
-"Import your own video" = "Import your own video";
+"Import your own video or interactive wallpaper" = "Import your own video or interactive wallpaper";
 "NEW" = "NEW";
 "Delete wallpaper" = "Delete wallpaper";
 "Remove Download (%@)" = "Remove Download (%@)";
@@ -232,8 +232,8 @@
 "Select All" = "Select All";
 "%@ selected" = "%@ selected";
 "Clear" = "Clear";
-"Drop videos or screen savers here, or click to import" = "Drop videos or screen savers here, or click to import";
-"MP4, MOV and M4V videos, and .saver screen savers" = "MP4, MOV and M4V videos, and .saver screen savers";
+"Drop videos, screen savers or interactive wallpapers here, or click to import" = "Drop videos, screen savers or interactive wallpapers here, or click to import";
+"MP4, MOV and M4V videos, .saver screen savers, and interactive wallpapers (HTML)" = "MP4, MOV and M4V videos, .saver screen savers, and interactive wallpapers (HTML)";
 "%@ added." = "%@ added.";
 "%@ screen savers added." = "%@ screen savers added.";
 "%@ is already added." = "%@ is already added.";
@@ -493,7 +493,7 @@
 "Applied everywhere" = "Applied everywhere";
 "Applied in %@ places#one" = "Applied in %@ place";
 "Applied in %@ places#other" = "Applied in %@ places";
-"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added.";
+"Muro imports MP4, MOV and M4V videos, .saver screen savers and interactive wallpapers (an HTML page, or a folder with one). Nothing was added." = "Muro imports MP4, MOV and M4V videos, .saver screen savers and interactive wallpapers (an HTML page, or a folder with one). Nothing was added.";
 "Importing" = "Importing";
 "Importing %@ of %@" = "Importing %@ of %@";
 "%@ is already in your Library." = "%@ is already in your Library.";
@@ -589,6 +589,7 @@
 "Other@@category" = "Other";
 "Yours@@category" = "Yours";
 "Screen Savers@@category" = "Screen Savers";
+"Interactive Wallpapers@@category" = "Interactive Wallpapers";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "Arabesque";
@@ -606,3 +607,15 @@
 "You can change it later in Settings." = "You can change it later in Settings.";
 "Continue" = "Continue";
 "Skip" = "Skip";
+
+/* Interactive wallpapers (issue #59). */
+"Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop.";
+"Desktop only" = "Desktop only";
+"An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop.";
+"INTERACTIVE" = "INTERACTIVE";
+"%@ is too large. An interactive wallpaper can be up to 500 MB." = "%@ is too large. An interactive wallpaper can be up to 500 MB.";
+"%@ has no HTML page in it." = "%@ has no HTML page in it.";
+"%@ interactive wallpapers added." = "%@ interactive wallpapers added.";
+"Those interactive wallpapers are already in your Library." = "Those interactive wallpapers are already in your Library.";
+"%@ interactive wallpapers#one" = "%@ interactive wallpaper";
+"%@ interactive wallpapers#other" = "%@ interactive wallpapers";
