@@ -65,10 +65,12 @@ extension MuroLanguage {
 struct WelcomeFlow: View {
     @EnvironmentObject var store: AppStore
 
-    /// `leaving`: the languages go and the film comes up over the greeting.
+    /// `community`: after the language, the Discord server and the website,
+    /// each one click away (owner, 2026-11-13).
+    /// `leaving`: the greeting goes and the film comes up over it.
     /// `intro`: only the film is left. The window grows around it once, then
     /// the gallery is built under it and the film fades into the gallery.
-    private enum Phase { case start, language, leaving, intro }
+    private enum Phase { case start, language, community, leaving, intro }
 
     @State private var phase: Phase = .start
     @State private var picked: MuroLanguage = Localization.shared.language
@@ -89,11 +91,15 @@ struct WelcomeFlow: View {
             // Taken away once the film covers the window: only the film is
             // left to redraw while the window grows.
             if phase != .intro {
-                WelcomeNight(hue: picked.welcomeHue, showsLanguageGlow: phase == .language)
+                WelcomeNight(hue: picked.welcomeHue, showsLanguageGlow: phase == .language || phase == .community)
                 moon
                 name
                 if phase == .language {
                     languages
+                        .transition(.opacity.combined(with: .offset(y: 14)))
+                }
+                if phase == .community {
+                    community
                         .transition(.opacity.combined(with: .offset(y: 14)))
                 }
             }
@@ -198,17 +204,76 @@ struct WelcomeFlow: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 Spacer(minLength: 16)
-                Button(action: proceed) {
-                    Text(L("Continue"))
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: 0x0A0C10))
-                        .lineLimit(1)
-                        .padding(.horizontal, 26)
-                        .frame(height: 40)
-                        .background(Capsule().fill(continueFill))
-                        .shadow(color: picked.welcomeHue.opacity(0.45), radius: 10, y: 6)
+                continueButton
+            }
+            .padding(.horizontal, 32)
+            .padding(.bottom, 26)
+        }
+        .frame(width: WelcomeSize.window.width, height: WelcomeSize.window.height)
+        .opacity(phase == .leaving ? 0 : 1)
+    }
+
+    private var continueButton: some View {
+        Button(action: proceed) {
+            Text(L("Continue"))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color(hex: 0x0A0C10))
+                .lineLimit(1)
+                .padding(.horizontal, 26)
+                .frame(height: 40)
+                .background(Capsule().fill(continueFill))
+                .shadow(color: picked.welcomeHue.opacity(0.45), radius: 10, y: 6)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: The community
+
+    /// After the language: the Discord server and the website, each opened in
+    /// the browser without leaving the welcome, then Continue to the film.
+    private var community: some View {
+        VStack(spacing: 0) {
+            Spacer().frame(height: 142)
+            Text(L("Join the Muro community"))
+                .font(.system(size: 28, weight: .semibold))
+                .tracking(-0.3)
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(L("Share wallpapers, get help and see what’s coming next."))
+                .font(.system(size: 14))
+                .foregroundStyle(Color(hex: 0x98A0AC))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.top, 6)
+            HStack(spacing: 16) {
+                CommunityCard(title: L("Join Discord"), detail: L("Chat, share wallpapers and get help"),
+                              url: CommunityLinks.discord) {
+                    ZStack {
+                        Circle().fill(Color(hex: 0x5865F2))
+                        DiscordLogo()
+                            .fill(.white, style: FillStyle(eoFill: true))
+                            .frame(width: 24, height: 24)
+                    }
+                    .frame(width: 48, height: 48)
                 }
-                .buttonStyle(.plain)
+                CommunityCard(title: L("Open the website"), detail: "murowallpaper.com",
+                              url: CommunityLinks.website) {
+                    MuroMoonStill()
+                        .frame(width: 60, height: 60)
+                        .frame(width: 48, height: 48)
+                }
+            }
+            .padding(.top, 39)
+            Spacer(minLength: 0)
+            HStack {
+                Text(L("You can find both later in Settings."))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(hex: 0x98A0AC))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 16)
+                continueButton
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 26)
@@ -281,9 +346,15 @@ struct WelcomeFlow: View {
     private func proceed() {
         switch phase {
         case .start: showLanguages()
-        case .language: leave()
+        case .language: showCommunity()
+        case .community: leave()
         default: break
         }
+    }
+
+    private func showCommunity() {
+        guard phase == .language else { return }
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.88)) { phase = .community }
     }
 
     private func skip() {
@@ -293,7 +364,7 @@ struct WelcomeFlow: View {
         case .leaving, .intro:
             skipRequested = true
             reveal()
-        case .language:
+        case .language, .community:
             break
         }
     }
@@ -311,7 +382,7 @@ struct WelcomeFlow: View {
     // gallery cut in over it.
 
     private func leave() {
-        guard phase == .language else { return }
+        guard phase == .community else { return }
         withAnimation(.easeIn(duration: 0.3)) { phase = .leaving }
         if WelcomeAssets.intro != nil {
             filmStage = .showing
@@ -489,6 +560,61 @@ private struct LanguageCard: View {
                     .font(.system(size: 9, weight: .heavy))
                     .foregroundStyle(Color(hex: 0x0A0C10))
             )
+    }
+}
+
+// MARK: - One way into the community
+
+/// A card on the welcome's community step: an icon, what it opens, and an
+/// arrow saying it opens outside Muro. The same glass as the language cards,
+/// a little larger.
+private struct CommunityCard<Icon: View>: View {
+    let title: String
+    let detail: String
+    let url: URL
+    @ViewBuilder let icon: () -> Icon
+
+    @State private var hovering = false
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        Button {
+            NSWorkspace.shared.open(url)
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top) {
+                    icon()
+                    Spacer(minLength: 8)
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(hex: 0x98A0AC))
+                }
+                Spacer(minLength: 0)
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text(detail)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color(hex: 0x98A0AC))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .padding(.top, 3)
+            }
+            .padding(20)
+            .frame(width: 362, height: 136, alignment: .leading)
+            .background(shape.fill(LinearGradient(
+                colors: [.white.opacity(hovering ? 0.12 : 0.095), .white.opacity(0.04)],
+                startPoint: .top, endPoint: .bottom)))
+            .overlay(shape.strokeBorder(.white.opacity(hovering ? 0.2 : 0.12), lineWidth: 1))
+            .scaleEffect(hovering ? 1.015 : 1)
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .onHover { inside in withAnimation(.easeOut(duration: 0.15)) { hovering = inside } }
+        .accessibilityLabel(Text(title))
+        .accessibilityHint(Text(detail))
     }
 }
 

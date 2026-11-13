@@ -587,3 +587,13 @@
 "%@ interactive wallpapers added." = "%@ 枚のインタラクティブ壁紙を追加しました。";
 "Those interactive wallpapers are already in your Library." = "それらのインタラクティブ壁紙はすでにライブラリにあります。";
 "%@ interactive wallpapers#other" = "%@ 枚のインタラクティブ壁紙";
+
+/* The welcome’s community step and Settings > About > Community (2026-11-13). */
+"Join the Muro community" = "Muro コミュニティに参加";
+"Share wallpapers, get help and see what’s coming next." = "壁紙のシェア、質問、これからの新しい情報をチェックできます。";
+"Join Discord" = "Discord に参加";
+"Chat, share wallpapers and get help" = "チャット、壁紙のシェア、質問";
+"Open the website" = "Web サイトを開く";
+"You can find both later in Settings." = "どちらもあとから設定で開けます。";
+"Community" = "コミュニティ";
+"Website ↗" = "Web サイト ↗";

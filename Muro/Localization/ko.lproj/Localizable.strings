@@ -587,3 +587,13 @@
 "%@ interactive wallpapers added." = "인터랙티브 배경화면 %@개가 추가되었습니다.";
 "Those interactive wallpapers are already in your Library." = "해당 인터랙티브 배경화면은 이미 보관함에 있습니다.";
 "%@ interactive wallpapers#other" = "인터랙티브 배경화면 %@개";
+
+/* The welcome’s community step and Settings > About > Community (2026-11-13). */
+"Join the Muro community" = "Muro 커뮤니티에 참여하세요";
+"Share wallpapers, get help and see what’s coming next." = "배경화면을 공유하고, 도움을 받고, 앞으로 나올 소식을 확인하세요.";
+"Join Discord" = "Discord 참여하기";
+"Chat, share wallpapers and get help" = "채팅, 배경화면 공유, 도움 받기";
+"Open the website" = "웹사이트 열기";
+"You can find both later in Settings." = "둘 다 나중에 설정에서 찾을 수 있습니다.";
+"Community" = "커뮤니티";
+"Website ↗" = "웹사이트 ↗";

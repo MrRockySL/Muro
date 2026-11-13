@@ -609,3 +609,13 @@
 "Those interactive wallpapers are already in your Library." = "Those interactive wallpapers are already in your Library.";
 "%@ interactive wallpapers#one" = "%@ interactive wallpaper";
 "%@ interactive wallpapers#other" = "%@ interactive wallpapers";
+
+/* The welcome’s community step and Settings > About > Community (2026-11-13). */
+"Join the Muro community" = "Join the Muro community";
+"Share wallpapers, get help and see what’s coming next." = "Share wallpapers, get help and see what’s coming next.";
+"Join Discord" = "Join Discord";
+"Chat, share wallpapers and get help" = "Chat, share wallpapers and get help";
+"Open the website" = "Open the website";
+"You can find both later in Settings." = "You can find both later in Settings.";
+"Community" = "Community";
+"Website ↗" = "Website ↗";

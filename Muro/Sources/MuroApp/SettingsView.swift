@@ -388,6 +388,15 @@ struct SettingsView: View {
                         updateControl
                     }
                     divider
+                    row(icon: .community,
+                        title: L("Community"),
+                        subtitle: L("Chat, share wallpapers and get help")) {
+                        HStack(spacing: 8) {
+                            supportPill("Discord ↗", CommunityLinks.discord)
+                            supportPill(L("Website ↗"), CommunityLinks.website)
+                        }
+                    }
+                    divider
                     row(icon: .support,
                         title: L("Support Muro"),
                         subtitle: L("Muro is free. Sponsoring keeps it that way.")) {

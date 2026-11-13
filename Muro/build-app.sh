@@ -107,6 +107,9 @@ for film in WelcomeMoon WelcomeIntro; do
         echo "warning: Welcome/$film.mov missing, the welcome will do without it" >&2
     fi
 done
+# One frame of the moon, still, for the community step's website card
+# (CommunityLinks.swift). Without it the card shows the app icon.
+cp "$DIR/Welcome/WelcomeMoonStill.png" "$APP/Contents/Resources/WelcomeMoonStill.png"
 
 # Muro's languages (issue #62): one folder per language, read by
 # Localization.swift, and named in Info.plist below so macOS offers them in

@@ -35,6 +35,9 @@ enum SettingsIcon {
     /// Language (issue #62): a globe, its equator and one meridian, on the
     /// blue macOS itself uses for language. Same grid and rules.
     case language
+    /// Community (2026-11-13): Discord's own logo, outlined and softly filled
+    /// like every other glyph, on Discord's blurple.
+    case community
 
     /// The tile's colour. Nil for the replay arrow, which has no tile.
     var tint: Color? {
@@ -61,6 +64,7 @@ enum SettingsIcon {
         case .menuBarIcon: return Color(hex: 0xF5C451)
         case .sound: return Color(hex: 0xE763FF)
         case .language: return Color(hex: 0x3F9BFF)
+        case .community: return Color(hex: 0x5865F2)
         }
     }
 
@@ -89,6 +93,7 @@ enum SettingsIcon {
         case .menuBarIcon: return Color(hex: 0xFAE1A8)
         case .sound: return Color(hex: 0xF3B1FF)
         case .language: return Color(hex: 0x9FCDFF)
+        case .community: return Color(hex: 0xACB2F8)
         }
     }
 
@@ -117,6 +122,11 @@ enum SettingsIcon {
                            style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
         }
         switch self {
+        case .community:
+            // 16 wide on the 18 point grid, centred; the eyes are holes.
+            let logo = discordLogoPath(in: CGRect(x: 1, y: 1, width: 16, height: 16))
+            context.fill(logo, with: .color(color.opacity(softFillOpacity)), style: FillStyle(eoFill: true))
+            stroke(logo, width: 1.2)
         case .launchAtLogin:
             fill(circle(9, 10, 6.5), soft: true)
             stroke(Path { p in

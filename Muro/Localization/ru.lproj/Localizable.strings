@@ -609,3 +609,13 @@
 "%@ interactive wallpapers added." = "Добавлено интерактивных обоев: %@.";
 "Those interactive wallpapers are already in your Library." = "Эти интерактивные обои уже есть в медиатеке.";
 "%@ interactive wallpapers#other" = "Интерактивных обоев: %@";
+
+/* The welcome’s community step and Settings > About > Community (2026-11-13). */
+"Join the Muro community" = "Присоединяйтесь к сообществу Muro";
+"Share wallpapers, get help and see what’s coming next." = "Делитесь обоями, получайте помощь и узнавайте о новинках первыми.";
+"Join Discord" = "Присоединиться к Discord";
+"Chat, share wallpapers and get help" = "Общение, обмен обоями и помощь";
+"Open the website" = "Открыть сайт";
+"You can find both later in Settings." = "Обе ссылки потом можно найти в Настройках.";
+"Community" = "Сообщество";
+"Website ↗" = "Сайт ↗";

@@ -606,3 +606,13 @@
 "Those interactive wallpapers are already in your Library." = "Esos fondos interactivos ya están en tu Biblioteca.";
 "%@ interactive wallpapers#one" = "%@ fondo interactivo";
 "%@ interactive wallpapers#other" = "%@ fondos interactivos";
+
+/* The welcome’s community step and Settings > About > Community (2026-11-13). */
+"Join the Muro community" = "Únete a la comunidad de Muro";
+"Share wallpapers, get help and see what’s coming next." = "Comparte fondos, pide ayuda y descubre lo que viene.";
+"Join Discord" = "Únete a Discord";
+"Chat, share wallpapers and get help" = "Chatea, comparte fondos y pide ayuda";
+"Open the website" = "Abrir el sitio web";
+"You can find both later in Settings." = "Puedes encontrar ambos más tarde en Ajustes.";
+"Community" = "Comunidad";
+"Website ↗" = "Sitio web ↗";

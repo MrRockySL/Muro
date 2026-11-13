@@ -587,3 +587,13 @@
 "%@ interactive wallpapers added." = "已加入 %@ 張互動背景圖片。";
 "Those interactive wallpapers are already in your Library." = "這些互動背景圖片已在你的資料庫中。";
 "%@ interactive wallpapers#other" = "%@ 張互動背景圖片";
+
+/* The welcome’s community step and Settings > About > Community (2026-11-13). */
+"Join the Muro community" = "加入 Muro 社群";
+"Share wallpapers, get help and see what’s coming next." = "分享背景圖片、取得協助，看看接下來會有什麼新內容。";
+"Join Discord" = "加入 Discord";
+"Chat, share wallpapers and get help" = "聊天、分享背景圖片、取得協助";
+"Open the website" = "開啟網站";
+"You can find both later in Settings." = "之後可以在「設定」中找到它們。";
+"Community" = "社群";
+"Website ↗" = "網站 ↗";

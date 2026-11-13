@@ -587,3 +587,13 @@
 "%@ interactive wallpapers added." = "已添加 %@ 个互动墙纸。";
 "Those interactive wallpapers are already in your Library." = "这些互动墙纸已在你的资料库中。";
 "%@ interactive wallpapers#other" = "%@ 个互动墙纸";
+
+/* The welcome’s community step and Settings > About > Community (2026-11-13). */
+"Join the Muro community" = "加入 Muro 社区";
+"Share wallpapers, get help and see what’s coming next." = "分享墙纸、获取帮助，看看接下来会有什么新内容。";
+"Join Discord" = "加入 Discord";
+"Chat, share wallpapers and get help" = "聊天、分享墙纸、获取帮助";
+"Open the website" = "打开网站";
+"You can find both later in Settings." = "之后可以在设置中找到它们。";
+"Community" = "社区";
+"Website ↗" = "网站 ↗";
