@@ -42,7 +42,8 @@ wallpaper and every feature is unlocked.
 ## Features
 
 - 🌙 **Live video wallpapers.** Looping, seamless, on every display at once.
-- 🔒 **Lock screen live wallpapers.** Play a wallpaper on your lock screen too, not just the desktop. Set it to the desktop, the lock screen, or both, on every display. Requires macOS 26 or newer.
+- 🪄 **Interactive wallpapers.** A new kind of wallpaper that follows your pointer and moves with your Mac's sound. Three come with Muro, and you can import your own. Desktop only, and they use more CPU and RAM than a live wallpaper.
+- 🔒 **Lock screen live wallpapers.** Play a wallpaper on your lock screen too, not just the desktop. Set it to the desktop, the lock screen, or both, on every display. Set the lock screen only, and the desktop keeps your own picture. Requires macOS 26 or newer.
 - 🖥️ **Screen saver.** Muro can be your screen saver as well, playing video rather than a still picture, and you set how long your Mac waits before it starts. Requires macOS 26 or newer.
 - 🍎 **The Apple section.** Apple's aerials, Dynamic Wallpapers and screen savers in a tab of their own. The screen savers come as seamless 4K videos, so they play smoothly on the desktop and the lock screen too.
 - 🪶 **Very low CPU usage.** HEVC decoded in hardware, never on the CPU.
@@ -55,8 +56,11 @@ wallpaper and every feature is unlocked.
 - ⏱️ **Automations.** Give every wallpaper its own time. Ten seconds each, or a full day schedule where each wallpaper has its own hours.
 - ⏸️ **Pause after a set time.** Let a wallpaper play for a while after it changes or after you unlock, then hold still. Set it in seconds, minutes or hours, for everything or for one wallpaper, and turn on Replay on Clear Desktop to get that time again whenever your desktop is clear.
 - 🗑️ **Delete what you do not want.** Remove wallpapers one at a time or several at once, imported videos included.
-- 📥 **Import your own.** Drop in any video and it gets transcoded once to HEVC and added to your library. Screen savers too: add `.saver` files like XScreenSaver and set them from Muro.
-- 🎛️ **Menu bar controls.** Play, pause, skip and switch wallpapers without opening the app.
+- 📥 **Import your own.** Drop in any video and it gets transcoded once to HEVC and added to your library. Screen savers too: add `.saver` files like XScreenSaver and set them from Muro. And interactive wallpapers: an HTML page, or a folder with one.
+- 🔊 **Sound for your own videos.** Turn on Live Wallpaper Sound in Settings, and videos you add from then on play with their sound. The one you set last is the one you hear.
+- 🎛️ **Menu bar controls.** Play, pause, skip and switch live wallpapers without opening the app. Every display has a page of its own with its own sound button, and your ten most recent live wallpapers are a swipe away.
+- 🔗 **Links from other apps.** A Shortcut, a script or another app can switch to a live wallpaper in your Library, pause it or resume it with a `muro://` link. More on that below.
+- 🌐 **Eleven languages.** English, Simplified and Traditional Chinese, Japanese, Korean, Spanish, French, German, Italian, Brazilian Portuguese and Russian. Muro follows your Mac's language, or you can pick another in Settings or the menu bar.
 - ✨ **Tells you when there is a new Muro.** What's New shows what changed in the release and downloads it for you.
 - 💾 **Space control.** See what each wallpaper costs on disk, remove downloads you're done with, or keep them all on another drive.
 - 🆓 **Free and source available.** Anyone can use it and read the code.
@@ -104,7 +108,8 @@ malware"* warning. To get past it:
    about Muro, and click **Open Anyway**, then **Open** to confirm.
 3. On older macOS, you can right click the app instead, then pick Open twice.
 
-Open Explore, pick a wallpaper, hit Apply. Done.
+The first time Muro opens, it welcomes you with the Muro moon, a choice of
+language and a short film. Then open Explore, pick a wallpaper, hit Apply. Done.
 
 > Muro keeps running in your menu bar after you close the window. That's what
 > keeps your wallpaper playing. Use the menu bar icon to control it, or Quit to
@@ -188,6 +193,84 @@ because only macOS can show them.
 Apple's screen savers are there too, Flurry, Hello, Drift and the rest, as
 seamless 4K recordings, so they play smoothly on the desktop and the lock
 screen as well.
+
+---
+
+## Wallpapers that react to you
+
+A live wallpaper is a video. An interactive wallpaper is a small page that draws
+itself as it goes, so it can react to what you do.
+
+**Your pointer.** It follows the pointer on the desktop and answers a click.
+While the pointer is over an app's window it stops reacting, so it never gets in
+the way while you work.
+
+**Your music.** It moves with whatever your Mac is playing. macOS asks once
+whether Muro may listen. Muro only measures how loud the sound is. It never
+records or sends anything.
+
+Muro comes with three of its own: Eclipse, White Sand and Grey Silk. They are in
+Explore under **Interactive Wallpapers**. You can also import your own from the
+Library: an HTML page, or a folder with one. An imported page cannot go online
+or see your other files.
+
+Interactive wallpapers work on the desktop only, because the lock screen and
+the screen saver have no pointer to follow. They use more CPU and RAM than a
+live wallpaper, because the picture is drawn live. Like live wallpapers, they
+pause when the desktop is covered, locked or asleep.
+
+<details>
+<summary>Making your own</summary>
+
+Muro sends your page these events:
+
+- `muro:mouse` with `{x, y, inside}`: where the pointer is, 0 to 1 from the top
+  left. `inside` is false when the pointer is over an app or on another screen.
+- `muro:click` with `{x, y}`
+- `muro:audio` with `{bands, bass, mid, treble, level}`: 64 bands of the sound,
+  each 0 to 1.
+
+</details>
+
+---
+
+## Your own picture, with a live lock screen
+
+Like your desktop picture the way it is? On macOS 26 or newer you can keep it
+and still have a live lock screen. Open a live wallpaper, pick **Lockscreen** in
+the apply card, and set it. The desktop keeps the picture you already have, and
+the lock screen plays the live wallpaper.
+
+You can change that picture in System Settings or Finder any time, and the lock
+screen stays live.
+
+Good to know: this is for a display where Muro plays no live wallpaper on the
+desktop. If Muro also plays there, a picture you set in System Settings takes
+the lock screen too.
+
+---
+
+## Sound for your own videos
+
+Videos you import can play with their sound. Turn on **Live Wallpaper Sound** in
+Settings, and every video you add from then on keeps its sound. The live
+wallpapers from the gallery stay silent.
+
+The live wallpaper with sound that you set last is the one you hear, and the
+others go quiet. With more than one display, each has a page of its own in the
+menu bar with its own sound button, so you can turn another one back on or make
+any of them quiet.
+
+---
+
+## Muro in your language
+
+Muro speaks eleven languages: English, Simplified Chinese, Traditional Chinese,
+Japanese, Korean, Spanish, French, German, Italian, Brazilian Portuguese and
+Russian.
+
+It follows your Mac's language. To pick another, open Settings, or use the
+Language row in the menu bar.
 
 ---
 
