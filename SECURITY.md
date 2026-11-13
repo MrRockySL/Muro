@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 6.0.x   | Yes |
-| < 6.0   | Please update |
+| 6.1.x   | Yes |
+| < 6.1   | Please update |
 
 Only the latest release receives security fixes. Updates are published on the
 [Releases](https://github.com/MrRockySL/Muro/releases) page.
@@ -462,7 +462,7 @@ You can inspect and compile the tagged source:
 ```bash
 git clone https://github.com/MrRockySL/Muro.git
 cd Muro
-git checkout v6.0.2
+git checkout v6.1
 swift build -c release --package-path Muro
 ```
 
