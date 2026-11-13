@@ -29,12 +29,12 @@ struct ExploreView: View {
     /// Real values present in the catalog/library — the dropdowns only
     /// offer resolutions and frame rates that actually exist.
     private var resolutionOptions: [String] {
-        let present = Set(store.exploreItems.map(\.resolutionLabel))
+        let present = Set(store.exploreItems.filter { !$0.isInteractive }.map(\.resolutionLabel))
         return ["4K", "1440p", "1080p"].filter(present.contains)
     }
 
     private var fpsOptions: [String] {
-        Set(store.exploreItems.map { "\(standardFrameRate($0.fps))" })
+        Set(store.exploreItems.filter { !$0.isInteractive }.map { "\(standardFrameRate($0.fps))" })
             .sorted { (Int($0) ?? 0) > (Int($1) ?? 0) }
     }
 
@@ -45,6 +45,9 @@ struct ExploreView: View {
     private var filtered: [WallpaperItem] {
         store.exploreItems.filter { item in
             if category != "All", item.category != category { return false }
+            // An interactive wallpaper has no resolution or frame rate: it is
+            // drawn at the screen's own. A filter on either leaves it out.
+            if narrowed, item.isInteractive { return false }
             if resolution != "All", item.resolutionLabel != resolution { return false }
             if fps != "All", "\(standardFrameRate(item.fps))" != fps { return false }
             if !store.searchText.isEmpty,
@@ -197,6 +200,7 @@ struct ExploreView: View {
     private var countLine: String {
         let count = filtered.count
         if category == "All" { return LN("%@ wallpapers", count) }
+        if category == InteractiveWallpapers.category { return LN("%@ interactive wallpapers", count) }
         return LN("%@ wallpapers in %@", count, categoryTitle(category))
     }
 

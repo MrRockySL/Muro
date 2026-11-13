@@ -131,7 +131,7 @@
 "A new version of Muro is available" = "Muro 有新版本可用";
 "What's New in Muro" = "Muro 新功能";
 "New update available" = "有新的更新可用";
-"Import your own video" = "导入你自己的视频";
+"Import your own video or interactive wallpaper" = "导入你自己的视频或互动墙纸";
 "NEW" = "新";
 "Delete wallpaper" = "删除墙纸";
 "Remove Download (%@)" = "移除下载项（%@）";
@@ -220,8 +220,8 @@
 "Select All" = "全选";
 "%@ selected" = "已选择 %@ 个";
 "Clear" = "清除";
-"Drop videos or screen savers here, or click to import" = "将视频或屏幕保护程序拖到这里，或点按以导入";
-"MP4, MOV and M4V videos, and .saver screen savers" = "MP4、MOV 和 M4V 视频，以及 .saver 屏幕保护程序";
+"Drop videos, screen savers or interactive wallpapers here, or click to import" = "将视频、屏幕保护程序或互动墙纸拖到这里，或点按以导入";
+"MP4, MOV and M4V videos, .saver screen savers, and interactive wallpapers (HTML)" = "MP4、MOV 和 M4V 视频，.saver 屏幕保护程序，以及互动墙纸（HTML）";
 "%@ added." = "已添加“%@”。";
 "%@ screen savers added." = "已添加 %@ 个屏幕保护程序。";
 "%@ is already added." = "“%@”已添加过。";
@@ -474,7 +474,7 @@
 "%@ PLACES#other" = "%@ 个位置";
 "Applied everywhere" = "已应用于所有位置";
 "Applied in %@ places#other" = "已应用于 %@ 个位置";
-"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro 可导入 MP4、MOV 和 M4V 视频，以及 .saver 屏幕保护程序。未添加任何内容。";
+"Muro imports MP4, MOV and M4V videos, .saver screen savers and interactive wallpapers (an HTML page, or a folder with one). Nothing was added." = "Muro 可导入 MP4、MOV 和 M4V 视频、.saver 屏幕保护程序，以及互动墙纸（HTML 页面，或包含 HTML 页面的文件夹）。未添加任何内容。";
 "Importing" = "正在导入";
 "Importing %@ of %@" = "正在导入第 %@ 个，共 %@ 个";
 "%@ is already in your Library." = "“%@”已在你的资料库中。";
@@ -568,6 +568,7 @@
 "Other@@category" = "其他";
 "Yours@@category" = "你的";
 "Screen Savers@@category" = "屏幕保护程序";
+"Interactive Wallpapers@@category" = "互动墙纸";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "阿拉伯式花纹";
@@ -585,3 +586,14 @@
 "You can change it later in Settings." = "以后可以在设置中更改。";
 "Continue" = "继续";
 "Skip" = "跳过";
+
+/* Interactive wallpapers (issue #59). */
+"Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "互动墙纸。比动态墙纸占用更多 CPU 和内存。仅在桌面上可用。";
+"Desktop only" = "仅限桌面";
+"An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "互动墙纸会随指针和 Mac 的声音而动。锁屏和屏幕保护程序两者都没有，因此它在桌面上播放。";
+"INTERACTIVE" = "互动";
+"%@ is too large. An interactive wallpaper can be up to 500 MB." = "“%@”太大。互动墙纸最大为 500 MB。";
+"%@ has no HTML page in it." = "“%@”中没有 HTML 页面。";
+"%@ interactive wallpapers added." = "已添加 %@ 个互动墙纸。";
+"Those interactive wallpapers are already in your Library." = "这些互动墙纸已在你的资料库中。";
+"%@ interactive wallpapers#other" = "%@ 个互动墙纸";

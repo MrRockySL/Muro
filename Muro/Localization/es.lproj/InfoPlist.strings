@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "Muro lee aquí tu imagen del escritorio para mantenerla en el escritorio mientras hay un fondo de pantalla animado en la pantalla de bloqueo, y reproduce los fondos de pantalla animados que guardas aquí.";
 "NSRemovableVolumesUsageDescription" = "Muro lee aquí tu imagen del escritorio para mantenerla en el escritorio mientras hay un fondo de pantalla animado en la pantalla de bloqueo, y reproduce los fondos de pantalla animados que guardas aquí.";
 "NSNetworkVolumesUsageDescription" = "Muro lee aquí tu imagen del escritorio para mantenerla en el escritorio mientras hay un fondo de pantalla animado en la pantalla de bloqueo, y reproduce los fondos de pantalla animados que guardas aquí.";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "Muro escucha el sonido que reproduce tu Mac para que un fondo interactivo pueda moverse con él. El sonido nunca se graba, se guarda ni se envía a ningún sitio.";

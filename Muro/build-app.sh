@@ -141,12 +141,34 @@ else
     exit 1
 fi
 
+# Muro's own interactive wallpapers (issue #59): one folder each, with the
+# page, its picture for the cards, its still for the desktop and its name.
+# Read by InteractiveWallpapers.builtInEntries. A build without them simply
+# has none.
+if [ -d "$DIR/Interactive" ]; then
+    mkdir -p "$APP/Contents/Resources/Interactive"
+    for wallpaper in "$DIR/Interactive/"*/; do
+        name="$(basename "$wallpaper")"
+        for needed in index.html wallpaper.json thumb.jpg still.jpg; do
+            if [ ! -f "$wallpaper$needed" ]; then
+                echo "ERROR: Interactive/$name has no $needed" >&2
+                exit 1
+            fi
+        done
+        cp -R "$wallpaper" "$APP/Contents/Resources/Interactive/$name"
+    done
+fi
+
 # What macOS shows if it asks whether Muro may read one of the folders it
 # guards. Muro reads a file there in two cases: the desktop picture of somebody
 # who uses Muro only for the lock screen, wherever they keep it, and the live
 # wallpapers of somebody who moved their download folder there. Each language
 # has the same sentence in its InfoPlist.strings.
 FOLDER_USE="Muro reads your desktop picture here to keep it on the desktop while a live wallpaper is on the lock screen, and plays the live wallpapers you keep here."
+# What macOS shows when it asks whether Muro may listen to the sound the Mac
+# plays, which it asks the first time an interactive wallpaper that moves with
+# sound is shown. Each language has the same sentence in its InfoPlist.strings.
+SOUND_USE="Muro listens to the sound your Mac is playing so an interactive wallpaper can move with it. The sound is never recorded, kept or sent anywhere."
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -174,6 +196,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSDownloadsFolderUsageDescription</key>  <string>$FOLDER_USE</string>
     <key>NSRemovableVolumesUsageDescription</key> <string>$FOLDER_USE</string>
     <key>NSNetworkVolumesUsageDescription</key>   <string>$FOLDER_USE</string>
+    <key>NSAudioCaptureUsageDescription</key>     <string>$SOUND_USE</string>
 </dict>
 </plist>
 PLIST

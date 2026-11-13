@@ -23,17 +23,32 @@ struct WallpaperItem: Identifiable, Equatable {
     /// been downloaded, and an undownloaded one has no library entry to
     /// carry the flag. See `AppStore.likedIDs`.
     var liked: Bool = false
-    var isDownloaded: Bool { local != nil }
+    /// False only for one of Muro's own interactive wallpapers that is not in
+    /// the Library. Those come inside the app, so their page is always there
+    /// (`local`), but until the person adds one it shows Download and Preview
+    /// like any wallpaper they do not have yet. See
+    /// `AppStore.interactiveLibraryIDs`.
+    var inLibrary: Bool = true
+    var isDownloaded: Bool { local != nil && inLibrary }
     /// A video the person imported themselves. It has no catalog entry, and
     /// the importer files it under its own category, which is what tells it
     /// apart from a download while the catalog cannot be reached (then no
     /// download has a catalog entry either).
     var isPersonalImport: Bool { remote == nil && local?.category == importedVideoCategory }
+    /// An interactive wallpaper (issue #59): a page that moves with the
+    /// pointer and the Mac's sound, where a live wallpaper is a video. It
+    /// plays on the desktop only, and has no size, frame rate or length.
+    var isInteractive: Bool { local?.isInteractive ?? false }
+    /// One of Muro's own interactive wallpapers, which come inside the app:
+    /// always there and never downloaded. Download only puts one in the
+    /// Library, and deleting it only takes it out again.
+    var isBuiltInInteractive: Bool { InteractiveWallpapers.isBuiltIn(id) }
     var resolutionLabel: String {
         width >= 3200 ? "4K" : (width >= 2200 ? "1440p" : "1080p")
     }
     var metaLine: String {
-        "\(categoryTitle(category)) · \(width)×\(height) · \(formatDuration(duration)) · \(formatSize(sizeBytes))"
+        if isInteractive { return categoryTitle(InteractiveWallpapers.category) }
+        return "\(categoryTitle(category)) · \(width)×\(height) · \(formatDuration(duration)) · \(formatSize(sizeBytes))"
     }
 
     /// When this wallpaper became available to look at, which is what Explore
@@ -590,6 +605,14 @@ final class AppStore: ObservableObject {
                 local: entry, remote: remoteByID[entry.id], liked: liked.contains(entry.id)
             ))
         }
+        // Muro's own interactive wallpapers, which come inside the app.
+        let added = interactiveLibraryIDs
+        for entry in InteractiveWallpapers.builtInEntries() where seen.insert(entry.id).inserted {
+            out.append(WallpaperItem(
+                local: entry, remote: nil, liked: liked.contains(entry.id),
+                inLibrary: added.contains(entry.id)
+            ))
+        }
         for remote in catalog where !seen.contains(remote.id) {
             out.append(WallpaperItem(
                 local: nil, remote: remote, liked: liked.contains(remote.id)
@@ -714,6 +737,8 @@ final class AppStore: ObservableObject {
 
     var localItems: [WallpaperItem] {
         if let cachedLocalItems { return cachedLocalItems }
+        // Muro's own interactive wallpapers count as downloaded only once the
+        // person has added them (`isDownloaded`), so only those are listed.
         let out = items.filter(\.isDownloaded)
         cachedLocalItems = out
         return out
@@ -782,7 +807,7 @@ final class AppStore: ObservableObject {
         if let heroID, let item = item(id: heroID), heroPlayable(item), !item.isPersonalImport {
             return item
         }
-        if let applied = currentAppliedID, let item = item(id: applied), item.isDownloaded,
+        if let applied = currentAppliedID, let item = item(id: applied), heroPlayable(item),
            !item.isPersonalImport {
             return item
         }
@@ -794,7 +819,9 @@ final class AppStore: ObservableObject {
     }
 
     func heroPlayable(_ item: WallpaperItem) -> Bool {
-        item.isDownloaded
+        // The banner plays videos. An interactive wallpaper is a page.
+        if item.isInteractive { return false }
+        return item.isDownloaded
             || (item.id == BundledWallpaper.id && BundledWallpaper.videoURL != nil)
     }
 
@@ -844,6 +871,7 @@ final class AppStore: ObservableObject {
         }
         loadLikes()
         config = EngineConfig.load(root: root)
+        loadInteractiveLibrary()
         playlists = PlaylistStore.load(root: root)
         automations = AutomationStore.load(root: root)
         syncScheduler()
@@ -1350,6 +1378,10 @@ final class AppStore: ObservableObject {
             }
             return
         }
+        // An interactive wallpaper reacts to the pointer and to sound, which
+        // the lock screen and the screen saver cannot give it. It goes on the
+        // desktop whatever was asked for.
+        let surface = item.isInteractive ? ApplySurface.desktop : surface
         if !fromSchedule {
             stopSchedules(on: placesCovered(by: item, surface: surface ?? .desktop))
         }
@@ -1359,6 +1391,9 @@ final class AppStore: ObservableObject {
             return
         }
         guard item.local != nil else { return }
+        // Whatever path it came by, one of Muro's own interactive wallpapers
+        // on the desktop is in the Library.
+        if item.isBuiltInInteractive { addInteractiveToLibrary(item) }
         Task {
             await applyWallpaper(
                 item, mode: mode, target: target, surface: surface, fromSchedule: fromSchedule
@@ -2071,6 +2106,7 @@ final class AppStore: ObservableObject {
     private var stillManifest: LibraryManifest {
         var combined = manifest
         combined.wallpapers += AppleAerials.libraryEntries(libraryRoot: root)
+        combined.wallpapers += InteractiveWallpapers.builtInEntries()
         return combined
     }
 
@@ -2315,6 +2351,56 @@ final class AppStore: ObservableObject {
         invalidateItemCache()
     }
 
+    /// Muro's own interactive wallpapers the person has put in the Library
+    /// (owner, 2026-11-13). They come inside the app, so there is nothing to
+    /// download: Download and Preview only add one here, and deleting it from
+    /// the Library only takes it out again, after which Explore offers
+    /// Download and Preview once more, like any other wallpaper. Kept in
+    /// UserDefaults like `likedIDs`, since `library.json` lists files.
+    private(set) var interactiveLibraryIDs: Set<String> = []
+
+    /// One already on a desktop counts as added: it was set before the
+    /// Library held these, and it is plainly the person's.
+    private func loadInteractiveLibrary() {
+        var ids = Set(defaults.stringArray(forKey: "interactiveLibraryIDs") ?? [])
+        let shown = playingWallpaperIDs.filter(InteractiveWallpapers.isBuiltIn)
+        if !shown.isSubset(of: ids) {
+            ids.formUnion(shown)
+            defaults.set(Array(ids), forKey: "interactiveLibraryIDs")
+        }
+        guard ids != interactiveLibraryIDs else { return }
+        interactiveLibraryIDs = ids
+        invalidateItemCache()
+    }
+
+    func addInteractiveToLibrary(_ item: WallpaperItem) {
+        guard item.isBuiltInInteractive, !interactiveLibraryIDs.contains(item.id) else { return }
+        objectWillChange.send()
+        interactiveLibraryIDs.insert(item.id)
+        defaults.set(Array(interactiveLibraryIDs), forKey: "interactiveLibraryIDs")
+        invalidateItemCache()
+    }
+
+    /// Takes them off the desktop first, as with any wallpaper deleted while
+    /// it shows, then out of the Library. The pages stay in the app.
+    private func removeInteractiveFromLibrary(_ ids: Set<String>) {
+        var configChanged = false
+        if let all = config.allDisplays?.wallpaperID, ids.contains(all) {
+            config.allDisplays = nil
+            configChanged = true
+        }
+        let kept = config.perDisplay.filter { !ids.contains($0.value.wallpaperID) }
+        if kept.count != config.perDisplay.count {
+            config.perDisplay = kept
+            configChanged = true
+        }
+        if configChanged { saveConfig() }
+        objectWillChange.send()
+        interactiveLibraryIDs.subtract(ids)
+        defaults.set(Array(interactiveLibraryIDs), forKey: "interactiveLibraryIDs")
+        invalidateItemCache()
+    }
+
     /// Every small manifest edit the interface makes, in one place.
     ///
     /// These used to be `try?`, which turned the one error worth reporting
@@ -2333,6 +2419,11 @@ final class AppStore: ObservableObject {
     // MARK: - Download (remote catalog → local library)
 
     func download(_ item: WallpaperItem) {
+        // Muro's own interactive wallpapers are already in the app.
+        if item.isBuiltInInteractive {
+            addInteractiveToLibrary(item)
+            return
+        }
         // Apple's aerials are fetched from Apple, into Muro's own cache. The
         // catalog path below would write them into `library.json` and copy
         // them into `Masters/`, which is exactly what this feature promised
@@ -2376,12 +2467,16 @@ final class AppStore: ObservableObject {
     // MARK: - Import (user's own videos)
 
     func importFiles(_ urls: [URL]) {
+        // Interactive wallpapers: a page, or a folder with one in it.
+        let pages = urls.filter(InteractiveWallpapers.canImport)
+        if !pages.isEmpty { importInteractive(pages) }
+        let urls = urls.filter { !pages.contains($0) }
         let videos = urls.filter { ["mp4", "mov", "m4v"].contains($0.pathExtension.lowercased()) }
         guard !videos.isEmpty else {
             // Dropping a folder, an image or an unsupported video used to do
             // nothing whatsoever, with no hint as to why.
             if !urls.isEmpty {
-                importError = L("Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added.")
+                importError = L("Muro imports MP4, MOV and M4V videos, .saver screen savers and interactive wallpapers (an HTML page, or a folder with one). Nothing was added.")
             }
             return
         }
@@ -2455,6 +2550,68 @@ final class AppStore: ObservableObject {
                         LN("%@ files were skipped. Muro imports MP4, MOV and M4V videos.", skipped)
                 }
             }
+        }
+    }
+
+    /// Adds interactive wallpapers of the person's own (issue #59): each is
+    /// copied into the library, then its picture is taken from the page
+    /// itself. The same page added twice is turned away like a second video.
+    private func importInteractive(_ picked: [URL]) {
+        let root = self.root
+        let known = manifest.wallpapers
+        Task.detached(priority: .userInitiated) {
+            var added: [WallpaperEntry] = []
+            var already: [String] = []
+            var failures: [String] = []
+            var fingerprints = Set(known.compactMap(\.sourceFingerprint))
+            for source in picked {
+                let print = InteractiveWallpapers.fingerprint(of: source)
+                if let print, fingerprints.contains(print) {
+                    already.append(known.first { $0.sourceFingerprint == print }?.title
+                        ?? source.deletingPathExtension().lastPathComponent)
+                    continue
+                }
+                do {
+                    let entry = try InteractiveWallpapers.importPage(source: source, root: root)
+                    if let print { fingerprints.insert(print) }
+                    added.append(entry)
+                } catch InteractiveWallpapers.ImportError.tooLarge {
+                    failures.append(L("%@ is too large. An interactive wallpaper can be up to 500 MB.", source.lastPathComponent))
+                } catch InteractiveWallpapers.ImportError.noPage {
+                    failures.append(L("%@ has no HTML page in it.", source.lastPathComponent))
+                } catch {
+                    failures.append("\(source.lastPathComponent): \(importFailureReason(error))")
+                }
+            }
+            let new = added, duplicates = already, report = failures
+            await MainActor.run {
+                let store = AppStore.shared
+                store.reloadFromDisk()
+                store.recomputeSize()
+                if !new.isEmpty {
+                    store.showImportNote(new.count == 1
+                        ? L("%@ added.", new[0].title)
+                        : L("%@ interactive wallpapers added.", new.count))
+                } else if !duplicates.isEmpty {
+                    store.showImportNote(duplicates.count == 1
+                        ? L("%@ is already in your Library.", duplicates[0])
+                        : L("Those interactive wallpapers are already in your Library."))
+                }
+                if !report.isEmpty { store.importError = report.joined(separator: "\n\n") }
+                for entry in new { store.takePicture(of: entry) }
+            }
+        }
+    }
+
+    /// Takes the picture an imported interactive wallpaper is shown by: the
+    /// page itself, a moment after it has started.
+    private func takePicture(of entry: WallpaperEntry) {
+        let page = resolveLibraryFile(entry.file, root: root)
+        let destination = resolveLibraryFile(entry.thumbnail, root: root)
+        Task { @MainActor in
+            guard await InteractiveSnapshot.save(page: page, to: destination) else { return }
+            // The cards asked for this picture before it was there.
+            self.objectWillChange.send()
         }
     }
 
@@ -2796,7 +2953,11 @@ final class AppStore: ObservableObject {
     /// only then does the file go. That is also why an applied wallpaper no
     /// longer has to be protected from deletion: this un-applies it first.
     func deleteWallpapers(_ items: [WallpaperItem]) {
-        let entries = items.filter { !AppleAerials.isAppleID($0.id) }.compactMap(\.local)
+        let entries = items.filter { !AppleAerials.isAppleID($0.id) && !$0.isBuiltInInteractive }
+            .compactMap(\.local)
+        // Muro's own interactive wallpapers only come out of the Library.
+        let builtIn = Set(items.filter(\.isBuiltInInteractive).map(\.id))
+        if !builtIn.isEmpty { removeInteractiveFromLibrary(builtIn) }
         let apple = items.map(\.id).filter { appleDownloadFile(id: $0) != nil }
         // The person's own screen savers go to the Trash (owner, 2026-09-30).
         let savers = items.map(\.id).filter(canDeleteScreenSaver)
@@ -2812,7 +2973,10 @@ final class AppStore: ObservableObject {
         // own aerials are not Muro's to touch, and the ones macOS draws have
         // no file at all.
         let deletable = items.filter { item in
-            (AppleAerials.isAppleID(item.id) ? appleDownloadFile(id: item.id) != nil : item.local != nil)
+            // Muro's own interactive wallpapers can come out of the Library;
+            // the page itself is part of the app.
+            if item.isBuiltInInteractive { return item.isDownloaded }
+            return (AppleAerials.isAppleID(item.id) ? appleDownloadFile(id: item.id) != nil : item.local != nil)
                 || canDeleteScreenSaver(item.id)
         }
         guard !deletable.isEmpty else { return }
@@ -3162,8 +3326,16 @@ final class AppStore: ObservableObject {
     // MARK: - Files
 
     func videoURL(for item: WallpaperItem, mode: String) -> URL? {
-        guard let entry = item.local else { return nil }
+        // An interactive wallpaper has a page, not a video (`pageURL`).
+        guard let entry = item.local, !entry.isInteractive else { return nil }
         let url = resolveVideoURL(entry: entry, mode: mode, root: root)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    /// The page of an interactive wallpaper, when it is on disk.
+    func pageURL(for item: WallpaperItem) -> URL? {
+        guard let entry = item.local, entry.isInteractive else { return nil }
+        let url = resolveLibraryFile(entry.file, root: root)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 

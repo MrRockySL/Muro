@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "Muro는 잠금 화면에 라이브 배경화면이 있는 동안에도 데스크탑에 사용자의 사진을 그대로 두기 위해 이곳에 있는 데스크탑 사진을 읽고, 이곳에 보관된 라이브 배경화면을 재생합니다.";
 "NSRemovableVolumesUsageDescription" = "Muro는 잠금 화면에 라이브 배경화면이 있는 동안에도 데스크탑에 사용자의 사진을 그대로 두기 위해 이곳에 있는 데스크탑 사진을 읽고, 이곳에 보관된 라이브 배경화면을 재생합니다.";
 "NSNetworkVolumesUsageDescription" = "Muro는 잠금 화면에 라이브 배경화면이 있는 동안에도 데스크탑에 사용자의 사진을 그대로 두기 위해 이곳에 있는 데스크탑 사진을 읽고, 이곳에 보관된 라이브 배경화면을 재생합니다.";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "Muro는 인터랙티브 배경화면이 사운드에 맞춰 움직일 수 있도록 Mac에서 재생 중인 사운드를 듣습니다. 사운드는 녹음되거나 저장되거나 어디로도 전송되지 않습니다.";

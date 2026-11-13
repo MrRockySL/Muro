@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "Muro 会读取这里的桌面图片，让它在锁屏使用动态墙纸时继续显示在桌面上，并播放你存放在这里的动态墙纸。";
 "NSRemovableVolumesUsageDescription" = "Muro 会读取这里的桌面图片，让它在锁屏使用动态墙纸时继续显示在桌面上，并播放你存放在这里的动态墙纸。";
 "NSNetworkVolumesUsageDescription" = "Muro 会读取这里的桌面图片，让它在锁屏使用动态墙纸时继续显示在桌面上，并播放你存放在这里的动态墙纸。";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "Muro 会聆听 Mac 正在播放的声音，让互动墙纸随之而动。声音绝不会被录制、保存或发送到任何地方。";

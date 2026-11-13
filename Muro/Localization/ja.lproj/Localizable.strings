@@ -131,7 +131,7 @@
 "A new version of Muro is available" = "Muro の新しいバージョンがあります";
 "What's New in Muro" = "Muro の新機能";
 "New update available" = "新しいアップデートがあります";
-"Import your own video" = "自分のビデオを読み込む";
+"Import your own video or interactive wallpaper" = "自分のビデオやインタラクティブ壁紙を読み込む";
 "NEW" = "新着";
 "Delete wallpaper" = "壁紙を削除";
 "Remove Download (%@)" = "ダウンロードを削除（%@）";
@@ -220,8 +220,8 @@
 "Select All" = "すべてを選択";
 "%@ selected" = "%@ 個を選択中";
 "Clear" = "消去";
-"Drop videos or screen savers here, or click to import" = "ビデオやスクリーンセーバをここにドロップするか、クリックして読み込みます";
-"MP4, MOV and M4V videos, and .saver screen savers" = "MP4、MOV、M4V のビデオと .saver のスクリーンセーバ";
+"Drop videos, screen savers or interactive wallpapers here, or click to import" = "ビデオ、スクリーンセーバ、インタラクティブ壁紙をここにドロップするか、クリックして読み込みます";
+"MP4, MOV and M4V videos, .saver screen savers, and interactive wallpapers (HTML)" = "MP4、MOV、M4V のビデオ、.saver のスクリーンセーバ、インタラクティブ壁紙（HTML）";
 "%@ added." = "“%@”を追加しました。";
 "%@ screen savers added." = "%@ 個のスクリーンセーバを追加しました。";
 "%@ is already added." = "“%@”はすでに追加されています。";
@@ -474,7 +474,7 @@
 "%@ PLACES#other" = "%@ か所";
 "Applied everywhere" = "すべての場所に適用済み";
 "Applied in %@ places#other" = "%@ か所に適用済み";
-"Muro imports MP4, MOV and M4V videos, and .saver screen savers. Nothing was added." = "Muro が読み込めるのは MP4、MOV、M4V のビデオと .saver のスクリーンセーバです。何も追加されませんでした。";
+"Muro imports MP4, MOV and M4V videos, .saver screen savers and interactive wallpapers (an HTML page, or a folder with one). Nothing was added." = "Muro が読み込めるのは MP4、MOV、M4V のビデオ、.saver のスクリーンセーバ、インタラクティブ壁紙（HTML ページ、またはそれを含むフォルダ）です。何も追加されませんでした。";
 "Importing" = "読み込み中";
 "Importing %@ of %@" = "読み込み中（%@/%@）";
 "%@ is already in your Library." = "“%@”はすでにライブラリにあります。";
@@ -568,6 +568,7 @@
 "Other@@category" = "その他";
 "Yours@@category" = "自分のもの";
 "Screen Savers@@category" = "スクリーンセーバ";
+"Interactive Wallpapers@@category" = "インタラクティブ壁紙";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "Arabesque";
@@ -585,3 +586,14 @@
 "You can change it later in Settings." = "あとから設定で変更できます。";
 "Continue" = "続ける";
 "Skip" = "スキップ";
+
+/* Interactive wallpapers (issue #59). */
+"Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "インタラクティブ壁紙。ライブ壁紙よりも CPU と RAM を多く使います。デスクトップでのみ動作します。";
+"Desktop only" = "デスクトップのみ";
+"An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "インタラクティブ壁紙は、ポインタと Mac のサウンドに合わせて動きます。ロック画面とスクリーンセーバにはどちらもないため、デスクトップで再生されます。";
+"INTERACTIVE" = "インタラクティブ";
+"%@ is too large. An interactive wallpaper can be up to 500 MB." = "“%@”は大きすぎます。インタラクティブ壁紙は 500 MB までです。";
+"%@ has no HTML page in it." = "“%@”には HTML ページがありません。";
+"%@ interactive wallpapers added." = "%@ 枚のインタラクティブ壁紙を追加しました。";
+"Those interactive wallpapers are already in your Library." = "それらのインタラクティブ壁紙はすでにライブラリにあります。";
+"%@ interactive wallpapers#other" = "%@ 枚のインタラクティブ壁紙";

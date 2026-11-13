@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "Muro legge qui la tua immagine della scrivania per mantenerla sulla scrivania mentre uno sfondo animato è nella schermata di blocco, e riproduce gli sfondi animati che conservi qui.";
 "NSRemovableVolumesUsageDescription" = "Muro legge qui la tua immagine della scrivania per mantenerla sulla scrivania mentre uno sfondo animato è nella schermata di blocco, e riproduce gli sfondi animati che conservi qui.";
 "NSNetworkVolumesUsageDescription" = "Muro legge qui la tua immagine della scrivania per mantenerla sulla scrivania mentre uno sfondo animato è nella schermata di blocco, e riproduce gli sfondi animati che conservi qui.";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "Muro ascolta l’audio riprodotto dal Mac perché uno sfondo interattivo possa muoversi con esso. L’audio non viene mai registrato, conservato o inviato da nessuna parte.";

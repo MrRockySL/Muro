@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Eclipse</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #03050a; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<script>
+/*
+  Eclipse. An interactive wallpaper for Muro.
+
+  A moon in front of its star. The corona is the music: low notes throw long
+  streamers out to the sides, high notes fine plumes at the poles, and every
+  beat leaves a ring of light travelling outwards. Along the bottom the same
+  music rises as a curtain of light, low notes in the middle.
+
+  The pointer is a weight in the sky. Starlight bends round it, the bright
+  bead on the moon's rim follows it, and a click sends a ripple through the
+  stars.
+*/
+(() => {
+'use strict';
+
+// How long this one rests between frames while nothing is happening, in
+// thousandths of a second.
+const REST = 80;
+
+const FRAGMENT = `
+precision highp float;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec3 uMouse;   // where, in the picture's own space, and how present
+uniform vec4 uAudio;   // bass, mid, treble, level
+uniform float uBeat;
+uniform sampler2D uBands;
+uniform sampler2D uPast;
+uniform float uHead;
+uniform vec3 uClick;   // where, and how long ago
+
+float hash21(vec2 p) {
+  vec3 q = fract(vec3(p.xyx) * .1031);
+  q += dot(q, q.yzx + 33.33);
+  return fract((q.x + q.y) * q.z);
+}
+vec2 hash22(vec2 p) {
+  vec3 q = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973));
+  q += dot(q, q.yzx + 33.33);
+  return fract((q.xx + q.yz) * q.zy);
+}
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3. - 2. * f);
+  return mix(mix(hash21(i), hash21(i + vec2(1., 0.)), u.x),
+             mix(hash21(i + vec2(0., 1.)), hash21(i + vec2(1., 1.)), u.x), u.y);
+}
+float fbm(vec2 p) {
+  float a = .5, s = 0.;
+  for (int i = 0; i < 4; i++) { s += a * noise(p); p = p * 2.03 + vec2(17.1, 9.2); a *= .5; }
+  return s;
+}
+float band(float u) { return texture2D(uBands, vec2(clamp(u, 0., 1.) * .96 + .02, .5)).r; }
+// What the low notes were doing this many seconds ago. Four seconds are kept.
+float past(float seconds) {
+  return texture2D(uPast, vec2(uHead - min(seconds, 3.9) * 60. / 256., .5)).r * smoothstep(3.9, 2.7, seconds);
+}
+
+float stars(vec2 q, float n, float seed) {
+  vec2 g = q * n, id = floor(g), f = fract(g);
+  vec2 r = hash22(id + seed);
+  float keep = step(.74, hash21(id * 1.7 + seed));
+  float mag = pow(hash21(id + seed * 3.1), 6.);
+  float twinkle = .74 + .26 * sin(uTime * (.5 + 2.2 * r.x) + r.y * 40.);
+  float d = length(f - (.22 + .56 * r));
+  float core = smoothstep(.032 + .070 * mag, 0., d);
+  // The glow round a bright star ends well inside its own square of sky.
+  float halo = mag * exp(-d * d * 190.) * .55;
+  return keep * twinkle * ((.20 + .80 * mag) * core + halo);
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec2 p = (gl_FragCoord.xy - .5 * uRes) / uRes.y;
+
+  // The pointer bends the light of everything behind it.
+  vec2 d = p - uMouse.xy;
+  vec2 q = p - d * (.0034 * uMouse.z / (dot(d, d) + .0013));
+  vec2 dc = p - uClick.xy;
+  float rc = length(dc);
+  float ripple = exp(-pow((rc - uClick.z * .5) * 13., 2.)) * exp(-uClick.z * 1.5);
+  q -= dc / (rc + 1e-4) * ripple * .022;
+
+  // Night.
+  vec3 col = mix(vec3(.030, .042, .075), vec3(.008, .011, .020), smoothstep(0., .9, uv.y));
+  col += vec3(.020, .026, .045) * fbm(q * 1.7 + vec2(uTime * .006, 0.)) * smoothstep(.0, .6, uv.y);
+
+  // The moon and its star.
+  // Only the stars behind are bent by the pointer. The moon is in front of
+  // it and keeps its shape.
+  vec2 c = vec2(0., .052);
+  vec2 e = p - c;
+  float r = length(e);
+  float R = .116 * (1. + .010 * uBeat);
+  vec2 dir = e / max(r, 1e-4);
+  float side = abs(dir.x);
+  float energy = band((1. - side) * .92);
+  float x = max(r / R, 1.);
+
+  float strands = fbm(dir * 3.4 + vec2(0., r * .55 - uTime * .018));
+  float fine = noise(dir * 23. + vec2(r * 1.7, -uTime * .05));
+  float reach = clamp(energy * 1.05 + uAudio.x * .22 + side * side * .10, 0., 1.);
+  float breath = .5 + .5 * sin(uTime * .35);
+  float falloff = mix(5.6 - .5 * breath, 2.15, reach);
+  float corona = pow(x, -falloff) * (.50 + 1.0 * strands) * (.78 + .44 * fine);
+  corona *= .60 + .06 * breath + .70 * uAudio.w + .65 * energy + .25 * uBeat;
+  // A wide, faint light round all of it, so the moon sits in a sky and not on a card.
+  float bloom = exp(-(r - R) * 5.5) * (.045 + .10 * uAudio.w + .05 * uBeat);
+
+  // Light leans towards the pointer, and the bead on the rim follows it.
+  vec2 toPointer = uMouse.xy - c;
+  vec2 lean = toPointer / max(length(toPointer), 1e-4);
+  corona *= 1. + .50 * uMouse.z * max(0., dot(dir, lean));
+  vec2 beadAt = c + lean * R;
+  vec2 bd = p - beadAt;
+  float bead = uMouse.z * (.00030 / (dot(bd, bd) + .00006));
+  float flare = uMouse.z * .0009 / (abs(bd.y) * 5. + abs(bd.x) * .22 + .004) * exp(-dot(bd, bd) * 55.);
+
+  float outside = smoothstep(R - .0012, R + .0016, r);
+  float rim = exp(-pow((r - R) / (.0052 + .0045 * uAudio.x), 2.)) * (.85 + .9 * uAudio.w + .5 * uBeat);
+
+  // Every beat leaves a ring of light travelling outwards.
+  float ring = past(max(r - R, 0.) / .30);
+  float rings = ring * ring * exp(-(r - R) * 3.2) * .16 * outside;
+
+  vec3 warm = vec3(1.0, .93, .84), cool = vec3(.78, .86, 1.0);
+  vec3 light = mix(warm, cool, smoothstep(1., 3.2, x));
+  float glow = (corona * .95 + rim * 1.5 + rings + bloom) * outside;
+
+  // Stars, behind the moon and washed out near its light.
+  float sky = stars(q, 44., 1.) + stars(q + 7.3, 19., 5.) * 1.2 + stars(q + 3.1, 96., 9.) * .30;
+  vec3 tint = mix(vec3(.80, .88, 1.0), vec3(1.0, .93, .85), hash21(floor(q * 46.)));
+  col += tint * sky * outside * clamp(1. - glow * 1.6, 0., 1.);
+
+  col += light * glow;
+  col += warm * (bead + flare) * 1.1;
+
+  // The moon itself: almost black, round, a little lit on the pointer's side.
+  float inside = 1. - outside;
+  float bulge = sqrt(max(0., 1. - (r / R) * (r / R)));
+  vec3 moon = vec3(.004, .005, .008)
+            + vec3(.020, .023, .030) * pow(1. - bulge, 3.) * (.6 + .9 * uMouse.z * max(0., dot(dir, lean)));
+  col = mix(col, moon, inside);
+
+  // The same music along the bottom, low notes in the middle.
+  float xm = abs(uv.x - .5) * 2.;
+  float low = band(pow(xm, .82));
+  float calm = .5 + .5 * noise(vec2(uv.x * 3. + uTime * .04, uTime * .06));
+  float height = .018 + .018 * calm + .27 * low * low + .05 * uAudio.w;
+  float fineRays = noise(vec2(uv.x * uRes.x / uRes.y * 150., uTime * .45 + uv.y * 2.));
+  float wideRays = noise(vec2(uv.x * 26. + uTime * .06, uTime * .12));
+  float rays = (.62 + .38 * fineRays) * (.60 + .40 * wideRays);
+  float fall = exp(-uv.y / height);
+  float curtain = fall * rays * (.17 + .95 * low + .22 * uAudio.w);
+  // A soft body of light under the rays, so it reads as one curtain.
+  curtain += exp(-uv.y / (height * .55)) * (.05 + .30 * low);
+  vec3 curtainLight = mix(vec3(.52, .72, .95), vec3(.76, .93, .92), clamp(uv.y / height * .35, 0., 1.));
+  col += curtainLight * curtain;
+  col += vec3(.42, .55, .80) * exp(-uv.y * 85.) * .09;
+
+  col = 1. - exp(-col * 1.32);
+  col *= 1. - .20 * dot(p * vec2(.62, 1.), p * vec2(.62, 1.));
+  col += (hash21(gl_FragCoord.xy + fract(uTime) * 91.7) - .5) * (1.6 / 255.);
+  gl_FragColor = vec4(col, 1.);
+}`;
+
+// ---------------------------------------------------------------------------
+// The same few lines run every Muro interactive wallpaper: a full-screen
+// picture drawn by the graphics chip, told where the pointer is and what the
+// Mac is playing. It is drawn at the screen's full rate while somebody plays
+// with it on the desktop or music plays, and a few times a second the rest of
+// the day.
+// ---------------------------------------------------------------------------
+const canvas = document.getElementById('view');
+const gl = canvas.getContext('webgl', {
+  alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'low-power'
+});
+if (!gl) return;
+
+const shader = (type, source) => {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, source);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s));
+  return s;
+};
+const program = gl.createProgram();
+gl.attachShader(program, shader(gl.VERTEX_SHADER, 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+gl.attachShader(program, shader(gl.FRAGMENT_SHADER, FRAGMENT));
+gl.linkProgram(program);
+gl.useProgram(program);
+gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0);
+gl.bindAttribLocation(program, 0, 'a');
+gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+const U = {};
+['uRes', 'uTime', 'uMouse', 'uAudio', 'uBeat', 'uBands', 'uPast', 'uHead', 'uClick']
+  .forEach(n => { U[n] = gl.getUniformLocation(program, n); });
+
+const BANDS = 64, PAST = 256;
+const strip = (unit, width, wrap) => {
+  const t = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, width, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array(width));
+  return t;
+};
+strip(0, BANDS, gl.CLAMP_TO_EDGE);
+strip(1, PAST, gl.REPEAT);
+gl.uniform1i(U.uBands, 0);
+gl.uniform1i(U.uPast, 1);
+
+// How sharp to draw: every pixel of an ordinary screen, and no more than a
+// big screen's worth on a Retina one, where this picture is soft anyway.
+const BUDGET = 2.3e6;
+let aspect = 1;
+const resize = () => {
+  const w = Math.max(1, innerWidth), h = Math.max(1, innerHeight);
+  const scale = Math.min(devicePixelRatio || 1, Math.sqrt(BUDGET / (w * h)));
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.uniform2f(U.uRes, canvas.width, canvas.height);
+  aspect = canvas.width / canvas.height;
+};
+addEventListener('resize', resize);
+resize();
+
+const heard = new Float32Array(BANDS), bands = new Float32Array(BANDS), soft = new Float32Array(BANDS);
+const bandBytes = new Uint8Array(BANDS), pastBytes = new Uint8Array(PAST);
+let head = 0, pastClock = 0, heardAt = -1e9, loudAt = -1e9;
+let bass = 0, mid = 0, treble = 0, level = 0, slowBass = 0, beat = 0, swell = 0;
+const pointer = { x: .5, y: .38, tx: .5, ty: .38, inside: false, presence: 0, movedAt: -1e9 };
+const click = { x: 0, y: 0, at: -1e9 };
+
+// The next frame comes after a wait: none while somebody is playing with the
+// wallpaper or music plays, a longer one at rest. Anything that calls for a
+// shorter wait than the one running ends it.
+const NOW = 0;
+let waiting = 0, waitingFor = 0, asked = false;
+const next = wait => {
+  if (asked) return;
+  if (waiting) {
+    if (wait >= waitingFor) return;
+    clearTimeout(waiting);
+    waiting = 0;
+  }
+  if (wait <= 0) {
+    asked = true;
+    requestAnimationFrame(draw);
+    return;
+  }
+  waitingFor = wait;
+  waiting = setTimeout(() => { waiting = 0; asked = true; requestAnimationFrame(draw); }, wait);
+};
+
+// Muro says `inside` only while the pointer is on this display's desktop
+// itself, never over an app window. Coming back after it has faded away, it
+// starts where the pointer is instead of sliding over from where it left.
+const movePointer = (x, y, inside) => {
+  if (inside && !pointer.inside && pointer.presence < .05) { pointer.x = x; pointer.y = y; }
+  if (inside || pointer.inside) pointer.movedAt = performance.now();
+  pointer.tx = x; pointer.ty = y; pointer.inside = inside;
+  next(NOW);
+};
+const hearClick = (x, y) => { click.x = x; click.y = y; click.at = performance.now(); next(NOW); };
+const hear = a => {
+  const now = performance.now();
+  heardAt = now;
+  for (let i = 0; i < BANDS; i++) heard[i] = a.bands[i] || 0;
+  if (a.level > .004) { loudAt = now; next(NOW); }
+};
+if (window.muro) {
+  addEventListener('muro:mouse', e => movePointer(e.detail.x, e.detail.y, e.detail.inside));
+  addEventListener('muro:click', e => hearClick(e.detail.x, e.detail.y));
+} else {
+  addEventListener('mousemove', e => movePointer(e.clientX / innerWidth, e.clientY / innerHeight, true));
+  document.addEventListener('mouseleave', () => { pointer.inside = false; });
+  addEventListener('mousedown', e => hearClick(e.clientX / innerWidth, e.clientY / innerHeight));
+}
+addEventListener('muro:audio', e => hear(e.detail));
+
+let last = 0, clock = 0;
+function draw(now) {
+  asked = false;
+  const dt = Math.min(.12, Math.max(.001, (now - last) / 1000));
+  last = now;
+  clock += dt;
+
+  // Sound, eased: quick to rise, slower to fall, and gone if it stops coming.
+  if (now - heardAt > 400) heard.fill(0);
+  const up = 1 - Math.exp(-dt * 30), down = 1 - Math.exp(-dt * 6.5);
+  let low = 0, middle = 0, high = 0, all = 0;
+  for (let i = 0; i < BANDS; i++) {
+    const v = heard[i];
+    bands[i] += (v - bands[i]) * (v > bands[i] ? up : down);
+    all += bands[i];
+    if (i < 10) low += bands[i]; else if (i < 38) middle += bands[i]; else high += bands[i];
+  }
+  for (let i = 0; i < BANDS; i++) {
+    const a = bands[Math.max(0, i - 1)], b = bands[i], c = bands[Math.min(BANDS - 1, i + 1)];
+    soft[i] = a * .25 + b * .5 + c * .25;
+    bandBytes[i] = Math.max(0, Math.min(255, Math.round(soft[i] * 255)));
+  }
+  bass = low / 10; mid = middle / 28; treble = high / (BANDS - 38); level = all / BANDS;
+  slowBass += (bass - slowBass) * (1 - Math.exp(-dt * 2.2));
+  const hit = Math.max(0, bass - slowBass - .02) * 4.5;
+  beat += (Math.min(1, hit) - beat) * (hit > beat ? 1 - Math.exp(-dt * 40) : 1 - Math.exp(-dt * 7));
+
+  // What the low notes were doing a moment ago, kept for the waves that
+  // travel outwards. Rounded off a little, so a wave has no hard front.
+  swell += (bass * .55 + beat * .6 - swell) * (1 - Math.exp(-dt * 13));
+  pastClock += dt * 60;
+  while (pastClock >= 1) {
+    pastClock -= 1;
+    head = (head + 1) % PAST;
+    pastBytes[head] = Math.max(0, Math.min(255, Math.round(swell * 255)));
+  }
+
+  // The pointer, followed a little behind so it feels like it has weight.
+  const follow = 1 - Math.exp(-dt * 9);
+  pointer.x += (pointer.tx - pointer.x) * follow;
+  pointer.y += (pointer.ty - pointer.y) * follow;
+  pointer.presence += ((pointer.inside ? 1 : 0) - pointer.presence) * (1 - Math.exp(-dt * 3.5));
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, BANDS, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, bandBytes);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, PAST, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, pastBytes);
+  gl.uniform1f(U.uTime, clock);
+  gl.uniform3f(U.uMouse, (pointer.x - .5) * aspect, .5 - pointer.y, pointer.presence);
+  gl.uniform4f(U.uAudio, bass, mid, treble, level);
+  gl.uniform1f(U.uBeat, beat);
+  gl.uniform1f(U.uHead, (head + .5) / PAST);
+  gl.uniform3f(U.uClick, (click.x - .5) * aspect, .5 - click.y, Math.min(60, (now - click.at) / 1000));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  // Full speed while somebody plays with it, a click's ripple is spreading or
+  // music plays, and a rest between frames otherwise.
+  const busy = now - pointer.movedAt < 1100 || now - click.at < 2800
+    || now - loudAt < 900 || level > .003 || beat > .003 || swell > .003;
+  next(busy ? NOW : REST);
+}
+next(NOW);
+})();
+</script>
+</body>
+</html>

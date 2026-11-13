@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "O Muro lê aqui a sua imagem da mesa para mantê-la na mesa enquanto uma imagem de fundo animada está na Tela Bloqueada, e reproduz as imagens de fundo animadas que você guarda aqui.";
 "NSRemovableVolumesUsageDescription" = "O Muro lê aqui a sua imagem da mesa para mantê-la na mesa enquanto uma imagem de fundo animada está na Tela Bloqueada, e reproduz as imagens de fundo animadas que você guarda aqui.";
 "NSNetworkVolumesUsageDescription" = "O Muro lê aqui a sua imagem da mesa para mantê-la na mesa enquanto uma imagem de fundo animada está na Tela Bloqueada, e reproduz as imagens de fundo animadas que você guarda aqui.";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "O Muro ouve o som que o Mac está reproduzindo para que uma imagem de fundo interativa possa se mover com ele. O som nunca é gravado, guardado nem enviado a lugar nenhum.";

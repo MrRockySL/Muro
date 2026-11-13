@@ -7,3 +7,6 @@
 "NSDownloadsFolderUsageDescription" = "Muro 會讀取這裡的桌面圖片，讓它在鎖定畫面使用動態背景圖片時繼續顯示在桌面上，並播放你存放在這裡的動態背景圖片。";
 "NSRemovableVolumesUsageDescription" = "Muro 會讀取這裡的桌面圖片，讓它在鎖定畫面使用動態背景圖片時繼續顯示在桌面上，並播放你存放在這裡的動態背景圖片。";
 "NSNetworkVolumesUsageDescription" = "Muro 會讀取這裡的桌面圖片，讓它在鎖定畫面使用動態背景圖片時繼續顯示在桌面上，並播放你存放在這裡的動態背景圖片。";
+
+/* What macOS shows when it asks whether Muro may listen to the sound the Mac plays. */
+"NSAudioCaptureUsageDescription" = "Muro 會聆聽 Mac 正在播放的聲音，讓互動背景圖片隨之而動。聲音絕不會被錄製、儲存或傳送到任何地方。";

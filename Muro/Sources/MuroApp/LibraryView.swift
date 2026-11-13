@@ -355,10 +355,10 @@ struct LibraryView: View {
             PlusBubble(size: 56, hovering: lit, pressed: pressingDrop)
             VStack(alignment: .leading, spacing: 4) {
                 Text(store.importStatus ?? addedNote ?? store.importNote
-                     ?? L("Drop videos or screen savers here, or click to import"))
+                     ?? L("Drop videos, screen savers or interactive wallpapers here, or click to import"))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.muroInk)
-                Text(L("MP4, MOV and M4V videos, and .saver screen savers"))
+                Text(L("MP4, MOV and M4V videos, .saver screen savers, and interactive wallpapers (HTML)"))
                     .font(.system(size: 11.5))
                     .foregroundStyle(Color.muroSecondary)
             }
@@ -413,7 +413,9 @@ struct LibraryView: View {
         // `com.apple.systempreference.screen-saver`; `.bundle` still lets one
         // be picked on a Mac where that type is missing.
         let saver = UTType("com.apple.systempreference.screen-saver") ?? .bundle
-        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie, saver]
+        // An interactive wallpaper is a page, or the folder it lives in.
+        panel.allowedContentTypes = [.movie, .mpeg4Movie, .quickTimeMovie, saver, .html]
+        panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         if panel.runModal() == .OK {
             take(panel.urls)

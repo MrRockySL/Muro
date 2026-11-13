@@ -147,6 +147,12 @@ final class LocalizationTests: XCTestCase {
             XCTAssertFalse(folders.contains(""), "\(language.rawValue) folder sentence")
             XCTAssertEqual(Set(folders).count, 1, "\(language.rawValue) folder sentence")
             XCTAssertTrue(folders[0].contains("Muro"), "\(language.rawValue) folder sentence")
+            // And the one it shows before Muro may listen to the Mac's sound,
+            // for interactive wallpapers.
+            XCTAssertTrue(
+                plist?["NSAudioCaptureUsageDescription"]?.contains("Muro") == true,
+                "\(language.rawValue) sound sentence"
+            )
             let ext = Self.tables.appendingPathComponent("Extension/\(language.rawValue).lproj/Localizable.strings")
             let lines = (try? Data(contentsOf: ext)).flatMap {
                 try? PropertyListSerialization.propertyList(from: $0, format: nil) as? [String: String]
