@@ -197,6 +197,13 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSRemovableVolumesUsageDescription</key> <string>$FOLDER_USE</string>
     <key>NSNetworkVolumesUsageDescription</key>   <string>$FOLDER_USE</string>
     <key>NSAudioCaptureUsageDescription</key>     <string>$SOUND_USE</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>    <string>com.mrrockysl.muro</string>
+            <key>CFBundleURLSchemes</key> <array><string>muro</string></array>
+        </dict>
+    </array>
 </dict>
 </plist>
 PLIST

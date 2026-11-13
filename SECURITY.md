@@ -59,6 +59,9 @@ The main app uses normal user-level access to:
   Clear Desktop** is on, or an interactive wallpaper is shown
 - Run an interactive wallpaper's page, tell it where the pointer is, and tell
   it how loud the Mac's sound is, only while an interactive wallpaper is shown
+- Answer `muro://` links from other apps, which can switch to a live wallpaper
+  already in your Library and pause or resume (see **Links from other apps**
+  below)
 
 Imported videos stay on your Mac and are not uploaded.
 
@@ -310,6 +313,45 @@ A page still uses your Mac's processor, graphics chip and memory, more than a
 video does, and a badly written one can use a lot. Only import interactive
 wallpapers you trust.
 
+### Links from other apps
+
+Since 6.1, Muro registers the `muro://` link scheme, so a script, a Shortcut or
+another app can change the live wallpaper without opening Muro. macOS lets any
+app open such a link, and a web page can too, once you click **Open Muro** when
+the browser asks. This is disclosed because something outside Muro can now
+change what Muro shows, without a click in Muro. So a link is held to what is
+safe from a page:
+
+- There are three links and nothing else is answered. `muro://set` switches the
+  desktop, the lock screen or the screen saver to a live wallpaper that is
+  already in your Library, on a display that is connected. `muro://pause` and
+  `muro://resume` do what the menu bar's pause does.
+- A link never downloads, imports or deletes anything, and it changes no
+  setting.
+- A link cannot set what macOS shows itself: Apple's still pictures, drawn
+  wallpapers and screen savers. Those are set in Muro only.
+- A link never opens a window and never shows a message. Muro sends nothing
+  back to whoever opened the link, so a link cannot be used to read what is in
+  your Library or anything else on your Mac.
+- Links are carried out one at a time, in the order they came. At most 16 wait
+  and the rest are ignored, and a link longer than 1,024 characters is not read
+  at all.
+
+A link that sets the lock screen or the screen saver does the same work as
+setting it in Muro, which is described under **Lock-screen integration**: the
+video is copied to the extension, the wallpaper stores are written and
+`WallpaperAgent` is restarted. Setting a live wallpaper from a link also stops
+a playlist or automation playing in that place, as setting one by hand does.
+
+A link that is ignored, or that could not be finished, is written to the
+macOS log (subsystem `com.mrrockysl.muro`, category `links`) with the link's
+own text and the reason. Nothing is uploaded.
+
+To turn links off, run
+`defaults write com.mrrockysl.muro linksOff -bool true`. Muro then ignores
+every link. A link can still start Muro when it is not running, because macOS
+opens the app before Muro sees the link.
+
 ### Download Folder
 
 Since 6.0, Settings has a **Download Folder** row. If you choose a folder, Muro
@@ -449,6 +491,9 @@ assets expected by `Muro/build-app.sh`.
 - An imported interactive wallpaper is third-party code. It runs in macOS's web
   engine, held to its own folder and off the internet, but it is not reviewed
   by anyone.
+- Any app, and any web page you let open Muro, can send `muro://` links. A link
+  can only switch to a live wallpaper already in your Library, pause or resume,
+  and links are on unless you turn them off.
 - Muro trusts the URLs and metadata supplied by the default HTTPS catalog.
   The catalog and wallpaper assets have no separate cryptographic signatures,
   hashes, or host pinning.

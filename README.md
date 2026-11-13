@@ -248,6 +248,55 @@ the app uses to take a picture of an imported screen saver.
 
 ---
 
+## Control Muro from other apps
+
+Muro answers `muro://` links, so a script, a Shortcut or another app can change
+the live wallpaper without opening Muro's window:
+
+```bash
+open -g "muro://set?id=<wallpaper id>"                    # every display
+open -g "muro://set?id=<wallpaper id>&display=<UUID>"     # one display
+open -g "muro://set?id=<wallpaper id>&surface=desktop"    # desktop, lockscreen, screensaver or all
+open -g "muro://pause"
+open -g "muro://resume"
+```
+
+A link does what picking the same live wallpaper from the menu bar does, and it
+works whether Muro is running or not. Links are carried out one at a time, in
+the order you send them, so `set` followed by `pause` ends paused.
+
+The ids are in two files in `~/Library/Application Support/Muro`.
+`library.json` lists every live wallpaper in your Library with its `id` and its
+title. `config.json` shows what is playing now, and a display's UUID is its key
+under `perDisplay`, which is there once you have set a live wallpaper on that
+display alone.
+
+Any web page can open a `muro://` link too, so a link can only do safe things:
+
+- `set` works only for a live wallpaper that is already in your Library. A link
+  never starts a download.
+- A link cannot set what macOS shows itself: Apple's still pictures, the drawn
+  wallpapers like Sequoia and Macintosh, and screen savers, Apple's or your own
+  `.saver` files. Set those in Muro.
+- A `display` that isn't connected right now is ignored.
+- At most 16 links wait at a time. Any more are ignored.
+- A link never opens Muro's window and never shows a message.
+
+A link that is ignored, or that could not be finished, is written to the log
+with the reason. This shows it:
+
+```bash
+log stream --predicate 'subsystem == "com.mrrockysl.muro" AND category == "links"'
+```
+
+To turn links off:
+
+```bash
+defaults write com.mrrockysl.muro linksOff -bool true
+```
+
+---
+
 ## How it works
 
 Muro is native the whole way down: Swift, SwiftUI and AVFoundation. No Electron,

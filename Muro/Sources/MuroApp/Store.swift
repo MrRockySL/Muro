@@ -1414,7 +1414,8 @@ final class AppStore: ObservableObject {
         mode: String,
         target: ApplyTarget,
         surface explicitSurface: ApplySurface?,
-        fromSchedule: Bool = false
+        fromSchedule: Bool = false,
+        quiet: LinkProblems? = nil
     ) async {
         guard var entry = item.local else { return }
         let surface = explicitSurface ?? .desktop
@@ -1444,7 +1445,7 @@ final class AppStore: ObservableObject {
         let appleSurfaces = surface.appleSurfaces
         if !appleSurfaces.isEmpty {
             guard lockScreenAvailable else {
-                applyError = LockScreenServiceError.requiresTahoe.localizedDescription
+                couldNotSet(LockScreenServiceError.requiresTahoe.localizedDescription, quiet)
                 return
             }
             ensureAerialThumbnail(entry)
@@ -1453,7 +1454,7 @@ final class AppStore: ObservableObject {
             guard FileManager.default.fileExists(atPath: videoURL.path),
                   FileManager.default.fileExists(atPath: thumbnailURL.path)
             else {
-                applyError = L("The downloaded wallpaper files could not be found.")
+                couldNotSet(L("The downloaded wallpaper files could not be found."), quiet)
                 return
             }
 
@@ -1478,7 +1479,13 @@ final class AppStore: ObservableObject {
                         surface: appleSurface,
                         connectedDisplays: knownDisplayIDs
                     )
-                    if outcome == .needsSystemSettings { lockScreenNeedsSystemSettings = true }
+                    if outcome == .needsSystemSettings {
+                        if let quiet {
+                            quiet.list.append("macOS has not picked it up yet: choose Muro in System Settings > Wallpaper")
+                        } else {
+                            lockScreenNeedsSystemSettings = true
+                        }
+                    }
                 }
                 if surface == .all {
                     applyAssignment(
@@ -1490,9 +1497,107 @@ final class AppStore: ObservableObject {
                 objectWillChange.send()
                 recomputeSize()
             } catch {
-                applyError = error.localizedDescription
+                couldNotSet(error.localizedDescription, quiet)
             }
         }
+    }
+
+    // MARK: - muro:// links
+
+    /// What went wrong while a muro:// link's live wallpaper was being set.
+    ///
+    /// Somebody who sets one in Muro is looking at Muro, and is told in an
+    /// alert on the gallery. Nobody is looking when a link runs, and an alert
+    /// on a closed gallery opens the gallery. So what goes wrong for a link
+    /// is collected here and written to the log. See `RemoteLinks`.
+    final class LinkProblems {
+        var list: [String] = []
+    }
+
+    private func couldNotSet(_ message: String, _ quiet: LinkProblems?) {
+        if let quiet { quiet.list.append(message) } else { applyError = message }
+    }
+
+    /// What a `muro://set` link does: `setWallpaper`, for a caller nobody is
+    /// watching. Three things differ.
+    ///
+    /// It returns once the live wallpaper is set, so the next link starts on
+    /// a finished one (see `MuroLinkQueue`).
+    ///
+    /// A lock screen or a screen saver waits its turn in `placeSteps`, behind
+    /// the repair at launch and any playlist step, and behind one that is
+    /// being set in Muro itself. Links used to skip that, and two sent
+    /// together each saved the record the other had not finished writing:
+    /// Muro believed one display still had its old lock screen, and that
+    /// one's staged video was deleted.
+    ///
+    /// What goes wrong is returned for the log and never shown. A link must
+    /// not open a window.
+    ///
+    /// Only for a live wallpaper Muro plays itself. `RemoteLinks` turns the
+    /// ones macOS shows away before this, and they are refused here too.
+    func setWallpaper(
+        fromLink original: WallpaperItem,
+        target: ApplyTarget,
+        surface asked: ApplySurface?
+    ) async -> [String] {
+        var item = original
+        if let missing = missingVideo(item) {
+            return ["the video for “\(missing)” was moved or deleted outside Muro"]
+        }
+        guard !AppleAerials.isMacOSOnly(item.id), let entry = item.local else {
+            return ["not a live wallpaper in the Library"]
+        }
+        // An interactive wallpaper goes on the desktop whatever was asked
+        // for, as in `setWallpaper`.
+        let surface = item.isInteractive ? ApplySurface.desktop : asked
+        let onApple = !(surface ?? .desktop).appleSurfaces.isEmpty
+        // Before a playlist is stopped for something that cannot be set.
+        if onApple, !lockScreenAvailable {
+            return [LockScreenServiceError.requiresTahoe.localizedDescription]
+        }
+        stopSchedules(on: placesCovered(by: item, surface: surface ?? .desktop))
+        if item.isBuiltInInteractive { addInteractiveToLibrary(item) }
+        let mode = defaultMode(for: item)
+        // A 30 fps copy that is still to be made is made out here. It can
+        // take a minute, and every lock screen step would wait behind it.
+        if mode == "efficient", entry.efficientFile == nil {
+            guard await ensureEfficientVariant(entry),
+                  let refreshed = manifest.wallpapers.first(where: { $0.id == entry.id })
+            else { return ["its 30 fps copy could not be made"] }
+            item.local = refreshed
+        }
+        let problems = LinkProblems()
+        guard onApple else {
+            await applyWallpaper(item, mode: mode, target: target, surface: surface, quiet: problems)
+            return problems.list
+        }
+        let previous = placeSteps
+        let step = Task { [weak self] in
+            await previous?.value
+            guard let self else { return }
+            guard await self.lockScreenIsFree(within: 60) else {
+                problems.list.append("Muro was still setting another lock screen")
+                return
+            }
+            // Nothing waits between the check above and `applyWallpaper`
+            // saying it is setting one, so nothing else starts in between.
+            await self.applyWallpaper(item, mode: mode, target: target, surface: surface, quiet: problems)
+        }
+        placeSteps = step
+        await step.value
+        return problems.list
+    }
+
+    /// Waits until no lock screen or screen saver is being set. False when
+    /// that takes longer than `seconds`.
+    private func lockScreenIsFree(within seconds: Double) async -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while applyingLockScreen {
+            guard Date() < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return true
     }
 
     /// `resume` is false for a playlist or automation step. A wallpaper chosen

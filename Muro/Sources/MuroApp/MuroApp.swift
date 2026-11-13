@@ -19,6 +19,8 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         // After reading, never before: this is what sets the flag that the
         // line above consumes.
         watchForSessionEnd()
+        // Before launch finishes, or a muro:// link that opens Muro is lost.
+        RemoteLinks.install()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -29,6 +31,7 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
         AppStore.shared.replayDesktop = { [weak self] in self?.engine.replayAll() }
         engine.start()
         statusBar = StatusBarController(store: AppStore.shared)
+        RemoteLinks.launched()
         watchForHideKey()
         watchForCloseKey()
 
