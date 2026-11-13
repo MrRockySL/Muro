@@ -107,6 +107,13 @@ for film in WelcomeMoon WelcomeIntro; do
         echo "warning: Welcome/$film.mov missing, the welcome will do without it" >&2
     fi
 done
+# The intro's music (WelcomeMusic in WelcomeView.swift). A build without it
+# plays the intro silent.
+if [ -f "$DIR/Welcome/WelcomeSound.mp3" ]; then
+    cp "$DIR/Welcome/WelcomeSound.mp3" "$APP/Contents/Resources/WelcomeSound.mp3"
+else
+    echo "warning: Welcome/WelcomeSound.mp3 missing, the intro will play silent" >&2
+fi
 # One frame of the moon, still, for the community step's website card
 # (CommunityLinks.swift). Without it the card shows the app icon.
 cp "$DIR/Welcome/WelcomeMoonStill.png" "$APP/Contents/Resources/WelcomeMoonStill.png"

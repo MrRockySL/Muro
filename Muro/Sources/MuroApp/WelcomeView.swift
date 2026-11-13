@@ -23,6 +23,9 @@ enum WelcomeSize {
 enum WelcomeAssets {
     static let moon: URL? = Bundle.main.url(forResource: "WelcomeMoon", withExtension: "mov")
     static let intro: URL? = Bundle.main.url(forResource: "WelcomeIntro", withExtension: "mov")
+    /// The intro's music (`WelcomeMusic`). A build without it plays the intro
+    /// silent.
+    static let sound: URL? = Bundle.main.url(forResource: "WelcomeSound", withExtension: "mp3")
     /// Seconds into the intro at which the gallery starts to show through it.
     static let handoff: Double = 7.3
 }
@@ -110,9 +113,11 @@ struct WelcomeFlow: View {
             if let url = WelcomeAssets.intro {
                 IntroFilm(
                     url: url,
+                    sound: WelcomeAssets.sound,
                     canvas: canvas,
                     stage: filmStage,
                     hideDuration: skipRequested ? WelcomeTiming.filmOutSkipped : WelcomeTiming.filmOut,
+                    fadesSound: skipRequested,
                     handoffAt: WelcomeAssets.handoff,
                     onShown: filmShown,
                     onHandoff: reveal,
@@ -725,9 +730,13 @@ enum IntroFilmStage: Equatable {
 
 private struct IntroFilm: NSViewRepresentable {
     let url: URL
+    let sound: URL?
     let canvas: CGSize?
     let stage: IntroFilmStage
     let hideDuration: Double
+    /// Whether the music fades away with the picture. Only after Skip: left
+    /// alone, the music plays to its own end.
+    let fadesSound: Bool
     let handoffAt: Double
     let onShown: () -> Void
     let onHandoff: () -> Void
@@ -735,7 +744,7 @@ private struct IntroFilm: NSViewRepresentable {
     let onEnd: () -> Void
 
     func makeNSView(context: Context) -> IntroFilmView {
-        IntroFilmView(url: url, handoffAt: handoffAt)
+        IntroFilmView(url: url, sound: sound, handoffAt: handoffAt)
     }
 
     func updateNSView(_ view: IntroFilmView, context: Context) {
@@ -745,13 +754,14 @@ private struct IntroFilm: NSViewRepresentable {
         switch stage {
         case .waiting: break
         case .showing: view.show(duration: WelcomeTiming.filmIn, completion: onShown)
-        case .hiding: view.hide(duration: hideDuration, completion: onHidden)
+        case .hiding: view.hide(duration: hideDuration, fadingSound: fadesSound, completion: onHidden)
         }
     }
 }
 
-/// Plays the intro once, muted. It is loaded as soon as the welcome opens and
-/// waits on its first frame, invisible, so Continue never waits for it.
+/// Plays the intro once, with its music (`WelcomeMusic`). It is loaded as
+/// soon as the welcome opens and waits on its first frame, invisible and
+/// silent, so Continue never waits for it.
 ///
 /// Everything that moves here is Core Animation, not SwiftUI: the fades are
 /// layer animations, and the picture is a fixed size (the gallery's window)
@@ -759,6 +769,7 @@ private struct IntroFilm: NSViewRepresentable {
 /// rescaled and the picture stays exactly where it is on screen.
 final class IntroFilmView: NSView {
     private let player: AVPlayer
+    private let music: WelcomeMusic?
     private let playerLayer = AVPlayerLayer()
     /// The film and its night behind it: the one layer that fades.
     private let film = CALayer()
@@ -777,8 +788,9 @@ final class IntroFilmView: NSView {
     private var target: Target = .hidden
     private var pendingShow: (duration: Double, completion: () -> Void)?
 
-    init(url: URL, handoffAt: Double) {
+    init(url: URL, sound: URL?, handoffAt: Double) {
         player = AVPlayer(playerItem: AVPlayerItem(url: url))
+        music = WelcomeMusic(url: sound)
         super.init(frame: .zero)
         wantsLayer = true
         layer?.masksToBounds = true
@@ -836,13 +848,15 @@ final class IntroFilmView: NSView {
         guard let pending = pendingShow else { return }
         pendingShow = nil
         player.play()
+        music?.start()
         fade(to: 1, duration: pending.duration, completion: pending.completion)
     }
 
-    func hide(duration: Double, completion: @escaping () -> Void) {
+    func hide(duration: Double, fadingSound: Bool, completion: @escaping () -> Void) {
         guard target != .gone else { return }
         target = .gone
         pendingShow = nil
+        if fadingSound { music?.fadeOut(over: duration) }
         fade(to: 0, duration: duration, completion: completion)
     }
 
@@ -874,6 +888,58 @@ final class IntroFilmView: NSView {
         film.frame = bounds
         playerLayer.frame = CGRect(x: x, y: y, width: size.width, height: size.height)
         CATransaction.commit()
+    }
+}
+
+// MARK: - The intro's music
+
+/// The intro's music: one short piano piece, played once.
+///
+/// It starts a moment after the film rather than with it, so that its last
+/// quiet notes land as the Muro logo forms. That leaves its end sounding
+/// after the film has faded into the gallery and the film's view is gone. So
+/// the music is not the film view's to stop: once started it keeps itself
+/// until it has finished. Only Skip ends it early, fading it with the
+/// picture.
+final class WelcomeMusic: NSObject, AVAudioPlayerDelegate {
+    /// How long after the film's first frame the music starts.
+    static let delay: TimeInterval = 0.75
+
+    /// The piece that is sounding, held here until it ends.
+    private static var sounding: WelcomeMusic?
+
+    private let player: AVAudioPlayer
+    private var started = false
+
+    init?(url: URL?) {
+        guard let url, let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
+        self.player = player
+        super.init()
+        player.delegate = self
+        // Read and ready now, so it starts on time and not a moment late.
+        player.prepareToPlay()
+    }
+
+    func start() {
+        guard !started else { return }
+        started = true
+        Self.sounding = self
+        player.play(atTime: player.deviceCurrentTime + Self.delay)
+    }
+
+    /// After Skip: fades away with the picture, then stops. Also right for a
+    /// Skip that comes before the first note, which then never sounds.
+    func fadeOut(over duration: TimeInterval) {
+        guard started else { return }
+        player.setVolume(0, fadeDuration: duration)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [self] in
+            player.stop()
+            if Self.sounding === self { Self.sounding = nil }
+        }
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        if Self.sounding === self { Self.sounding = nil }
     }
 }
 
