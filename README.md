@@ -11,6 +11,7 @@
 ![License](https://img.shields.io/badge/License-PolyForm_Shield-green)
 ![Price](https://img.shields.io/badge/Price-Free-brightgreen)
 [![Website](https://img.shields.io/badge/Website-murowallpaper.com-A9C4FF)](https://murowallpaper.com)
+[![Discord](https://img.shields.io/badge/Discord-Join_the_community-5865F2?logo=discord&logoColor=white)](https://discord.gg/w9qtWysSpA)
 [![Download](https://img.shields.io/badge/⬇_Download-Muro-A9C4FF)](../../releases/latest)
 [![Buy a coffee](https://img.shields.io/badge/Buy_a_coffee-FFDD00)](https://github.com/sponsors/MrRockySL)
 
@@ -389,6 +390,18 @@ The wallpaper is a video playing in a window that sits just below your desktop
 icons, decoded in hardware by your Mac's video engine, so the CPU barely
 participates. The moment the wallpaper can't be seen, Muro pauses it, and a
 paused wallpaper costs nothing.
+
+---
+
+## Join the community
+
+<div align="center">
+
+Share wallpapers and setups, get help, and see what's coming next on the Muro Discord.
+
+[![Join the Muro Discord](https://img.shields.io/badge/Join%20the%20Muro%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/w9qtWysSpA)
+
+</div>
 
 ---
 
