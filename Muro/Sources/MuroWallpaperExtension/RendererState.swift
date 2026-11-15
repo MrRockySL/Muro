@@ -682,7 +682,10 @@ final class RendererState: @unchecked Sendable {
         let frame = WallpaperFrame.image(for: old.choiceID)
         let renderer: VideoRenderer
         do {
-            renderer = try VideoRenderer.create(rootLayer: old.rootLayer, videoURL: url, behind: true)
+            renderer = try VideoRenderer.create(
+                rootLayer: old.rootLayer, videoURL: url, behind: true,
+                promisesFrameTimes: old.isScreenSaverSurface
+            )
         } catch {
             extensionLog("playlist step failed d=\(key.displayID): \(error.localizedDescription)")
             lock.lock()

@@ -267,7 +267,10 @@ private final class WallpaperXPCHandler: NSObject, WallpaperExtensionXPCProtocol
         }
 
         do {
-            let renderer = try VideoRenderer.create(rootLayer: rootLayer, videoURL: videoURL)
+            // Issues #52 and #64: only the screen saver makes the promise.
+            let renderer = try VideoRenderer.create(
+                rootLayer: rootLayer, videoURL: videoURL, promisesFrameTimes: info.isScreenSaver
+            )
             let wallpaper = ActiveWallpaper(
                 context: context,
                 rootLayer: rootLayer,
