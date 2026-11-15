@@ -456,9 +456,6 @@ changes. You may not release Muro, or a copy or changed version of it, as your o
 app, free or paid, without my permission. Want to build on it?
 [Open an issue](../../issues) or [email me](mailto:mrrockyslx@gmail.com) first.
 
-Code published before 21 September 2026, including every release up to 5.0, stays
-under the MIT license it came with.
-
 The wallpaper videos are not covered by this license. Each one belongs to its
 original creator and is redistributed here under its own terms. See
 [NOTICE](NOTICE.md).
