@@ -597,6 +597,7 @@
 
 /* Interactive wallpapers (issue #59). */
 "Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "Sfondo interattivo. Usa più CPU e RAM di uno sfondo animato. Funziona solo sulla scrivania.";
+"By %@" = "Di %@";
 "Desktop only" = "Solo scrivania";
 "An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "Uno sfondo interattivo si muove con il puntatore e con l’audio del Mac. La schermata di blocco e il salvaschermo non hanno né l’uno né l’altro, quindi funziona sulla scrivania.";
 "INTERACTIVE" = "INTERATTIVO";

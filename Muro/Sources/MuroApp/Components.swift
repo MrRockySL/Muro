@@ -1040,6 +1040,32 @@ struct InteractiveBadge: View {
     }
 }
 
+/// Who made an interactive wallpaper, in the top corner of its page in the
+/// gallery. The same small dark tag as `InteractiveBadge`, and only a label:
+/// nothing happens when it is clicked, and it is never on a card or on the
+/// desktop once the wallpaper is applied.
+struct CreditBadge: View {
+    let author: String
+
+    var body: some View {
+        HStack(spacing: 4.5) {
+            Image(systemName: "person.fill")
+                .font(.system(size: 8, weight: .bold))
+            Text(L("By %@", author))
+                .font(.system(size: 9.5, weight: .semibold))
+                .tracking(0.3)
+                .lineLimit(1)
+        }
+        .foregroundStyle(.white.opacity(0.95))
+        .padding(.leading, 8)
+        .padding(.trailing, 9.5)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(Color.black.opacity(0.45)))
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+        .fixedSize()
+    }
+}
+
 struct HeartButton: View {
     @EnvironmentObject var store: AppStore
     let item: WallpaperItem
@@ -1231,8 +1257,8 @@ struct WallpaperCard: View {
                 destructive: true
             ) { store.removeDownload(item) }]
         }
-        // Muro's own interactive wallpapers are part of the app: nothing to
-        // remove and nothing to delete.
+        // Muro's own interactive wallpapers leave through the Library's trash,
+        // which deletes their files too.
         guard item.isDownloaded, !showsDelete, !item.isBuiltInInteractive else { return [] }
         if item.remote == nil {
             return [MenuOption(
@@ -1253,7 +1279,8 @@ struct WallpaperCard: View {
     /// aerial macOS keeps for itself is liked like any other, but a trash can
     /// on it would do nothing. A screen saver the person added can go too.
     private var deletable: Bool {
-        // Muro's own interactive wallpapers: out of the Library, never off the Mac.
+        // Muro's own interactive wallpapers: out of the Library and off the
+        // Mac. Download brings one back.
         if item.isBuiltInInteractive { return item.isDownloaded }
         return !AppleAerials.isAppleID(item.id) || store.appleDownloadedIDs.contains(item.id)
             || store.canDeleteScreenSaver(item.id)

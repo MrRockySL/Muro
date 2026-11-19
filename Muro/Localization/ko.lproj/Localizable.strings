@@ -579,6 +579,7 @@
 
 /* Interactive wallpapers (issue #59). */
 "Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "인터랙티브 배경화면. 라이브 배경화면보다 CPU와 RAM을 더 많이 사용합니다. 데스크탑에서만 작동합니다.";
+"By %@" = "제작: %@";
 "Desktop only" = "데스크탑 전용";
 "An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "인터랙티브 배경화면은 포인터와 Mac의 사운드에 맞춰 움직입니다. 잠금 화면과 화면 보호기에는 둘 다 없으므로 데스크탑에서 재생됩니다.";
 "INTERACTIVE" = "인터랙티브";

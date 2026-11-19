@@ -11,6 +11,46 @@ final class InteractivePreviewLink {
     var click: ((Double, Double) -> Void)?
 }
 
+/// One of Muro's own interactive wallpapers that is not downloaded, on its
+/// page in the gallery: its thumbnail at once, then its full-size still from
+/// the server, saved like a thumbnail so it is there the next time. The page
+/// itself runs here once Preview has downloaded it.
+struct HostedStill: View {
+    @EnvironmentObject var store: AppStore
+    let item: WallpaperItem
+    @State private var still: NSImage?
+
+    var body: some View {
+        ZStack {
+            ThumbImage(item: item, maxPixels: ImageCache.fullPixels)
+            // Sized by the space it is given, never by the picture, the way
+            // `ThumbImage` is.
+            Color.clear
+                .overlay {
+                    if let still {
+                        Image(nsImage: still).resizable().scaledToFill()
+                    }
+                }
+                .clipped()
+                .opacity(still == nil ? 0 : 1)
+        }
+        .animation(.easeInOut(duration: 0.3), value: still == nil)
+        .allowsHitTesting(false)
+        .task(id: item.id) {
+            still = nil
+            guard let (url, cacheID) = store.hostedStill(for: item.id),
+                  let path = await ThumbnailCache.fetch(id: cacheID, from: url)
+            else { return }
+            let pixels = ImageCache.fullPixels
+            let picture = await Task.detached(priority: .userInitiated) {
+                ImageCache.load(path: path, maxPixels: pixels)
+            }.value
+            guard !Task.isCancelled else { return }
+            still = picture
+        }
+    }
+}
+
 /// An interactive wallpaper running in the gallery, on its own page, so it can
 /// be tried before it is set (issue #59). The same page the desktop shows,
 /// told where the pointer is over it and what the Mac is playing.

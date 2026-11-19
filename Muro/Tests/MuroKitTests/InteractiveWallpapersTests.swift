@@ -120,13 +120,19 @@ final class InteractiveWallpapersTests: XCTestCase {
     }
 
     func testTheWallpapersInTheProjectAreComplete() throws {
-        // The three that ship: each has its page, its name and both pictures,
-        // and a page that asks Muro for the pointer and the sound.
+        // The ones published to the server, from the owner's folder beside
+        // the package (kept out of git, so anyone else skips this): each has
+        // its page, its name and both pictures, and a page that asks Muro for
+        // the pointer and the sound. Muro's own three come first.
         let folder = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("Interactive", isDirectory: true)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Interactive-Wallpapers", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: folder.path) else {
+            throw XCTSkip("The interactive wallpapers' source folder is not on this Mac.")
+        }
         let entries = InteractiveWallpapers.entries(in: folder)
-        XCTAssertEqual(entries.map(\.title), ["Eclipse", "White Sand", "Grey Silk"])
+        XCTAssertEqual(Array(entries.map(\.title).prefix(3)), ["Eclipse", "White Sand", "Grey Silk"])
         for entry in entries {
             let home = URL(fileURLWithPath: entry.file).deletingLastPathComponent()
             for name in ["thumb.jpg", InteractiveWallpapers.stillName] {

@@ -74,10 +74,22 @@ struct PreviewView: View {
                 pillBar(item)
                     .padding(.bottom, 26)
             }
+            .overlay(alignment: .topTrailing) { creditBadge(item) }
             .ignoresSafeArea()
             .background(Color.muroBG)
             .onAppear { prepareAerial() }
             .onChange(of: itemID) { _, _ in prepareAerial() }
+        }
+    }
+
+    /// Who made an interactive wallpaper, on its page only (owner,
+    /// 2026-11-19). Muro's own say who made them too.
+    @ViewBuilder private func creditBadge(_ item: WallpaperItem) -> some View {
+        if item.isInteractive, let author = store.interactiveAuthor(of: item.id) {
+            CreditBadge(author: author)
+                .padding(.top, 22)
+                .padding(.trailing, 24)
+                .allowsHitTesting(false)
         }
     }
 
@@ -147,7 +159,9 @@ struct PreviewView: View {
                 pageLink.click?(tap.location.x / size.width, tap.location.y / size.height)
             })
         } else {
-            ThumbImage(item: item, maxPixels: ImageCache.fullPixels)
+            // Not downloaded: its picture. Preview downloads it, and then it
+            // runs here (owner, 2026-11-19).
+            HostedStill(item: item)
         }
     }
 

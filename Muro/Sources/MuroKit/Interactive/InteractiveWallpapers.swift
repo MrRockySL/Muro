@@ -11,9 +11,11 @@ import Foundation
 /// `library.json`, so a library written by this Muro still opens in an older
 /// one.
 ///
-/// Muro's own come inside the app and are never written into `library.json`,
-/// like Apple's aerials. The ones a person adds are copied into the library's
-/// `Interactive` folder.
+/// Muro's own are hosted with the live wallpapers and kept in the library's
+/// `Hosted Interactive` folder (`HostedInteractive`); Muro 6.1 and 6.1.1
+/// carried three inside the app instead. Either way they are never written
+/// into `library.json`, like Apple's aerials. The ones a person adds are
+/// copied into the library's `Interactive` folder.
 public enum InteractiveWallpapers {
     /// The Explore category Muro's own are filed under.
     public static let category = "Interactive Wallpapers"
@@ -24,6 +26,8 @@ public enum InteractiveWallpapers {
     /// The still picture a wallpaper's folder may carry, for the desktop when
     /// Muro is not running. Without one its thumbnail is used.
     public static let stillName = "still.jpg"
+    /// The file in each of Muro's own folders that names it.
+    public static let infoName = "wallpaper.json"
 
     public static func isBuiltIn(_ id: String) -> Bool { id.hasPrefix(builtInPrefix) }
 
@@ -33,46 +37,89 @@ public enum InteractiveWallpapers {
     private struct Info: Decodable {
         var id: String
         var title: String
+        var author: String?
         var added: String
         var order: Int?
     }
 
-    /// Where Muro's own are: `Interactive` in the app's resources. Nil for a
-    /// bare build with no bundle, which then simply has none.
-    public static var builtInFolder: URL? {
+    /// Where Muro's own are: the copies of the hosted ones in the library.
+    public static var builtInFolder: URL {
+        HostedInteractive.folder(root: LibraryManifest.defaultRoot())
+    }
+
+    /// `Interactive` in the app's resources, where 6.1 and 6.1.1 carried
+    /// theirs. A build that still has the folder is read too; one without it
+    /// simply has none there.
+    private static var bundledFolder: URL? {
         Bundle.main.resourceURL?.appendingPathComponent(folderName, isDirectory: true)
     }
 
     private static let lock = NSLock()
     private static var cached: [WallpaperEntry]?
+    private static var authors: [String: String] = [:]
 
     /// Muro's own interactive wallpapers, in the order they are shown. Read
-    /// once: what is inside the app does not change while it runs.
+    /// once, and again after `reloadBuiltIn()`, which is called whenever the
+    /// hosted copies change.
     public static func builtInEntries() -> [WallpaperEntry] {
         lock.lock()
         defer { lock.unlock() }
         if let cached { return cached }
-        let entries = builtInFolder.map(entries(in:)) ?? []
-        cached = entries
-        return entries
+        var read = entriesAndAuthors(in: builtInFolder)
+        if let bundled = bundledFolder {
+            let more = entriesAndAuthors(in: bundled)
+            let have = Set(read.entries.map(\.id))
+            read.entries += more.entries.filter { !have.contains($0.id) }
+            read.authors.merge(more.authors) { first, _ in first }
+        }
+        cached = read.entries
+        authors = read.authors
+        return read.entries
+    }
+
+    /// Forgets what was read, so the next `builtInEntries()` reads the folder
+    /// again.
+    public static func reloadBuiltIn() {
+        lock.lock()
+        cached = nil
+        authors = [:]
+        lock.unlock()
+    }
+
+    /// Who made one of Muro's own, when its folder says. Shown on its page in
+    /// the gallery only.
+    public static func author(of id: String) -> String? {
+        _ = builtInEntries()
+        lock.lock()
+        defer { lock.unlock() }
+        return authors[id]
     }
 
     /// Every wallpaper folder directly inside `folder` that has a page and a
     /// `wallpaper.json`.
     public static func entries(in folder: URL) -> [WallpaperEntry] {
+        entriesAndAuthors(in: folder).entries
+    }
+
+    static func entriesAndAuthors(in folder: URL) -> (entries: [WallpaperEntry], authors: [String: String]) {
         let manager = FileManager.default
-        guard let names = try? manager.contentsOfDirectory(atPath: folder.path) else { return [] }
+        guard let names = try? manager.contentsOfDirectory(atPath: folder.path) else { return ([], [:]) }
         let days = ISO8601DateFormatter()
         days.formatOptions = [.withFullDate]
         var found: [(order: Int, entry: WallpaperEntry)] = []
+        var authors: [String: String] = [:]
         for name in names.sorted() where !name.hasPrefix(".") {
             let home = folder.appendingPathComponent(name, isDirectory: true)
             let page = home.appendingPathComponent("index.html")
             guard manager.fileExists(atPath: page.path),
-                  let data = try? Data(contentsOf: home.appendingPathComponent("wallpaper.json")),
+                  let data = try? Data(contentsOf: home.appendingPathComponent(infoName)),
                   let info = try? JSONDecoder().decode(Info.self, from: data),
-                  isBuiltIn(info.id)
+                  isBuiltIn(info.id),
+                  !found.contains(where: { $0.entry.id == info.id })
             else { continue }
+            if let author = info.author?.trimmingCharacters(in: .whitespacesAndNewlines), !author.isEmpty {
+                authors[info.id] = author
+            }
             found.append((info.order ?? found.count, WallpaperEntry(
                 id: info.id,
                 title: info.title,
@@ -84,7 +131,7 @@ public enum InteractiveWallpapers {
                 dateAdded: days.date(from: info.added) ?? .distantPast
             )))
         }
-        return found.sorted { $0.order < $1.order }.map(\.entry)
+        return (found.sorted { $0.order < $1.order }.map(\.entry), authors)
     }
 
     // MARK: - Files

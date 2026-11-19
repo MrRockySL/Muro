@@ -601,6 +601,7 @@
 
 /* Interactive wallpapers (issue #59). */
 "Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "Интерактивные обои. Используют больше ресурсов процессора и памяти, чем живые обои. Работают только на рабочем столе.";
+"By %@" = "Автор: %@";
 "Desktop only" = "Только рабочий стол";
 "An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "Интерактивные обои двигаются вслед за указателем и звуком Mac. На экране блокировки и в заставке нет ни того, ни другого, поэтому они работают на рабочем столе.";
 "INTERACTIVE" = "ИНТЕРАКТИВНЫЕ";

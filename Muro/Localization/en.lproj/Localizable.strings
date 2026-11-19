@@ -600,6 +600,7 @@
 
 /* Interactive wallpapers (issue #59). */
 "Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop." = "Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop.";
+"By %@" = "By %@";
 "Desktop only" = "Desktop only";
 "An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop." = "An interactive wallpaper moves with your pointer and your Mac's sound. The lock screen and the screen saver have neither, so it plays on the desktop.";
 "INTERACTIVE" = "INTERACTIVE";

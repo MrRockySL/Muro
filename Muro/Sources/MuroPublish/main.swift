@@ -131,6 +131,11 @@ func ghPath() -> String {
 
 // MARK: - Select wallpapers
 
+// Interactive wallpapers have a section of their own (InteractivePublish.swift).
+if CommandLine.arguments.dropFirst().first == "interactive" {
+    publishInteractive(Array(CommandLine.arguments.dropFirst(2)))
+}
+
 let opts = parseOptions()
 if opts.reorderOnly && opts.replace {
     die("--reorder-only cannot be combined with --replace")

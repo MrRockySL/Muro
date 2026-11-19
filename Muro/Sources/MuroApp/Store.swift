@@ -23,11 +23,9 @@ struct WallpaperItem: Identifiable, Equatable {
     /// been downloaded, and an undownloaded one has no library entry to
     /// carry the flag. See `AppStore.likedIDs`.
     var liked: Bool = false
-    /// False only for one of Muro's own interactive wallpapers that is not in
-    /// the Library. Those come inside the app, so their page is always there
-    /// (`local`), but until the person adds one it shows Download and Preview
-    /// like any wallpaper they do not have yet. See
-    /// `AppStore.interactiveLibraryIDs`.
+    /// False only for one of Muro's own interactive wallpapers whose copy is
+    /// on this Mac without being in the Library. Download then only adds it.
+    /// See `AppStore.interactiveLibraryIDs`.
     var inLibrary: Bool = true
     var isDownloaded: Bool { local != nil && inLibrary }
     /// A video the person imported themselves. It has no catalog entry, and
@@ -38,10 +36,11 @@ struct WallpaperItem: Identifiable, Equatable {
     /// An interactive wallpaper (issue #59): a page that moves with the
     /// pointer and the Mac's sound, where a live wallpaper is a video. It
     /// plays on the desktop only, and has no size, frame rate or length.
-    var isInteractive: Bool { local?.isInteractive ?? false }
-    /// One of Muro's own interactive wallpapers, which come inside the app:
-    /// always there and never downloaded. Download only puts one in the
-    /// Library, and deleting it only takes it out again.
+    var isInteractive: Bool { local?.isInteractive ?? isBuiltInInteractive }
+    /// One of Muro's own interactive wallpapers, hosted beside the live
+    /// wallpapers (`HostedInteractive`). Like a live wallpaper it is
+    /// downloaded only when the person asks, and deleting it from the
+    /// Library deletes its files (owner, 2026-11-19).
     var isBuiltInInteractive: Bool { InteractiveWallpapers.isBuiltIn(id) }
     var resolutionLabel: String {
         width >= 3200 ? "4K" : (width >= 2200 ? "1440p" : "1080p")
@@ -511,6 +510,7 @@ final class AppStore: ObservableObject {
             try? config.save(root: root)
         }
         Task { await refreshCatalog() }
+        Task { await refreshHostedInteractive() }
         Task { await checkForUpdatesIfDue() }
         // Reads Apple's wallpaper plists and may run pluginkit and restart
         // WallpaperAgent, so it must never sit on the launch path.
@@ -539,6 +539,7 @@ final class AppStore: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 await self?.refreshCatalog()
+                await self?.refreshHostedInteractive()
                 await self?.checkForUpdatesIfDue()
             }
         }
@@ -605,13 +606,24 @@ final class AppStore: ObservableObject {
                 local: entry, remote: remoteByID[entry.id], liked: liked.contains(entry.id)
             ))
         }
-        // Muro's own interactive wallpapers, which come inside the app.
+        // Muro's own interactive wallpapers that are downloaded here.
         let added = interactiveLibraryIDs
         for entry in InteractiveWallpapers.builtInEntries() where seen.insert(entry.id).inserted {
             out.append(WallpaperItem(
                 local: entry, remote: nil, liked: liked.contains(entry.id),
                 inLibrary: added.contains(entry.id)
             ))
+        }
+        // The rest of them, on the server only. They wait in Explore for
+        // Download, like any live wallpaper.
+        if let base = hostedInteractiveListURL?.deletingLastPathComponent() {
+            for hosted in hostedInteractive.wallpapers
+            where HostedInteractive.isUsable(hosted) && seen.insert(hosted.id).inserted {
+                out.append(WallpaperItem(
+                    local: nil, remote: HostedInteractive.catalogEntry(for: hosted, base: base),
+                    liked: liked.contains(hosted.id)
+                ))
+            }
         }
         for remote in catalog where !seen.contains(remote.id) {
             out.append(WallpaperItem(
@@ -737,8 +749,9 @@ final class AppStore: ObservableObject {
 
     var localItems: [WallpaperItem] {
         if let cachedLocalItems { return cachedLocalItems }
-        // Muro's own interactive wallpapers count as downloaded only once the
-        // person has added them (`isDownloaded`), so only those are listed.
+        // Muro's own interactive wallpapers count as downloaded only once they
+        // are here and in the Library (`isDownloaded`), so only those are
+        // listed.
         let out = items.filter(\.isDownloaded)
         cachedLocalItems = out
         return out
@@ -871,6 +884,9 @@ final class AppStore: ObservableObject {
         }
         loadLikes()
         config = EngineConfig.load(root: root)
+        if let saved = HostedInteractive.loadLocalList(root: root), saved != hostedInteractive {
+            hostedInteractive = saved
+        }
         loadInteractiveLibrary()
         playlists = PlaylistStore.load(root: root)
         automations = AutomationStore.load(root: root)
@@ -1091,6 +1107,160 @@ final class AppStore: ObservableObject {
         } catch {
             catalogError = CatalogError.classify(error)
         }
+    }
+
+    // MARK: - Interactive wallpapers on the server
+
+    private var hostedInteractiveRefreshing = false
+
+    /// The interactive wallpapers on the server (`HostedInteractive`), as last
+    /// read. Kept beside library.json, so Explore lists them offline too.
+    private var hostedInteractive = HostedInteractive.List() {
+        didSet { invalidateItemCache() }
+    }
+
+    /// Where their list is read: beside the catalog, or the
+    /// `interactiveListURL` default when it is set for testing, the way
+    /// `catalogURL` can be.
+    private var hostedInteractiveListURL: URL? {
+        let override = defaults.string(forKey: "interactiveListURL") ?? ""
+        return URL(string: override)
+            ?? URL(string: catalogURLString).map(HostedInteractive.listURL(catalogURL:))
+    }
+
+    /// Their downloads and syncs, one at a time: each waits for the one
+    /// before it, so a sync never removes or replaces a copy still arriving.
+    private var hostedInteractiveWork: Task<Void, Never>?
+
+    private func runHostedInteractive<T>(_ work: @escaping @MainActor () async -> T) async -> T {
+        let previous = hostedInteractiveWork
+        let task = Task { @MainActor () -> T in
+            await previous?.value
+            return await work()
+        }
+        hostedInteractiveWork = Task { _ = await task.value }
+        return await task.value
+    }
+
+    /// The ones the person has, which stay downloaded: in the Library, on a
+    /// screen, in a playlist or an automation, or downloading right now.
+    private var wantedHostedInteractive: Set<String> {
+        interactiveLibraryIDs
+            .union(protectedWallpaperIDs)
+            .union(downloads.keys)
+            .filter(InteractiveWallpapers.isBuiltIn)
+    }
+
+    /// Reads the list again, at the same moments as the catalog. A new one
+    /// shows in Explore, waiting for Download like any live wallpaper. The
+    /// ones the person has are downloaded when missing or changed (after an
+    /// update from 6.1.1 the three that came inside the app arrive this way,
+    /// so nothing goes missing), and a copy nobody has any more is removed.
+    /// Offline, or with a list that cannot be read, everything stays.
+    func refreshHostedInteractive() async {
+        guard !hostedInteractiveRefreshing, let listURL = hostedInteractiveListURL else { return }
+        hostedInteractiveRefreshing = true
+        defer { hostedInteractiveRefreshing = false }
+        guard let list = try? await HostedInteractive.fetchList(from: listURL) else { return }
+        let listChanged = list != hostedInteractive
+        if listChanged {
+            hostedInteractive = list
+            objectWillChange.send()
+        }
+        let base = listURL.deletingLastPathComponent()
+        let root = self.root
+        let result = await runHostedInteractive { [self] in
+            await HostedInteractive.sync(
+                list: list, base: base, root: root, wanted: wantedHostedInteractive
+            )
+        }
+        if result.changed { hostedInteractiveChanged() }
+        // The engine watches the library folder: this write is what makes it
+        // look again and put an arrived page on a screen that was waiting.
+        if listChanged || result.changed { try? HostedInteractive.saveLocalList(list, root: root) }
+    }
+
+    /// After copies arrive or go: everything that lists them reads again.
+    private func hostedInteractiveChanged() {
+        InteractiveWallpapers.reloadBuiltIn()
+        invalidateItemCache()
+        objectWillChange.send()
+        reconcileDesktopStills()
+    }
+
+    /// Downloads one of them when the person asks: Download or Preview. Its
+    /// progress shows like a live wallpaper's, then it is in the Library.
+    private func downloadHostedInteractive(_ id: String) {
+        guard downloads[id] == nil,
+              let listURL = hostedInteractiveListURL,
+              let entry = hostedInteractive.wallpapers.first(where: { $0.id == id })
+        else { return }
+        downloads[id] = 0
+        let base = listURL.deletingLastPathComponent()
+        let root = self.root
+        let list = hostedInteractive
+        Task {
+            let arrived = await runHostedInteractive { [self] () -> Bool in
+                do {
+                    try await HostedInteractive.download(entry, base: base, root: root) { fraction in
+                        Task { @MainActor in
+                            guard AppStore.shared.downloads[id] != nil else { return }
+                            AppStore.shared.downloads[id] = fraction
+                        }
+                    }
+                } catch {
+                    return false
+                }
+                // In the Library before the next sync can run, so it stays.
+                addInteractiveToLibrary(id: id)
+                return true
+            }
+            downloads[id] = nil
+            guard arrived else { return }
+            hostedInteractiveChanged()
+            try? HostedInteractive.saveLocalList(list, root: root)
+            recomputeSize()
+        }
+    }
+
+    /// Removes the copies of ones that just left the Library.
+    private func deleteHostedInteractiveCopies(_ ids: Set<String>) async {
+        let root = self.root
+        let gone = await runHostedInteractive { () -> Bool in
+            let home = HostedInteractive.folder(root: root)
+            var removed = false
+            for id in ids where HostedInteractive.isSafeID(id) {
+                if (try? FileManager.default.removeItem(at: home.appendingPathComponent(id))) != nil {
+                    removed = true
+                }
+            }
+            return removed
+        }
+        if gone {
+            hostedInteractiveChanged()
+            recomputeSize()
+        }
+    }
+
+    /// Who made an interactive wallpaper, for its page: from its copy, or
+    /// from the list when it is not downloaded.
+    func interactiveAuthor(of id: String) -> String? {
+        if let author = InteractiveWallpapers.author(of: id) { return author }
+        let listed = hostedInteractive.wallpapers.first { $0.id == id }?.author?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return listed?.isEmpty == false ? listed : nil
+    }
+
+    /// The full-size picture on the server of one that is not downloaded,
+    /// and the name its saved copy is kept under.
+    func hostedStill(for id: String) -> (url: URL, cacheID: String)? {
+        guard let base = hostedInteractiveListURL?.deletingLastPathComponent(),
+              let entry = hostedInteractive.wallpapers.first(where: { $0.id == id })
+        else { return nil }
+        return (
+            HostedInteractive.fileURL(base: base, entry: entry, path: InteractiveWallpapers.stillName),
+            "\(id)-\(entry.version)-still"
+        )
     }
 
     /// The Try Again button in Explore.
@@ -2457,11 +2627,13 @@ final class AppStore: ObservableObject {
     }
 
     /// Muro's own interactive wallpapers the person has put in the Library
-    /// (owner, 2026-11-13). They come inside the app, so there is nothing to
-    /// download: Download and Preview only add one here, and deleting it from
-    /// the Library only takes it out again, after which Explore offers
-    /// Download and Preview once more, like any other wallpaper. Kept in
-    /// UserDefaults like `likedIDs`, since `library.json` lists files.
+    /// (owner, 2026-11-13). Download and Preview download one and add it
+    /// here (owner, 2026-11-19), and deleting it from the Library takes it
+    /// out and deletes its files, after which Explore offers Download and
+    /// Preview once more, like any other wallpaper. Kept in UserDefaults like
+    /// `likedIDs`, since `library.json` lists the person's own files. 6.1 and
+    /// 6.1.1 kept the same list for the three inside the app, which is how an
+    /// update knows which of them to download.
     private(set) var interactiveLibraryIDs: Set<String> = []
 
     /// One already on a desktop counts as added: it was set before the
@@ -2479,15 +2651,21 @@ final class AppStore: ObservableObject {
     }
 
     func addInteractiveToLibrary(_ item: WallpaperItem) {
-        guard item.isBuiltInInteractive, !interactiveLibraryIDs.contains(item.id) else { return }
+        guard item.isBuiltInInteractive else { return }
+        addInteractiveToLibrary(id: item.id)
+    }
+
+    private func addInteractiveToLibrary(id: String) {
+        guard InteractiveWallpapers.isBuiltIn(id), !interactiveLibraryIDs.contains(id) else { return }
         objectWillChange.send()
-        interactiveLibraryIDs.insert(item.id)
+        interactiveLibraryIDs.insert(id)
         defaults.set(Array(interactiveLibraryIDs), forKey: "interactiveLibraryIDs")
         invalidateItemCache()
     }
 
     /// Takes them off the desktop first, as with any wallpaper deleted while
-    /// it shows, then out of the Library. The pages stay in the app.
+    /// it shows, then out of the Library. Their files go in `performDelete`,
+    /// once no playlist or automation holds them.
     private func removeInteractiveFromLibrary(_ ids: Set<String>) {
         var configChanged = false
         if let all = config.allDisplays?.wallpaperID, ids.contains(all) {
@@ -2524,9 +2702,14 @@ final class AppStore: ObservableObject {
     // MARK: - Download (remote catalog → local library)
 
     func download(_ item: WallpaperItem) {
-        // Muro's own interactive wallpapers are already in the app.
+        // Muro's own interactive wallpapers come from their own list on the
+        // server. One whose copy is already here only goes in the Library.
         if item.isBuiltInInteractive {
-            addInteractiveToLibrary(item)
+            if item.local != nil {
+                addInteractiveToLibrary(item)
+            } else {
+                downloadHostedInteractive(item.id)
+            }
             return
         }
         // Apple's aerials are fetched from Apple, into Muro's own cache. The
@@ -3060,15 +3243,16 @@ final class AppStore: ObservableObject {
     func deleteWallpapers(_ items: [WallpaperItem]) {
         let entries = items.filter { !AppleAerials.isAppleID($0.id) && !$0.isBuiltInInteractive }
             .compactMap(\.local)
-        // Muro's own interactive wallpapers only come out of the Library.
+        // Muro's own interactive wallpapers come out of the Library at once,
+        // and their files go with a live wallpaper's below.
         let builtIn = Set(items.filter(\.isBuiltInInteractive).map(\.id))
         if !builtIn.isEmpty { removeInteractiveFromLibrary(builtIn) }
         let apple = items.map(\.id).filter { appleDownloadFile(id: $0) != nil }
         // The person's own screen savers go to the Trash (owner, 2026-09-30).
         let savers = items.map(\.id).filter(canDeleteScreenSaver)
         if !savers.isEmpty { Task { await deleteScreenSavers(savers) } }
-        guard !entries.isEmpty || !apple.isEmpty else { return }
-        Task { await performDelete(entries, apple: apple) }
+        guard !entries.isEmpty || !apple.isEmpty || !builtIn.isEmpty else { return }
+        Task { await performDelete(entries, apple: apple, interactive: builtIn) }
     }
 
     /// What the interface calls. Nothing deletes without an answer, so the
@@ -3078,8 +3262,8 @@ final class AppStore: ObservableObject {
         // own aerials are not Muro's to touch, and the ones macOS draws have
         // no file at all.
         let deletable = items.filter { item in
-            // Muro's own interactive wallpapers can come out of the Library;
-            // the page itself is part of the app.
+            // Muro's own interactive wallpapers come out of the Library, and
+            // their files with them. Download brings one back.
             if item.isBuiltInInteractive { return item.isDownloaded }
             return (AppleAerials.isAppleID(item.id) ? appleDownloadFile(id: item.id) != nil : item.local != nil)
                 || canDeleteScreenSaver(item.id)
@@ -3092,13 +3276,18 @@ final class AppStore: ObservableObject {
         deleteWallpapers([item])
     }
 
-    private func performDelete(_ entries: [WallpaperEntry], apple: [String] = []) async {
+    private func performDelete(
+        _ entries: [WallpaperEntry], apple: [String] = [], interactive: Set<String> = []
+    ) async {
         // A shared copy is a hard link and would keep a deleted video on disk.
         ShareFile.clear()
         // Downloads from the Apple section go the same way. An aerial macOS
         // keeps a copy of goes on playing from that copy, so it stays where
-        // it is and only Muro's file goes.
-        let ids = Set(entries.map(\.id)).union(apple.filter { !macOSKeepsAerial($0) })
+        // it is and only Muro's file goes. Muro's own interactive wallpapers
+        // leave every list the same way too.
+        let ids = Set(entries.map(\.id))
+            .union(apple.filter { !macOSKeepsAerial($0) })
+            .union(interactive)
 
         // Whether the desktop was showing one of them, for step 5: a playlist
         // or automation playing there has to put something else on.
@@ -3246,6 +3435,11 @@ final class AppStore: ObservableObject {
         if let previewItem, ids.contains(previewItem.id), item(id: previewItem.id) == nil {
             self.previewItem = nil
         }
+
+        // Muro's own interactive wallpapers: their files, now that no screen,
+        // playlist or automation holds them (owner, 2026-11-19). Download
+        // brings one back.
+        if !interactive.isEmpty { await deleteHostedInteractiveCopies(interactive) }
 
         recomputeSize()
     }
