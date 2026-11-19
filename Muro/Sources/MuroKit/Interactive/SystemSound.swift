@@ -15,6 +15,13 @@ import Foundation
 /// macOS 14.2 brought the tap this uses, and asks the person once whether
 /// Muro may listen (`NSAudioCaptureUsageDescription`). On an older macOS, or
 /// when the answer is no, pages simply hear silence.
+///
+/// The tap is made on a queue of its own, never the main one. Making it
+/// waits for that question to be answered, and on the main queue the wait
+/// froze all of Muro: an interactive wallpaper put on the desktop stayed
+/// hidden, and the gallery stopped answering, until somebody answered
+/// (seen 2026-11-19 with nobody at the Mac). Now the page shows and follows
+/// the pointer at once, and moves with the music once the answer is yes.
 public final class SystemSound {
     public static let shared = SystemSound()
 
@@ -26,6 +33,12 @@ public final class SystemSound {
     /// what is already being listened to.
     private var starters = Set<UUID>()
     private var tap: AnyObject?
+    /// Goes up with every start and stop. A tap that finishes starting after
+    /// listening was stopped again is let go, and anything it hears is
+    /// dropped.
+    private var generation = 0
+    /// Where taps are made and let go.
+    private let setup = DispatchQueue(label: "com.mrrockysl.muro.sound-setup", qos: .userInitiated)
 
     private init() {}
 
@@ -59,33 +72,50 @@ public final class SystemSound {
         if starters.remove(id) != nil, starters.isEmpty { stop() }
     }
 
+    /// Starts listening on the setup queue and returns at once. Call on the
+    /// main queue.
     private func start() {
         guard #available(macOS 14.2, *) else { return }
-        // The tap by itself first. A Mac that will not run it that way gets
-        // it beside the sound device it plays through.
-        for alone in [true, false] {
-            let tap = SoundTap()
-            tap.onBands = { [weak self] bands in
-                DispatchQueue.main.async {
-                    guard let self else { return }
-                    for listener in self.listeners.values { listener(bands) }
+        generation += 1
+        let wanted = generation
+        setup.async {
+            // The tap by itself first. A Mac that will not run it that way
+            // gets it beside the sound device it plays through. Either can
+            // wait here, for as long as the person takes to answer.
+            for alone in [true, false] {
+                let tap = SoundTap()
+                tap.onBands = { bands in
+                    DispatchQueue.main.async {
+                        guard self.generation == wanted else { return }
+                        for listener in self.listeners.values { listener(bands) }
+                    }
                 }
+                if let problem = tap.start(alone: alone) {
+                    EngineLog.log("sound: could not listen (\(problem))")
+                    tap.stop()
+                    continue
+                }
+                DispatchQueue.main.async {
+                    guard self.generation == wanted, self.tap == nil else {
+                        // Stopped, or started again, while it was being made.
+                        self.setup.async { tap.stop() }
+                        return
+                    }
+                    self.tap = tap
+                    EngineLog.log("sound: listening")
+                }
+                return
             }
-            if let problem = tap.start(alone: alone) {
-                EngineLog.log("sound: could not listen (\(problem))")
-                tap.stop()
-                continue
-            }
-            EngineLog.log("sound: listening")
-            self.tap = tap
-            return
         }
     }
 
+    /// Stops listening. The tap is let go on the setup queue, after any start
+    /// still waiting there. Call on the main queue.
     private func stop() {
+        generation += 1
         guard #available(macOS 14.2, *), let tap = tap as? SoundTap else { return }
-        tap.stop()
         self.tap = nil
+        setup.async { tap.stop() }
         EngineLog.log("sound: stopped listening")
     }
 }
