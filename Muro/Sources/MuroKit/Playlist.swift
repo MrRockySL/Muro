@@ -1,7 +1,8 @@
 import Foundation
 
-/// A rotation of wallpapers: apply the next one every `intervalMinutes`,
-/// in order or shuffled. Stored in playlists.json next to the manifest.
+/// A rotation of wallpapers: apply the next one every `intervalMinutes`, on
+/// the clock (see `PlaylistClock`), in order or shuffled. Stored in
+/// playlists.json next to the manifest.
 public struct Playlist: Codable, Identifiable, Equatable {
     public var id: String
     public var name: String

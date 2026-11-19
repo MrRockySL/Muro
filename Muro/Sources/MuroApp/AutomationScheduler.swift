@@ -16,6 +16,9 @@ import MuroKit
 /// - where it is and when the step started are persisted, so quitting mid step
 ///   resumes in the right place
 ///
+/// A playlist changes on the clock, at :00 and :30 for every 30 minutes and
+/// so on (see `PlaylistClock`). An automation keeps the timing it always had.
+///
 /// Only one schedule runs at a time. Starting a playlist stops any automation
 /// and the other way round, because both drive the same one wallpaper.
 ///
@@ -72,6 +75,14 @@ final class AutomationScheduler {
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor in self?.reevaluate() }
+        }
+
+        // A playlist follows the clock, so it has to hear when the clock
+        // itself moves: set by hand, or a new time zone after a flight.
+        for name in [Notification.Name.NSSystemClockDidChange, .NSSystemTimeZoneDidChange] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.clockChanged() }
+            }
         }
     }
 
@@ -213,11 +224,24 @@ final class AutomationScheduler {
                 stepStartedAt = Date().addingTimeInterval(-max(0, elapsed))
                 applyCurrent(of: automation)
             }
-        } else if activePlaylist != nil {
-            advancePlaylist(forward: true)
-            return
+        } else if let playlist = activePlaylist {
+            // Only when a change time has come since this wallpaper went up.
+            // A wake at 4:15 after a sleep from 4:10 changes nothing; one at
+            // 4:45 missed 4:30 and changes once.
+            if PlaylistClock.isDue(shownAt: stepStartedAt, intervalMinutes: playlist.intervalMinutes) {
+                advancePlaylist(forward: true)
+                return
+            }
         }
         schedule()
+    }
+
+    /// The clock was set by hand or the time zone changed. Only a playlist
+    /// follows the clock; an automation keeps the timing it always had.
+    private func clockChanged() {
+        guard activePlaylist != nil else { return }
+        NSTimeZone.resetSystemTimeZone()
+        reevaluate()
     }
 
     private func applyCurrent(of automation: Automation) {
@@ -270,8 +294,9 @@ final class AutomationScheduler {
             }
         }
         if let playlist = activePlaylist {
-            let interval = Double(max(1, playlist.intervalMinutes) * 60)
-            let deadline = stepStartedAt.addingTimeInterval(interval)
+            let deadline = PlaylistClock.nextChange(
+                afterShownAt: stepStartedAt, intervalMinutes: playlist.intervalMinutes
+            )
             return max(1, deadline.timeIntervalSinceNow)
         }
         return nil
