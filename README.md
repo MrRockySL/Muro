@@ -77,7 +77,7 @@ wallpaper and every feature is unlocked.
 ## What it looks like
 
 <p align="center">
-  <img src="screenshots/muro-6-demo.gif" width="820" alt="The Muro home gallery with a live wallpaper playing behind the featured banner">
+  <img src="screenshots/muro-6.1-demo.gif" width="820" alt="The Muro home gallery with a live wallpaper playing behind the featured banner">
 </p>
 
 <p align="center">
