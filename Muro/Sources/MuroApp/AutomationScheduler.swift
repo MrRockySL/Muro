@@ -132,13 +132,13 @@ final class AutomationScheduler {
         cancelTimer()
     }
 
-    func startPlaylist(_ playlist: Playlist) {
+    func startPlaylist(_ playlist: Playlist, startingAt id: String? = nil) {
         guard !playlist.wallpaperIDs.isEmpty else { return }
         activeAutomationID = nil
         activePlaylistID = playlist.id
         stepIndex = 0
         stepStartedAt = Date()
-        apply?(playlist.wallpaperIDs[0])
+        apply?(id ?? playlist.wallpaperIDs[0])
         schedule()
     }
 

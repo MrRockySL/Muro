@@ -381,7 +381,6 @@
 "Show Dock Icon" = "Dock에 아이콘 보기";
 "Off keeps Muro in the menu bar only" = "끄면 Muro가 메뉴 막대에만 표시됩니다";
 "Appearance" = "화면 모드";
-"Default, Light or Dark" = "기본, 라이트 또는 다크";
 "Menu Bar Icon" = "메뉴 막대 아이콘";
 "The icon Muro shows in the menu bar" = "Muro가 메뉴 막대에 표시하는 아이콘";
 "The language Muro is in" = "Muro에서 사용하는 언어";
@@ -497,7 +496,6 @@
 "A picture could not be taken from it." = "이미지를 추출할 수 없습니다.";
 
 /* Looks and sizes */
-"Default@@look" = "기본";
 "%@ GB" = "%@GB";
 "%@ MB" = "%@MB";
 
@@ -598,3 +596,12 @@
 "You can find both later in Settings." = "둘 다 나중에 설정에서 찾을 수 있습니다.";
 "Community" = "커뮤니티";
 "Website ↗" = "웹사이트 ↗";
+"System@@look" = "시스템";
+"Midnight@@look" = "미드나이트";
+"Choose how Muro looks" = "Muro의 모양 선택";
+"Wallpaper follows System Appearance" = "배경화면을 시스템 모양에 맞추기";
+"Switch desktop playlists with macOS" = "macOS 모양에 따라 데스크탑 재생목록 전환";
+"Light Playlist" = "라이트 재생목록";
+"Dark Playlist" = "다크 재생목록";
+"Choose a desktop playlist" = "데스크탑 재생목록 선택";
+"Automatic" = "자동";

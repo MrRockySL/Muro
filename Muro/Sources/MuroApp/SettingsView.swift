@@ -76,19 +76,32 @@ struct SettingsView: View {
                             }
                     }
                     divider
-                    // Default is Muro as it has always looked; Dark is the
-                    // same glass in black and white; Light is white with dark
-                    // buttons (owner, 2026-10-02). It changes at once, in
-                    // every window and the menu bar.
                     row(icon: .appearance, title: L("Appearance"),
-                        subtitle: L("Default, Light or Dark")) {
+                        subtitle: L("Choose how Muro looks")) {
                         CapsuleSegments(
-                            options: [AppearanceMode.standard, .light, .dark].map { ($0.title, $0.rawValue) },
+                            options: [AppearanceMode.system, .light, .dark, .standard].map { ($0.title, $0.rawValue) },
                             selection: Binding(
                                 get: { Appearance.shared.mode.rawValue },
-                                set: { Appearance.shared.set(AppearanceMode(rawValue: $0) ?? .standard) }
+                                set: { Appearance.shared.set(AppearanceMode(rawValue: $0) ?? .system) }
                             )
                         )
+                    }
+                    divider
+                    row(icon: .appearance, title: L("Wallpaper follows System Appearance"),
+                        subtitle: L("Switch desktop playlists with macOS")) {
+                        Toggle(L("Wallpaper follows System Appearance"), isOn: Binding(
+                            get: { store.followsSystemWallpaper },
+                            set: store.setFollowsSystemWallpaper
+                        ))
+                        .toggleStyle(.switch)
+                        .tint(Color.muroSwitch)
+                        .labelsHidden()
+                    }
+                    if store.followsSystemWallpaper {
+                        divider
+                        appearancePlaylistPicker(.light)
+                        divider
+                        appearancePlaylistPicker(.dark)
                     }
                     divider
                     // The icon in the menu bar (6.0): the default and the five
@@ -714,6 +727,26 @@ struct SettingsView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 5.5)
             .glassCapsule(fill: 0.09, stroke: 0.15)
+    }
+
+    private func appearancePlaylistPicker(_ appearance: WallpaperAppearance) -> some View {
+        let title = appearance == .light ? L("Light Playlist") : L("Dark Playlist")
+        let selectedID = store.wallpaperPlaylistID(for: appearance)
+        let managedID = appearance.playlistID
+        let managedTitle = L("Automatic")
+        return row(icon: .appearance, title: title, subtitle: L("Choose a desktop playlist")) {
+            Picker(title, selection: Binding(
+                get: { store.playlists.contains { $0.id == selectedID } ? selectedID : managedID },
+                set: { store.setWallpaperPlaylist($0, for: appearance) }
+            )) {
+                Text(managedTitle).tag(managedID)
+                ForEach(store.playlists.filter { $0.id != managedID }) { playlist in
+                    Text(playlist.name).tag(playlist.id)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 180)
+        }
     }
 
     private func row(

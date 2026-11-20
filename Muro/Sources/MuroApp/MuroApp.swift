@@ -25,7 +25,7 @@ final class MuroAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The look first, so every window and the menu bar panel open in it.
-        Appearance.shared.apply()
+        Appearance.shared.start()
         Self.applyActivationPolicy()
         engine.onRestingChange = { resting in AppStore.shared.desktopResting = resting }
         AppStore.shared.replayDesktop = { [weak self] in self?.engine.replayAll() }

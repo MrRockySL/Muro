@@ -101,7 +101,7 @@ enum SettingsIcon {
     /// halfway to white (on Dark the tile is graphite but the glyph keeps its
     /// colour, owner 2026-10-02); Light puts the tint, deepened, on a white
     /// tile.
-    func glyph(for mode: AppearanceMode) -> Color {
+    func glyph(for mode: AppearanceLook) -> Color {
         switch mode {
         case .standard: return glyphColor
         case .dark: return glyphColor
@@ -482,7 +482,7 @@ struct SettingsIconView: View {
 
     var body: some View {
         // Read in the body, so the tile redraws when the look changes.
-        let mode = Appearance.shared.mode
+        let mode = Appearance.shared.look
         let glyph = icon.glyph(for: mode)
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         ZStack {

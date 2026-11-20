@@ -392,7 +392,6 @@
 "Show Dock Icon" = "Mostrar icono en el Dock";
 "Off keeps Muro in the menu bar only" = "Desactivado, Muro solo aparece en la barra de menús";
 "Appearance" = "Aspecto";
-"Default, Light or Dark" = "Estándar, claro u oscuro";
 "Menu Bar Icon" = "Icono de la barra de menús";
 "The icon Muro shows in the menu bar" = "El icono de Muro en la barra de menús";
 "The language Muro is in" = "El idioma de Muro";
@@ -515,7 +514,6 @@
 "A picture could not be taken from it." = "No se ha podido sacar una imagen de él.";
 
 /* Looks and sizes */
-"Default@@look" = "Estándar";
 "%@ GB" = "%@ GB";
 "%@ MB" = "%@ MB";
 
@@ -617,3 +615,12 @@
 "You can find both later in Settings." = "Puedes encontrar ambos más tarde en Ajustes.";
 "Community" = "Comunidad";
 "Website ↗" = "Sitio web ↗";
+"System@@look" = "Sistema";
+"Midnight@@look" = "Medianoche";
+"Choose how Muro looks" = "Elige la apariencia de Muro";
+"Wallpaper follows System Appearance" = "El fondo sigue la apariencia del sistema";
+"Switch desktop playlists with macOS" = "Cambiar la lista del escritorio con macOS";
+"Light Playlist" = "Lista para el modo claro";
+"Dark Playlist" = "Lista para el modo oscuro";
+"Choose a desktop playlist" = "Elige una lista para el escritorio";
+"Automatic" = "Automático";

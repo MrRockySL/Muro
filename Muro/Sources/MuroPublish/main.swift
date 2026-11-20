@@ -55,6 +55,7 @@ struct Options {
     var catalogPath = "catalog.json"
     var libraryRoot = LibraryManifest.defaultRoot()
     var titles: [String] = []
+    var appearance: WallpaperAppearance?
 }
 
 func parseOptions() -> Options {
@@ -77,6 +78,11 @@ func parseOptions() -> Options {
         case "--repo":    opts.repo = value(for: "--repo")
         case "--tag":     opts.tag = value(for: "--tag")
         case "--catalog": opts.catalogPath = value(for: "--catalog")
+        case "--appearance":
+            guard let appearance = WallpaperAppearance(rawValue: value(for: "--appearance")) else {
+                die("--appearance must be light or dark")
+            }
+            opts.appearance = appearance
         case "--library":
             opts.libraryRoot = URL(fileURLWithPath: value(for: "--library"), isDirectory: true)
         case "--help", "-h":
@@ -87,6 +93,7 @@ func parseOptions() -> Options {
 
                   (no titles)  publish every wallpaper in the local library
                   --upload     actually upload (default: dry run)
+                  --appearance light|dark  tag the single wallpaper named on this command
                   --library    publish from this library instead of the app's own
                                (~/Library/Application Support/Muro). Use a staging
                                folder so publishing never fills your own library.
@@ -142,6 +149,9 @@ if opts.reorderOnly && opts.replace {
 }
 if opts.rebaseURLs && opts.replace {
     die("--rebase-urls cannot be combined with --replace")
+}
+if opts.appearance != nil, opts.titles.count != 1 || opts.reorderOnly || opts.rebaseURLs {
+    die("--appearance requires exactly one wallpaper title")
 }
 let root = opts.libraryRoot
 
@@ -243,7 +253,8 @@ if let r2 {
             video: URL(string: "\(base)/masters/\(entry.id).mov")!,
             thumbnail: URL(string: "\(base)/thumbs/\(entry.id).jpg")!,
             preview720: entry.previewFile != nil
-                ? URL(string: "\(base)/p720/\(entry.id).mov") : nil
+                ? URL(string: "\(base)/p720/\(entry.id).mov") : nil,
+            appearance: opts.appearance ?? entry.appearance
         )
     }
 } else {
@@ -259,7 +270,8 @@ if let r2 {
             thumbnail: URL(string: base + (entry.thumbnail as NSString).lastPathComponent)!,
             preview720: entry.previewFile.map {
                 URL(string: base + ($0 as NSString).lastPathComponent)!
-            }
+            },
+            appearance: opts.appearance ?? entry.appearance
         )
     }
 }
@@ -368,6 +380,7 @@ let publishedByID = Dictionary(uniqueKeysWithValues: publishedEntries.map { ($0.
 func merging(live: CatalogEntry, with published: CatalogEntry) -> CatalogEntry {
     var result = published
     if result.preview720 == nil { result.preview720 = live.preview720 }
+    if result.appearance == nil { result.appearance = live.appearance }
     // The publish date belongs to the wallpaper's first appearance, so the
     // live value always wins. Re-stamping it on every republish would make
     // the whole library look brand new to every install at once — exactly

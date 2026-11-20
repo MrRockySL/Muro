@@ -6,6 +6,7 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
     public var id: String
     public var title: String
     public var category: String
+    public var appearance: WallpaperAppearance?
     public var file: String        // e.g. "Masters/<id>.mov"
     public var efficientFile: String?  // lazy 30 fps variant, once generated
     public var previewFile: String?    // short 720p loop, e.g. "Previews/<id>-p720.mov"
@@ -37,11 +38,12 @@ public struct WallpaperEntry: Codable, Identifiable, Equatable {
         liked: Bool = false, dateAdded: Date = Date(),
         pauseAfterSeconds: Int? = nil,
         sourceFingerprint: String? = nil,
-        hasSound: Bool? = nil
+        hasSound: Bool? = nil, appearance: WallpaperAppearance? = nil
     ) {
         self.id = id
         self.title = title
         self.category = category
+        self.appearance = appearance
         self.file = file
         self.efficientFile = efficientFile
         self.previewFile = previewFile
