@@ -381,7 +381,6 @@
 "Show Dock Icon" = "Dock にアイコンを表示";
 "Off keeps Muro in the menu bar only" = "オフにすると Muro はメニューバーにだけ表示されます";
 "Appearance" = "外観";
-"Default, Light or Dark" = "デフォルト、ライト、ダーク";
 "Menu Bar Icon" = "メニューバーのアイコン";
 "The icon Muro shows in the menu bar" = "Muro がメニューバーに表示するアイコン";
 "The language Muro is in" = "Muro で使う言語";
@@ -497,7 +496,6 @@
 "A picture could not be taken from it." = "そこから画像を取り出せませんでした。";
 
 /* Looks and sizes */
-"Default@@look" = "デフォルト";
 "%@ GB" = "%@ GB";
 "%@ MB" = "%@ MB";
 
@@ -598,3 +596,6 @@
 "You can find both later in Settings." = "どちらもあとから設定で開けます。";
 "Community" = "コミュニティ";
 "Website ↗" = "Web サイト ↗";
+"System@@look" = "システム";
+"Midnight@@look" = "ミッドナイト";
+"Choose how Muro looks" = "Muroの外観を選択";

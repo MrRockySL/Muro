@@ -394,7 +394,6 @@
 "Show Dock Icon" = "Значок в Dock";
 "Off keeps Muro in the menu bar only" = "Если выключено, Muro остается только в строке меню";
 "Appearance" = "Оформление";
-"Default, Light or Dark" = "Как выглядит Muro";
 "Menu Bar Icon" = "Значок строки меню";
 "The icon Muro shows in the menu bar" = "Значок Muro в строке меню";
 "The language Muro is in" = "Язык интерфейса Muro";
@@ -519,7 +518,6 @@
 "A picture could not be taken from it." = "Не удалось получить из него изображение.";
 
 /* Looks and sizes */
-"Default@@look" = "Обычное";
 "%@ GB" = "%@ ГБ";
 "%@ MB" = "%@ МБ";
 
@@ -620,3 +618,6 @@
 "You can find both later in Settings." = "Обе ссылки потом можно найти в Настройках.";
 "Community" = "Сообщество";
 "Website ↗" = "Сайт ↗";
+"System@@look" = "Системная";
+"Midnight@@look" = "Полночь";
+"Choose how Muro looks" = "Выберите внешний вид Muro";

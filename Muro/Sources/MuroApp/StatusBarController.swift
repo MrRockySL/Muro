@@ -84,7 +84,7 @@ final class StatusBarController: NSObject {
     /// material behind the card, and the rim. The SwiftUI half redraws itself.
     private func applyLook() {
         let light = Appearance.shared.isLight
-        panel.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
+        panel.appearance = Appearance.shared.mode == .system ? nil : NSAppearance(named: light ? .aqua : .darkAqua)
         blur.material = light ? .popover : .hudWindow
         container.layer?.borderColor = (light
             ? NSColor.black.withAlphaComponent(0.1)
@@ -347,7 +347,7 @@ final class MenuBarMenuPanel {
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.animationBehavior = .none
-        panel.appearance = NSAppearance(named: Appearance.shared.isLight ? .aqua : .darkAqua)
+        panel.appearance = NSApp.appearance
         hosting.autoresizingMask = [.width, .height]
         panel.contentView = hosting
 
