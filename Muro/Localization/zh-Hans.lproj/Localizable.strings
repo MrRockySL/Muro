@@ -381,7 +381,6 @@
 "Show Dock Icon" = "在程序坞中显示图标";
 "Off keeps Muro in the menu bar only" = "关闭后 Muro 只留在菜单栏中";
 "Appearance" = "外观";
-"Default, Light or Dark" = "默认、浅色或深色";
 "Menu Bar Icon" = "菜单栏图标";
 "The icon Muro shows in the menu bar" = "Muro 在菜单栏中显示的图标";
 "The language Muro is in" = "Muro 使用的语言";
@@ -497,7 +496,6 @@
 "A picture could not be taken from it." = "无法从中截取图片。";
 
 /* Looks and sizes */
-"Default@@look" = "默认";
 "%@ GB" = "%@ GB";
 "%@ MB" = "%@ MB";
 
@@ -598,3 +596,6 @@
 "You can find both later in Settings." = "之后可以在设置中找到它们。";
 "Community" = "社区";
 "Website ↗" = "网站 ↗";
+"System@@look" = "跟随系统";
+"Midnight@@look" = "午夜蓝";
+"Choose how Muro looks" = "选择 Muro 的外观";

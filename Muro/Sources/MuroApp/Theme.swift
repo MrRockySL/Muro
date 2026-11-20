@@ -14,6 +14,7 @@ import MuroKit
 
 /// The look Muro wears, picked in Settings, General, Appearance.
 enum AppearanceMode: String, CaseIterable, Identifiable {
+    case system
     /// Muro as it has always looked: midnight glass with the moonbeam blue.
     case standard = "default"
     /// The same glass in black and white: true black where the midnight blue
@@ -26,16 +27,22 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .standard: return L("Default", ctx: "look")
+        case .system: return L("System", ctx: "look")
+        case .standard: return L("Midnight", ctx: "look")
         case .dark: return L("Dark", ctx: "look")
         case .light: return L("Light", ctx: "look")
         }
     }
 }
 
+enum AppearanceLook {
+    case standard, dark, light
+}
+
 extension Notification.Name {
     /// After the look changes, for the AppKit parts SwiftUI does not redraw by
     /// itself: the menu bar panel's material and rim.
+    static let muroSystemAppearanceChanged = Notification.Name("MuroSystemAppearanceChanged")
     static let muroAppearanceChanged = Notification.Name("MuroAppearanceChanged")
 }
 
@@ -51,10 +58,12 @@ final class Appearance {
     static let defaultsKey = "appearance"
 
     private(set) var mode: AppearanceMode
+    private(set) var systemIsLight = Appearance.readSystemIsLight()
+    @ObservationIgnored private var systemObserver: NSObjectProtocol?
 
     private init() {
         mode = UserDefaults.standard.string(forKey: Self.defaultsKey)
-            .flatMap(AppearanceMode.init(rawValue:)) ?? .standard
+            .flatMap(AppearanceMode.init(rawValue:)) ?? .system
     }
 
     func set(_ newMode: AppearanceMode) {
@@ -64,13 +73,53 @@ final class Appearance {
         apply()
     }
 
-    var isLight: Bool { mode == .light }
+    func start() {
+        systemObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.refreshSystemAppearance()
+        }
+        refreshSystemAppearance()
+        apply()
+    }
+
+    private static func readSystemIsLight() -> Bool {
+        let domain = kCFPreferencesAnyApplication
+        CFPreferencesSynchronize(domain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
+        let style = CFPreferencesCopyValue(
+            "AppleInterfaceStyle" as CFString, domain,
+            kCFPreferencesCurrentUser, kCFPreferencesAnyHost
+        ) as? String
+        return style != "Dark"
+    }
+
+    private func refreshSystemAppearance() {
+        let light = Self.readSystemIsLight()
+        guard light != systemIsLight else { return }
+        systemIsLight = light
+        if mode == .system {
+            NotificationCenter.default.post(name: .muroAppearanceChanged, object: nil)
+        }
+        NotificationCenter.default.post(name: .muroSystemAppearanceChanged, object: nil)
+    }
+
+    var look: AppearanceLook {
+        switch mode {
+        case .system: return systemIsLight ? .light : .dark
+        case .standard: return .standard
+        case .dark: return .dark
+        case .light: return .light
+        }
+    }
+
+    var isLight: Bool { look == .light }
 
     /// What SwiftUI is told, for the system parts of each window.
-    var colorScheme: ColorScheme { isLight ? .light : .dark }
+    var colorScheme: ColorScheme? { mode == .system ? nil : (isLight ? .light : .dark) }
 
     var palette: Palette {
-        switch mode {
+        switch look {
         case .standard: return .standard
         case .dark: return .mono
         case .light: return .light
@@ -80,7 +129,7 @@ final class Appearance {
     /// The AppKit side: system controls, materials, menus and dialogs follow
     /// `NSApp.appearance`. Called at launch and on every change.
     func apply() {
-        NSApp?.appearance = NSAppearance(named: isLight ? .aqua : .darkAqua)
+        NSApp?.appearance = mode == .system ? nil : NSAppearance(named: isLight ? .aqua : .darkAqua)
         NotificationCenter.default.post(name: .muroAppearanceChanged, object: nil)
     }
 }

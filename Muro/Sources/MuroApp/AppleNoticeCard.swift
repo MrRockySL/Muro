@@ -211,7 +211,7 @@ struct AppleNoticeCard: View {
     /// (owner, 2026-10-02).
     private var surface: some View {
         let shape = RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
-        let solid = Appearance.shared.mode == .dark
+        let solid = Appearance.shared.look == .dark
         return shape
             .fill(
                 LinearGradient(

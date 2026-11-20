@@ -177,7 +177,8 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(L("Settings"), "Einstellungen")
         XCTAssertEqual(LN("%@ wallpapers", 1), "1 Hintergrundbild")
         XCTAssertEqual(LN("%@ wallpapers", 3), "3 Hintergrundbilder")
-        XCTAssertEqual(L("Default", ctx: "look"), "Standard")
+        XCTAssertEqual(L("Midnight", ctx: "look"), "Mitternacht")
+        XCTAssertEqual(L("System", ctx: "look"), "System")
 
         localization.use(.simplifiedChinese)
         XCTAssertEqual(L("Lock screen"), "锁屏")

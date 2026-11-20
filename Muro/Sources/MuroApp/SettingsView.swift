@@ -76,17 +76,13 @@ struct SettingsView: View {
                             }
                     }
                     divider
-                    // Default is Muro as it has always looked; Dark is the
-                    // same glass in black and white; Light is white with dark
-                    // buttons (owner, 2026-10-02). It changes at once, in
-                    // every window and the menu bar.
                     row(icon: .appearance, title: L("Appearance"),
-                        subtitle: L("Default, Light or Dark")) {
+                        subtitle: L("Choose how Muro looks")) {
                         CapsuleSegments(
-                            options: [AppearanceMode.standard, .light, .dark].map { ($0.title, $0.rawValue) },
+                            options: [AppearanceMode.system, .light, .dark, .standard].map { ($0.title, $0.rawValue) },
                             selection: Binding(
                                 get: { Appearance.shared.mode.rawValue },
-                                set: { Appearance.shared.set(AppearanceMode(rawValue: $0) ?? .standard) }
+                                set: { Appearance.shared.set(AppearanceMode(rawValue: $0) ?? .system) }
                             )
                         )
                     }
