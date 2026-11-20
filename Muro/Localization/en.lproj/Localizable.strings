@@ -621,3 +621,9 @@
 "System@@look" = "System";
 "Midnight@@look" = "Midnight";
 "Choose how Muro looks" = "Choose how Muro looks";
+"Wallpaper follows System Appearance" = "Wallpaper follows System Appearance";
+"Switch desktop playlists with macOS" = "Switch desktop playlists with macOS";
+"Light Playlist" = "Light Playlist";
+"Dark Playlist" = "Dark Playlist";
+"Choose a desktop playlist" = "Choose a desktop playlist";
+"Automatic" = "Automatic";

@@ -1,5 +1,12 @@
 import Foundation
 
+/// The appearance for which a publisher recommends a wallpaper.
+public enum WallpaperAppearance: String, Codable, CaseIterable {
+    case light, dark
+
+    public var playlistID: String { "muro-appearance-" + rawValue }
+}
+
 /// One wallpaper in the hosted catalog (catalog.json on a static host,
 /// e.g. GitHub Releases). Mirrors WallpaperEntry metadata plus the URLs
 /// needed to stream the thumbnail and download the video on demand.
@@ -24,11 +31,12 @@ public struct CatalogEntry: Codable, Identifiable, Equatable {
     /// ago — a local `dateAdded` only says when *this user* downloaded it.
     /// Optional so catalogs published before the field existed still decode.
     public var publishedAt: Date?
+    public var appearance: WallpaperAppearance?
 
     public init(
         id: String, title: String, category: String, width: Int, height: Int,
         fps: Double, duration: Double, sizeBytes: Int64, video: URL, thumbnail: URL,
-        preview720: URL? = nil, publishedAt: Date? = nil
+        preview720: URL? = nil, publishedAt: Date? = nil, appearance: WallpaperAppearance? = nil
     ) {
         self.id = id
         self.title = title
@@ -42,6 +50,7 @@ public struct CatalogEntry: Codable, Identifiable, Equatable {
         self.thumbnail = thumbnail
         self.preview720 = preview720
         self.publishedAt = publishedAt
+        self.appearance = appearance
     }
 }
 

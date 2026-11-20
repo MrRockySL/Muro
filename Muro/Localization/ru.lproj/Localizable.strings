@@ -621,3 +621,9 @@
 "System@@look" = "Системная";
 "Midnight@@look" = "Полночь";
 "Choose how Muro looks" = "Выберите внешний вид Muro";
+"Wallpaper follows System Appearance" = "Обои следуют оформлению системы";
+"Switch desktop playlists with macOS" = "Менять плейлисты рабочего стола вместе с macOS";
+"Light Playlist" = "Плейлист для светлого режима";
+"Dark Playlist" = "Плейлист для тёмного режима";
+"Choose a desktop playlist" = "Выберите плейлист для рабочего стола";
+"Automatic" = "Автоматически";

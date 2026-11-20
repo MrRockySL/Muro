@@ -297,6 +297,9 @@ final class AppStore: ObservableObject {
     @Published var catalog: [CatalogEntry] = [] { didSet { invalidateItemCache() } }
     @Published var config = EngineConfig()
     @Published var playlists: [Playlist] = []
+    @Published private(set) var followsSystemWallpaper = false
+    @Published private(set) var lightWallpaperPlaylistID = WallpaperAppearance.light.playlistID
+    @Published private(set) var darkWallpaperPlaylistID = WallpaperAppearance.dark.playlistID
     @Published var downloads: [String: Double] = [:]        // id → 0…1
     @Published var generating: Set<String> = []             // efficient variants in flight
     @Published var importStatus: String?
@@ -448,6 +451,11 @@ final class AppStore: ObservableObject {
     private init() {
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         reloadFromDisk()
+        followsSystemWallpaper = defaults.bool(forKey: "followsSystemWallpaper")
+        lightWallpaperPlaylistID = defaults.string(forKey: "lightWallpaperPlaylist")
+            ?? WallpaperAppearance.light.playlistID
+        darkWallpaperPlaylistID = defaults.string(forKey: "darkWallpaperPlaylist")
+            ?? WallpaperAppearance.dark.playlistID
         recentIDs = defaults.stringArray(forKey: "recents") ?? []
         scheduler.apply = { [weak self] id in
             guard let self, let item = self.item(id: id) else { return }
@@ -464,6 +472,12 @@ final class AppStore: ObservableObject {
             }
         }
         syncScheduler()
+        NotificationCenter.default.addObserver(
+            forName: .muroSystemAppearanceChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.updateSystemWallpaper() }
+        }
+        updateSystemWallpaper()
         watchRoot()
         recomputeSize()
         ShareFile.clear()
@@ -889,8 +903,10 @@ final class AppStore: ObservableObject {
         }
         loadInteractiveLibrary()
         playlists = PlaylistStore.load(root: root)
+        refreshAppearancePlaylists()
         automations = AutomationStore.load(root: root)
         syncScheduler()
+        updateSystemWallpaper()
         // A wallpaper set from the command line, or by the engine, has to move
         // the desktop picture too. Cheap when nothing changed: a still that is
         // already on disk is set in this same turn, and a screen already
@@ -1102,6 +1118,8 @@ final class AppStore: ObservableObject {
         do {
             let fetched = try await RemoteCatalog.fetch(from: url)
             catalog = fetched.wallpapers
+            refreshAppearancePlaylists()
+            updateSystemWallpaper()
             catalogError = nil
             noteCatalogArrivals()
         } catch {
@@ -2731,6 +2749,7 @@ final class AppStore: ObservableObject {
         // it from there (file:// URL) instead of pulling 40 MB it already has.
         if item.id == BundledWallpaper.id, let fallback = BundledWallpaper.fallbackEntry {
             remoteEntry = fallback
+            remoteEntry?.appearance = item.remote?.appearance
         }
         guard let remote = remoteEntry, item.local == nil, downloads[item.id] == nil else { return }
         downloads[item.id] = 0
@@ -2943,6 +2962,71 @@ final class AppStore: ObservableObject {
 
     // MARK: - Playlists
 
+    func setFollowsSystemWallpaper(_ enabled: Bool) {
+        setFollowsSystemWallpaper(enabled, stopRotation: true)
+    }
+
+    private func setFollowsSystemWallpaper(_ enabled: Bool, stopRotation: Bool) {
+        guard followsSystemWallpaper != enabled else { return }
+        followsSystemWallpaper = enabled
+        defaults.set(enabled, forKey: "followsSystemWallpaper")
+        if enabled {
+            updateSystemWallpaper()
+        } else if stopRotation, let id = scheduler.activePlaylistID,
+                  id == lightWallpaperPlaylistID || id == darkWallpaperPlaylistID {
+            scheduler.stopPlaylist()
+            syncScheduler()
+        }
+    }
+
+    func wallpaperPlaylistID(for appearance: WallpaperAppearance) -> String {
+        let id = appearance == .light ? lightWallpaperPlaylistID : darkWallpaperPlaylistID
+        return playlists.contains { $0.id == id } ? id : appearance.playlistID
+    }
+
+    func setWallpaperPlaylist(_ id: String, for appearance: WallpaperAppearance) {
+        if appearance == .light {
+            lightWallpaperPlaylistID = id
+            defaults.set(id, forKey: "lightWallpaperPlaylist")
+        } else {
+            darkWallpaperPlaylistID = id
+            defaults.set(id, forKey: "darkWallpaperPlaylist")
+        }
+        updateSystemWallpaper()
+    }
+
+    private func updateSystemWallpaper() {
+        guard followsSystemWallpaper else { return }
+        let appearance: WallpaperAppearance = Appearance.shared.systemIsLight ? .light : .dark
+        let id = wallpaperPlaylistID(for: appearance)
+        guard id != scheduler.activePlaylistID else { return }
+        guard let playlist = playlists.first(where: { $0.id == id }),
+              let first = playlist.wallpaperIDs.first(where: { id in
+                  guard let item = item(id: id), item.local != nil else { return false }
+                  return missingVideo(item) == nil
+              })
+        else {
+            if let outgoing = scheduler.activePlaylistID,
+               outgoing == lightWallpaperPlaylistID || outgoing == darkWallpaperPlaylistID {
+                scheduler.stopPlaylist()
+                syncScheduler()
+            }
+            return
+        }
+        rememberBefore(.desktop)
+        scheduler.startPlaylist(playlist, startingAt: first)
+        syncScheduler()
+    }
+
+    private func refreshAppearancePlaylists() {
+        let updated = PlaylistStore.withAppearancePlaylists(
+            playlists, wallpapers: manifest.wallpapers, catalog: catalog
+        ) { L($0 == .light ? "Light" : "Dark", ctx: "look") }
+        guard updated != playlists else { return }
+        playlists = updated
+        savePlaylists()
+    }
+
     var activePlaylist: Playlist? {
         playlists.first { $0.id == activePlaylistID }
     }
@@ -2966,6 +3050,7 @@ final class AppStore: ObservableObject {
 
     /// Stops the desktop's playlist.
     func stopPlaylist() {
+        setFollowsSystemWallpaper(false, stopRotation: false)
         scheduler.stopPlaylist()
         syncScheduler()
     }
@@ -3038,6 +3123,7 @@ final class AppStore: ObservableObject {
             guard let playlist = playlists.first(where: { $0.id == id }),
                   !playlist.wallpaperIDs.isEmpty
             else { return }
+            if place == .desktop { setFollowsSystemWallpaper(false, stopRotation: false) }
             makeRoom(for: place)
             resumeForStart(on: place)
             rememberBefore(place)
@@ -3046,6 +3132,7 @@ final class AppStore: ObservableObject {
             guard let automation = automations.first(where: { $0.id == id }),
                   !automation.steps.isEmpty
             else { return }
+            if place == .desktop { setFollowsSystemWallpaper(false, stopRotation: false) }
             makeRoom(for: place)
             resumeForStart(on: place)
             rememberBefore(place)
@@ -3152,6 +3239,7 @@ final class AppStore: ObservableObject {
     /// Stops whatever a place is playing, and puts back what it showed before
     /// that started.
     func stopPlaying(on place: SchedulePlace) {
+        if place == .desktop { setFollowsSystemWallpaper(false, stopRotation: false) }
         let runner = placeScheduler(for: place)
         let wasPlaying = runner.activePlaylistID != nil || runner.activeAutomationID != nil
         runner.stopEverything()
@@ -3204,6 +3292,7 @@ final class AppStore: ObservableObject {
 
     /// Stops what these places are playing. Every other place carries on.
     private func stopSchedules(on places: [SchedulePlace]) {
+        if places.contains(.desktop) { setFollowsSystemWallpaper(false, stopRotation: false) }
         let playing = places.filter {
             let runner = placeScheduler(for: $0)
             return runner.activePlaylistID != nil || runner.activeAutomationID != nil
@@ -3886,7 +3975,8 @@ func downloadRemoteWallpaper(
         height: remote.height,
         fps: remote.fps,
         duration: remote.duration,
-        sizeBytes: sizeBytes
+        sizeBytes: sizeBytes,
+        appearance: remote.appearance
     )
     try LibraryWriter.update(root: root) { manifest in
         // Re-downloading something already listed replaces its entry rather

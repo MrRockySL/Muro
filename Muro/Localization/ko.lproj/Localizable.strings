@@ -599,3 +599,9 @@
 "System@@look" = "시스템";
 "Midnight@@look" = "미드나이트";
 "Choose how Muro looks" = "Muro의 모양 선택";
+"Wallpaper follows System Appearance" = "배경화면을 시스템 모양에 맞추기";
+"Switch desktop playlists with macOS" = "macOS 모양에 따라 데스크탑 재생목록 전환";
+"Light Playlist" = "라이트 재생목록";
+"Dark Playlist" = "다크 재생목록";
+"Choose a desktop playlist" = "데스크탑 재생목록 선택";
+"Automatic" = "자동";

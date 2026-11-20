@@ -618,3 +618,9 @@
 "System@@look" = "Sistema";
 "Midnight@@look" = "Medianoche";
 "Choose how Muro looks" = "Elige la apariencia de Muro";
+"Wallpaper follows System Appearance" = "El fondo sigue la apariencia del sistema";
+"Switch desktop playlists with macOS" = "Cambiar la lista del escritorio con macOS";
+"Light Playlist" = "Lista para el modo claro";
+"Dark Playlist" = "Lista para el modo oscuro";
+"Choose a desktop playlist" = "Elige una lista para el escritorio";
+"Automatic" = "Automático";

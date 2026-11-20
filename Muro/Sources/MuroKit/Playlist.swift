@@ -55,6 +55,40 @@ public enum PlaylistStore {
         return (out, emptied)
     }
 
+    /// Updates only the app-managed playlists. Catalog tags take precedence
+    /// over those stored at download time, so later edits work offline again
+    /// after the next download and apply immediately when the catalog is loaded.
+    public static func withAppearancePlaylists(
+        _ playlists: [Playlist], wallpapers: [WallpaperEntry], catalog: [CatalogEntry],
+        name: (WallpaperAppearance) -> String
+    ) -> [Playlist] {
+        var tags = Dictionary(wallpapers.compactMap { entry in
+            entry.appearance.map { (entry.id, $0) }
+        }, uniquingKeysWith: { first, _ in first })
+        let installed = Set(wallpapers.map(\.id))
+        for entry in catalog where installed.contains(entry.id) {
+            if let appearance = entry.appearance { tags[entry.id] = appearance }
+        }
+
+        var result = playlists
+        for appearance in WallpaperAppearance.allCases {
+            let ids = wallpapers.compactMap { tags[$0.id] == appearance ? $0.id : nil }
+            if let index = result.firstIndex(where: { $0.id == appearance.playlistID }) {
+                var kept = result[index].wallpaperIDs.filter { tags[$0] == nil || tags[$0] == appearance }
+                let included = Set(kept)
+                kept.append(contentsOf: ids.filter { !included.contains($0) })
+                result[index].wallpaperIDs = kept
+            } else if !ids.isEmpty {
+                result.append(Playlist(
+                    id: appearance.playlistID,
+                    name: uniqueName(base: name(appearance), taken: result.map(\.name)),
+                    wallpaperIDs: ids
+                ))
+            }
+        }
+        return result
+    }
+
     public static func save(_ playlists: [Playlist], root: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

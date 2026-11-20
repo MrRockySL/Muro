@@ -46,6 +46,7 @@ final class RemoteCatalogTests: XCTestCase {
         """)
         XCTAssertNil(catalog.wallpapers[0].preview720)
         XCTAssertNil(catalog.wallpapers[0].publishedAt)
+        XCTAssertNil(catalog.wallpapers[0].appearance)
     }
 
     /// A duplicate id used to crash the app at launch, for everyone, until a
@@ -82,6 +83,34 @@ final class RemoteCatalogTests: XCTestCase {
         let again = try RemoteCatalog.makeDecoder().decode(RemoteCatalog.self, from: data)
         XCTAssertEqual(again.wallpapers[0].publishedAt, original.wallpapers[0].publishedAt)
         XCTAssertEqual(again.wallpapers[0].preview720, original.wallpapers[0].preview720)
+    }
+
+    func testAppearanceTagsClassifyInstalledWallpapersOnly() throws {
+        var light = try decode("{\"wallpapers\": [\(entryJSON(id: "light"))]}").wallpapers[0]
+        light.appearance = .light
+        var notInstalled = light
+        notInstalled.id = "not-installed"
+        let installed = WallpaperEntry(
+            id: light.id, title: light.title, category: light.category,
+            file: "Masters/light.mov", thumbnail: "Thumbnails/light.jpg",
+            width: 3840, height: 2160, fps: 30, duration: 30, sizeBytes: 100,
+            appearance: .dark
+        )
+        let manual = Playlist(name: "Personal", wallpaperIDs: [installed.id])
+        let catalog = [light, notInstalled]
+        let encoded = try RemoteCatalog.makeEncoder().encode(RemoteCatalog(wallpapers: catalog))
+        let decoded = try RemoteCatalog.makeDecoder().decode(RemoteCatalog.self, from: encoded)
+        XCTAssertEqual(decoded.wallpapers.map(\.appearance), [.light, .light])
+        let playlists = PlaylistStore.withAppearancePlaylists(
+            [manual], wallpapers: [installed], catalog: decoded.wallpapers
+        ) { $0.rawValue.capitalized }
+        XCTAssertEqual(playlists.first, manual)
+        XCTAssertEqual(playlists.count, 2)
+        XCTAssertEqual(playlists.last?.id, WallpaperAppearance.light.playlistID)
+        XCTAssertEqual(playlists.last?.wallpaperIDs, [installed.id])
+        XCTAssertEqual(PlaylistStore.withAppearancePlaylists(
+            playlists, wallpapers: [installed], catalog: decoded.wallpapers
+        ) { $0.rawValue.capitalized }, playlists)
     }
 
     func testMalformedJSONThrowsRatherThanCrashing() {

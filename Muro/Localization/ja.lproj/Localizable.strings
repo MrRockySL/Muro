@@ -599,3 +599,9 @@
 "System@@look" = "システム";
 "Midnight@@look" = "ミッドナイト";
 "Choose how Muro looks" = "Muroの外観を選択";
+"Wallpaper follows System Appearance" = "壁紙をシステムの外観に合わせる";
+"Switch desktop playlists with macOS" = "macOSの外観に合わせてデスクトップのプレイリストを切り替える";
+"Light Playlist" = "ライト用プレイリスト";
+"Dark Playlist" = "ダーク用プレイリスト";
+"Choose a desktop playlist" = "デスクトップのプレイリストを選択";
+"Automatic" = "自動";

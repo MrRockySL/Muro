@@ -599,3 +599,9 @@
 "System@@look" = "跟随系统";
 "Midnight@@look" = "午夜蓝";
 "Choose how Muro looks" = "选择 Muro 的外观";
+"Wallpaper follows System Appearance" = "壁纸跟随系统外观";
+"Switch desktop playlists with macOS" = "随 macOS 外观切换桌面播放列表";
+"Light Playlist" = "浅色模式播放列表";
+"Dark Playlist" = "深色模式播放列表";
+"Choose a desktop playlist" = "选择桌面播放列表";
+"Automatic" = "自动";

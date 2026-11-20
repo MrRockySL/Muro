@@ -87,6 +87,23 @@ struct SettingsView: View {
                         )
                     }
                     divider
+                    row(icon: .appearance, title: L("Wallpaper follows System Appearance"),
+                        subtitle: L("Switch desktop playlists with macOS")) {
+                        Toggle(L("Wallpaper follows System Appearance"), isOn: Binding(
+                            get: { store.followsSystemWallpaper },
+                            set: store.setFollowsSystemWallpaper
+                        ))
+                        .toggleStyle(.switch)
+                        .tint(Color.muroSwitch)
+                        .labelsHidden()
+                    }
+                    if store.followsSystemWallpaper {
+                        divider
+                        appearancePlaylistPicker(.light)
+                        divider
+                        appearancePlaylistPicker(.dark)
+                    }
+                    divider
                     // The icon in the menu bar (6.0): the default and the five
                     // the owner picked from ten drawn in Figma. The menu shows
                     // each glyph beside its name, and the menu bar changes the
@@ -710,6 +727,26 @@ struct SettingsView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 5.5)
             .glassCapsule(fill: 0.09, stroke: 0.15)
+    }
+
+    private func appearancePlaylistPicker(_ appearance: WallpaperAppearance) -> some View {
+        let title = appearance == .light ? L("Light Playlist") : L("Dark Playlist")
+        let selectedID = store.wallpaperPlaylistID(for: appearance)
+        let managedID = appearance.playlistID
+        let managedTitle = L("Automatic")
+        return row(icon: .appearance, title: title, subtitle: L("Choose a desktop playlist")) {
+            Picker(title, selection: Binding(
+                get: { store.playlists.contains { $0.id == selectedID } ? selectedID : managedID },
+                set: { store.setWallpaperPlaylist($0, for: appearance) }
+            )) {
+                Text(managedTitle).tag(managedID)
+                ForEach(store.playlists.filter { $0.id != managedID }) { playlist in
+                    Text(playlist.name).tag(playlist.id)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 180)
+        }
     }
 
     private func row(

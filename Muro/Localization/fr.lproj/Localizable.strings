@@ -625,3 +625,9 @@
 "System@@look" = "Système";
 "Midnight@@look" = "Bleu nuit";
 "Choose how Muro looks" = "Choisir l’apparence de Muro";
+"Wallpaper follows System Appearance" = "Fond d’écran selon l’apparence système";
+"Switch desktop playlists with macOS" = "Changer de liste quand macOS passe du clair au sombre";
+"Light Playlist" = "Liste pour le mode clair";
+"Dark Playlist" = "Liste pour le mode sombre";
+"Choose a desktop playlist" = "Choisir une liste pour le bureau";
+"Automatic" = "Automatique";
