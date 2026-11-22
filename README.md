@@ -43,7 +43,7 @@ wallpaper and every feature is unlocked.
 ## Features
 
 - 🌙 **Live video wallpapers.** Looping, seamless, on every display at once.
-- 🪄 **Interactive wallpapers.** A new kind of wallpaper that follows your pointer and moves with your Mac's sound. Three come with Muro, and you can import your own. Desktop only, and they use more CPU and RAM than a live wallpaper.
+- 🪄 **Interactive wallpapers.** A new kind of wallpaper that follows your pointer and moves with your Mac's sound. New ones arrive in Explore without an update, and you can import your own. Desktop only, and they use more CPU and RAM than a live wallpaper.
 - 🔒 **Lock screen live wallpapers.** Play a wallpaper on your lock screen too, not just the desktop. Set it to the desktop, the lock screen, or both, on every display. Set the lock screen only, and the desktop keeps your own picture. Requires macOS 26 or newer.
 - 🖥️ **Screen saver.** Muro can be your screen saver as well, playing video rather than a still picture, and you set how long your Mac waits before it starts. Requires macOS 26 or newer.
 - 🍎 **The Apple section.** Apple's aerials, Dynamic Wallpapers and screen savers in a tab of their own. The screen savers come as seamless 4K videos, so they play smoothly on the desktop and the lock screen too.
@@ -53,7 +53,7 @@ wallpaper and every feature is unlocked.
 - ⚡ **Smooth or Efficient.** Keep a wallpaper's original frame rate, or drop it to 30 fps to halve the power draw. Your choice, per wallpaper.
 - 🖼️ **Explore gallery.** Browse the catalog, preview full screen, download only what you want.
 - 🔄 **New wallpapers arrive on their own.** The library updates without updating the app. More on that below.
-- 📃 **Playlists.** Rotate through a set on a timer, shuffled or in order. The desktop, the lock screen and the screen saver can each play their own.
+- 📃 **Playlists.** Rotate through a set on the clock, shuffled or in order: every hour means right on the hour, every 30 minutes means :00 and :30. The desktop, the lock screen and the screen saver can each play their own.
 - ⏱️ **Automations.** Give every wallpaper its own time. Ten seconds each, or a full day schedule where each wallpaper has its own hours.
 - ⏸️ **Pause after a set time.** Let a wallpaper play for a while after it changes or after you unlock, then hold still. Set it in seconds, minutes or hours, for everything or for one wallpaper, and turn on Replay on Clear Desktop to get that time again whenever your desktop is clear.
 - 🗑️ **Delete what you do not want.** Remove wallpapers one at a time or several at once, imported videos included.
@@ -62,6 +62,7 @@ wallpaper and every feature is unlocked.
 - 🎛️ **Menu bar controls.** Play, pause, skip and switch live wallpapers without opening the app. Every display has a page of its own with its own sound button, and your ten most recent live wallpapers are a swipe away.
 - 🔗 **Links from other apps.** A Shortcut, a script or another app can switch to a live wallpaper in your Library, pause it or resume it with a `muro://` link. More on that below.
 - 🌐 **Eleven languages.** English, Simplified and Traditional Chinese, Japanese, Korean, Spanish, French, German, Italian, Brazilian Portuguese and Russian. Muro follows your Mac's language, or you can pick another in Settings or the menu bar.
+- 🌗 **Light, Dark or System.** Muro matches macOS in Light or Dark, with Liquid Glass on macOS 26, or follows your Mac with System.
 - ✨ **Tells you when there is a new Muro.** What's New shows what changed in the release and downloads it for you.
 - 💾 **Space control.** See what each wallpaper costs on disk, remove downloads you're done with, or keep them all on another drive.
 - 🆓 **Free and source available.** Anyone can use it and read the code.
@@ -210,9 +211,10 @@ the way while you work.
 whether Muro may listen. Muro only measures how loud the sound is. It never
 records or sends anything.
 
-Muro comes with three of its own: Eclipse, White Sand and Grey Silk. They are in
-Explore under **Interactive Wallpapers**. You can also import your own from the
-Library: an HTML page, or a folder with one. An imported page cannot go online
+Muro's own are in Explore under **Interactive Wallpapers**: Eclipse, White Sand,
+Grey Silk and Levi Ackerman. New ones arrive there without an update, and they
+download only when you ask. You can also import your own from the Library: an
+HTML page, or a folder with one. An imported page cannot go online
 or see your other files.
 
 Interactive wallpapers work on the desktop only, because the lock screen and
