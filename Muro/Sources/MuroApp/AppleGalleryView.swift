@@ -217,8 +217,7 @@ struct AppleGalleryView: View {
         .foregroundStyle(Color.muroAccent)
         .padding(.horizontal, 13)
         .frame(height: 30)
-        .background(Capsule().fill(Color.muroAccent.opacity(0.13)))
-        .overlay(Capsule().strokeBorder(Color.muroAccent.opacity(0.28), lineWidth: 1))
+        .modifier(TintedChipSurface())
     }
 
     /// Each card asks for its sharp picture when it comes into view and stops
@@ -325,8 +324,7 @@ struct AppleGalleryView: View {
                     .foregroundStyle(Color.muroAccent)
                     .padding(.horizontal, 18)
                     .frame(height: 40)
-                    .background(Capsule().fill(Color.muroAccent.opacity(0.13)))
-                    .overlay(Capsule().strokeBorder(Color.muroAccent.opacity(0.28), lineWidth: 1))
+                    .modifier(TintedChipSurface(interactive: true))
             }
             .buttonStyle(.plain)
             .padding(.top, 6)
@@ -362,6 +360,6 @@ struct AppleGalleryView: View {
             .foregroundStyle(Color.muroAccent)
             .frame(width: 54, height: 54)
             .background(Circle().fill(.glassSheen(0.14, 0.05)))
-            .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.16), lineWidth: 1))
+            .overlay(Circle().strokeBorder(Color.muroRim.opacity(0.16), lineWidth: 1))
     }
 }

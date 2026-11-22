@@ -183,7 +183,7 @@ struct WhatsNewView: View {
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
                         .background(Capsule().fill(.glassSheen(0.09, 0.03)))
-                        .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.1), lineWidth: 1))
+                        .overlay(Capsule().strokeBorder(Color.muroRim.opacity(0.1), lineWidth: 1))
                 }
             }
             Text(release.headline)
@@ -209,7 +209,7 @@ struct WhatsNewView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1)
+                .strokeBorder(Color.muroRim.opacity(0.12), lineWidth: 1)
         )
     }
 
@@ -388,7 +388,7 @@ struct WhatsNewView: View {
                 .foregroundStyle(Color.muroAccent)
                 .frame(width: 54, height: 54)
                 .background(Circle().fill(.glassSheen(0.14, 0.05)))
-                .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.16), lineWidth: 1))
+                .overlay(Circle().strokeBorder(Color.muroRim.opacity(0.16), lineWidth: 1))
             Text(L("The notes for this update are on the way"))
                 .font(.system(size: 14.5, weight: .semibold))
                 .foregroundStyle(Color.muroInk)
@@ -407,7 +407,7 @@ struct WhatsNewView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.muroInk.opacity(0.1), lineWidth: 1)
+                .strokeBorder(Color.muroRim.opacity(0.1), lineWidth: 1)
         )
     }
 

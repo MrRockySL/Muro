@@ -76,7 +76,8 @@ struct PreviewView: View {
             }
             .overlay(alignment: .topTrailing) { creditBadge(item) }
             .ignoresSafeArea()
-            .background(Color.muroBG)
+            // Black behind a video, as in any player, on Light too.
+            .background(Appearance.shared.native ? Color.black : Color.muroBG)
             .onAppear { prepareAerial() }
             .onChange(of: itemID) { _, _ in prepareAerial() }
         }
@@ -206,13 +207,26 @@ struct PreviewView: View {
 
     // MARK: - Pill bar
 
+    // The bar sits on the playing video, so on Light and Dark it is drawn in
+    // Dark's colours whatever the look, the way video controls stay dark in
+    // Apple's own players. Written out because macOS picks a system colour by
+    // the window's look, not by the part of the window drawing it. Default's
+    // own colours are already these.
+    private var native: Bool { Appearance.shared.native }
+    private var barInk: Color { native ? Color.white.opacity(0.85) : Color.muroInk }
+    private var barOnInk: Color { native ? Color.black : Color.muroOnInk }
+    private var barSecondary: Color { native ? Color.white.opacity(0.55) : Color.muroSecondary }
+    private var barShade: Color { native ? Color.black : Color.muroShade }
+    private var barGreen: Color { native ? Color(hex: 0x30D158) : Color.muroGreen }
+    private var barWarn: Color { native ? Color(hex: 0xFF9F0A) : Color.muroWarn }
+
     private func pillBar(_ item: WallpaperItem) -> some View {
         HStack(spacing: 14) {
             backButton
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.muroInk)
+                    .foregroundStyle(barInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
                 if item.isInteractive {
@@ -220,19 +234,19 @@ struct PreviewView: View {
                     // is, what it costs and where it works (owner, 2026-11-12).
                     Text(L("Interactive wallpaper. Uses more CPU and RAM than a live wallpaper. Works only on the desktop."))
                         .font(.system(size: 9.5, weight: .medium))
-                        .foregroundStyle(Color.muroSecondary)
+                        .foregroundStyle(barSecondary)
                         .lineSpacing(1)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(width: 240, alignment: .leading)
                 } else {
                     Text(metaLine(item))
                         .font(.system(size: 10.5, weight: .medium))
-                        .foregroundStyle(Color.muroSecondary)
+                        .foregroundStyle(barSecondary)
                 }
                 if !item.isInteractive, let fitWarning = fitWarning(item) {
                     Text(fitWarning)
                         .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundStyle(Color.muroWarn)
+                        .foregroundStyle(barWarn)
                         .lineLimit(1)
                 }
             }
@@ -290,21 +304,15 @@ struct PreviewView: View {
                     ChooseDisplayPopover(item: item)
                         .environmentObject(store)
                 }
+                // It opens over the playing wallpaper, so on Light it takes
+                // the whitish glass: on the clear one its buttons could barely
+                // be seen (owner, 2026-11-21).
+                .environment(\.muroRegularGlass, true)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.ultraThinMaterial.opacity(0.9))
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color.muroShade.opacity(0.35))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .strokeBorder(Color.muroInk.opacity(0.14), lineWidth: 1)
-        )
+        .modifier(BarSurface(shade: barShade))
+        .modifier(OnTheVideo())
     }
 
     /// Size, dimensions and length, or for Apple's pictures and the ones
@@ -359,11 +367,11 @@ struct PreviewView: View {
     /// font-metric center (e.g. share's arrow) so they look centered.
     private func barIcon(_ systemName: String, opticalYOffset: CGFloat = 0) -> some View {
         ZStack {
-            Circle().fill(Color.muroInk.opacity(0.08))
-            Circle().strokeBorder(Color.muroInk.opacity(0.14), lineWidth: 1)
+            Circle().fill(barInk.opacity(0.08))
+            Circle().strokeBorder(Color.muroRim.opacity(0.14), lineWidth: 1)
             Image(systemName: systemName)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color.muroInk)
+                .foregroundStyle(barInk)
                 .offset(y: opticalYOffset)
         }
         .frame(width: 40, height: 40)
@@ -377,18 +385,18 @@ struct PreviewView: View {
             fpsSegment("30", mode: "efficient", hint: L("Lower CPU"), item: item)
         }
         .padding(3)
-        .background(Capsule().fill(Color.muroInk.opacity(0.08)))
-        .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.14), lineWidth: 1))
+        .background(Capsule().fill(barInk.opacity(0.08)))
+        .overlay(Capsule().strokeBorder(Color.muroRim.opacity(0.14), lineWidth: 1))
     }
 
     private func fpsSegment(_ label: String, mode: String, hint: String, item: WallpaperItem) -> some View {
         let selected = store.previewMode == mode
         return Text(label)
             .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(selected ? Color.muroOnInk : Color.muroInk.opacity(0.7))
+            .foregroundStyle(selected ? barOnInk : barInk.opacity(0.7))
             .padding(.horizontal, 11)
             .padding(.vertical, 6)
-            .background { if selected { Capsule().fill(Color.muroInk) } }
+            .background { if selected { Capsule().fill(barInk) } }
             .contentShape(Capsule())
             .onTapGesture { store.setPreviewMode(mode, for: item) }
             .help(L("%@ fps · %@", label, hint))
@@ -431,16 +439,16 @@ struct PreviewView: View {
             HStack(spacing: 6) {
                 Image(systemName: "pause.circle")
                     .font(.system(size: 12))
-                    .foregroundStyle(overridden ? Color.muroAccent : Color.muroInk.opacity(0.75))
+                    .foregroundStyle(overridden ? Color.muroAccent : barInk.opacity(0.75))
                 Text(value == 0 ? L("Off") : durationLabel(value))
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(overridden ? Color.muroAccent : Color.muroInk)
+                    .foregroundStyle(overridden ? Color.muroAccent : barInk)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Capsule().fill(Color.muroInk.opacity(0.08)))
+            .background(Capsule().fill(barInk.opacity(0.08)))
             .overlay(Capsule().strokeBorder(
-                overridden ? Color.muroAccent.opacity(0.4) : Color.muroInk.opacity(0.14),
+                overridden ? Color.muroAccent.opacity(0.4) : barInk.opacity(0.14),
                 lineWidth: 1
             ))
         }
@@ -450,6 +458,8 @@ struct PreviewView: View {
                 set: { store.setPauseAfter($0, for: item) }
             )) { customPauseAfter = false }
         }
+        // The menu and the card open over the playing wallpaper too.
+        .environment(\.muroRegularGlass, true)
         .help(L("Pause after: how long this wallpaper moves before holding on a frame"))
     }
 
@@ -462,16 +472,16 @@ struct PreviewView: View {
             HStack(spacing: 10) {
                 ProgressView(value: progress)
                     .progressViewStyle(.linear)
-                    .tint(Color.muroInk)
+                    .tint(barInk)
                     .frame(width: 70)
                 Text(L("%@% of %@", Int(progress * 100), formatSize(item.sizeBytes)))
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.muroInk.opacity(0.8))
+                    .foregroundStyle(barInk.opacity(0.8))
                     .monospacedDigit()
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(Capsule().fill(Color.muroInk.opacity(0.14)))
+            .background(Capsule().fill(barInk.opacity(0.14)))
         } else if !item.isDownloaded {
             // Preview and Download are ONE action wearing two words — both
             // pull the master. "Preview" is the smaller ask, and once someone
@@ -491,10 +501,10 @@ struct PreviewView: View {
             Text(L("Preparing 30 fps…"))
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
-                .foregroundStyle(Color.muroInk.opacity(0.75))
+                .foregroundStyle(barInk.opacity(0.75))
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
-                .background(Capsule().fill(Color.muroInk.opacity(0.14)))
+                .background(Capsule().fill(barInk.opacity(0.14)))
         } else if store.applyingLockScreen {
             settingFace
         } else if store.appliedFullLabel(for: item.id) != nil {
@@ -526,16 +536,16 @@ struct PreviewView: View {
             HStack(spacing: 10) {
                 ProgressView(value: progress)
                     .progressViewStyle(.linear)
-                    .tint(Color.muroInk)
+                    .tint(barInk)
                     .frame(width: 70)
                 Text(L("%@% of %@", Int(progress * 100), formatSize(item.sizeBytes)))
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.muroInk.opacity(0.8))
+                    .foregroundStyle(barInk.opacity(0.8))
                     .monospacedDigit()
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(Capsule().fill(Color.muroInk.opacity(0.14)))
+            .background(Capsule().fill(barInk.opacity(0.14)))
         } else if store.applyingLockScreen {
             settingFace
         } else if store.appliedFullLabel(for: item.id) != nil {
@@ -573,16 +583,16 @@ struct PreviewView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .hidden()
             HStack(spacing: 8) {
-                ProgressView().controlSize(.small).tint(Color.muroInk)
+                ProgressView().controlSize(.small).tint(barInk)
                 Text(L("Setting…"))
                     .font(.system(size: 13, weight: .semibold))
             }
         }
         .fixedSize()
-        .foregroundStyle(Color.muroInk.opacity(0.82))
+        .foregroundStyle(barInk.opacity(0.82))
         .padding(.horizontal, 22)
         .padding(.vertical, 12)
-        .background(Capsule().fill(Color.muroInk.opacity(0.12)))
+        .background(Capsule().fill(barInk.opacity(0.12)))
     }
 
     /// Applied anywhere at all. Just "Applied", in the same box as Set
@@ -601,11 +611,11 @@ struct PreviewView: View {
             }
         }
         .fixedSize()
-        .foregroundStyle(Color.muroGreen)
+        .foregroundStyle(barGreen)
         .padding(.horizontal, 22)
         .padding(.vertical, 12)
-        .background(Capsule().fill(Color.muroInk.opacity(0.12)))
-        .overlay(Capsule().strokeBorder(Color.muroGreen.opacity(0.4), lineWidth: 1))
+        .background(Capsule().fill(barInk.opacity(0.12)))
+        .overlay(Capsule().strokeBorder(barGreen.opacity(0.4), lineWidth: 1))
     }
 
     private func capsuleButton(_ title: String, systemName: String?, action: @escaping () -> Void) -> some View {
@@ -619,10 +629,10 @@ struct PreviewView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
             }
-            .foregroundStyle(Color.muroOnInk)
+            .foregroundStyle(barOnInk)
             .padding(.horizontal, 22)
             .padding(.vertical, 12)
-            .background(Capsule().fill(Color.muroInk))
+            .background(Capsule().fill(barInk))
         }
         .buttonStyle(.plain)
     }
@@ -639,11 +649,11 @@ struct PreviewView: View {
                 Text(title)
                     .font(.system(size: 13, weight: .semibold))
             }
-            .foregroundStyle(Color.muroInk)
+            .foregroundStyle(barInk)
             .padding(.horizontal, 22)
             .padding(.vertical, 12)
-            .background(Capsule().fill(Color.muroInk.opacity(0.12)))
-            .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.2), lineWidth: 1))
+            .background(Capsule().fill(barInk.opacity(0.12)))
+            .overlay(Capsule().strokeBorder(Color.muroRim.opacity(0.2), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -775,7 +785,7 @@ struct ChooseDisplayPopover: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 7)
                     .background(Capsule().fill(Color.muroInk.opacity(0.12)))
-                    .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.2), lineWidth: 1))
+                    .overlay(Capsule().strokeBorder(Color.muroRim.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .padding(.top, 2)
@@ -814,7 +824,7 @@ struct ChooseDisplayPopover: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 7)
                     .background(Capsule().fill(Color.muroInk.opacity(0.12)))
-                    .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.2), lineWidth: 1))
+                    .overlay(Capsule().strokeBorder(Color.muroRim.opacity(0.2), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .padding(.top, 2)
@@ -993,7 +1003,7 @@ struct ChooseDisplayPopover: View {
             .fill(.glassSheen(0.12, 0.05)))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
             .strokeBorder(
-                applied ? Color.muroGreen.opacity(0.55) : Color.muroInk.opacity(0.14),
+                applied ? Color.muroGreen.opacity(0.55) : Color.muroRim.opacity(0.14),
                 lineWidth: applied ? 1.5 : 1
             ))
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -1041,12 +1051,12 @@ struct ChooseDisplayPopover: View {
                 .font(.system(size: Self.pillFontSize, weight: .semibold))
                 .lineLimit(1)
                 .fixedSize()
-                .foregroundStyle(selected ? Color.muroOnInk : Color.muroInk.opacity(enabled ? 0.8 : 0.3))
+                .foregroundStyle(selected ? Color.muroOnPicked : Color.muroInk.opacity(enabled ? 0.8 : 0.3))
                 .padding(.horizontal, Self.pillPadding)
                 .padding(.vertical, 6)
                 .background {
                     if selected {
-                        Capsule().fill(Color.muroInk)
+                        Capsule().fill(Color.muroPicked)
                             .matchedGeometryEffect(id: "surface", in: surfaceNS)
                     }
                 }
@@ -1092,7 +1102,7 @@ struct ChooseDisplayPopover: View {
                 .overlay(Capsule().strokeBorder(
                     appliedEverywhere
                         ? Color(hex: 0xFF6B6B).opacity(0.4)
-                        : Color.muroInk.opacity(0.18),
+                        : Color.muroRim.opacity(0.18),
                     lineWidth: 1
                 ))
         }
@@ -1196,5 +1206,41 @@ enum ShareFile {
 
     static func clear() {
         try? FileManager.default.removeItem(at: directory)
+    }
+}
+
+/// The wallpaper page's bar. Default: the thin material with a dark wash and
+/// a rim, as before. Light and Dark: Liquid Glass over the video, the way
+/// Apple's players float their controls, with a dark wash inside it so the
+/// white words read on a bright picture too.
+private struct BarSurface: ViewModifier {
+    var shade: Color
+
+    @ViewBuilder func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        if Appearance.shared.native {
+            content
+                .background(shape.fill(Color.black.opacity(0.28)))
+                .appleGlass(shape)
+        } else {
+            content
+                .background(shape.fill(.ultraThinMaterial.opacity(0.9)))
+                .background(shape.fill(shade.opacity(0.35)))
+                .overlay(shape.strokeBorder(Color.muroRim.opacity(0.14), lineWidth: 1))
+        }
+    }
+}
+
+/// The wallpaper page's bar sits on the playing video, so on Light it takes
+/// Dark's colours, the way video controls stay dark in Apple's own players.
+/// Every Light and Dark colour is macOS's own and follows this. Default is
+/// dark already and is left alone.
+private struct OnTheVideo: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if Appearance.shared.native {
+            content.environment(\.colorScheme, .dark)
+        } else {
+            content
+        }
     }
 }

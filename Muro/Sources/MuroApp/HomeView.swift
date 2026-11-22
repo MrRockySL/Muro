@@ -225,10 +225,10 @@ struct HomeView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 22)
                     .padding(.vertical, 12)
-                    .glassCapsule(fill: 0.12, stroke: 0.2)
+                    .modifier(FloatingCapsule(fill: 0.12, stroke: 0.2, interactive: true))
                 }
                 .buttonStyle(.plain)
-                HeartButton(item: item, size: 44)
+                HeartButton(item: item, size: 44, glass: true)
             }
             .padding(.top, 20)
         }

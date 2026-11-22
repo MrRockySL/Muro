@@ -246,6 +246,7 @@ struct AutomationEditorView: View {
                 PillOption(Automation.Mode.timer.rawValue, L("Timer"), systemImage: "timer"),
                 PillOption(Automation.Mode.clock.rawValue, L("Clock"), systemImage: "clock")
             ],
+            picker: true,
             selection: Binding(
                 get: { mode.rawValue },
                 set: { raw in
@@ -383,7 +384,7 @@ struct AutomationEditorView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(Color.muroInk.opacity(0.1), lineWidth: 1)
+                            .strokeBorder(Color.muroRim.opacity(0.1), lineWidth: 1)
                     )
                 Text(store.item(id: step.wallpaperID)?.title ?? L("Missing wallpaper"))
                     .font(.system(size: 13, weight: .semibold))
@@ -403,7 +404,7 @@ struct AutomationEditorView: View {
                         .foregroundStyle(Color.muroInk.opacity(0.7))
                         .frame(width: 28, height: 28)
                         .background(Circle().fill(Color.muroInk.opacity(0.07)))
-                        .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1))
+                        .overlay(Circle().strokeBorder(Color.muroRim.opacity(0.12), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .help(L("Remove from this automation"))
@@ -417,7 +418,7 @@ struct AutomationEditorView: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
                     .strokeBorder(
-                        focused ? Color.muroAccent.opacity(0.5) : Color.muroInk.opacity(0.1),
+                        focused ? Color.muroAccent.opacity(0.5) : Color.muroRim.opacity(0.1),
                         lineWidth: focused ? 1.5 : 1
                     )
             )
@@ -587,7 +588,7 @@ struct AutomationEditorView: View {
                             .padding(.horizontal, 13)
                             .frame(height: 30)
                             .background(Capsule().fill(Color.muroInk.opacity(0.06)))
-                            .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.11), lineWidth: 1))
+                            .overlay(Capsule().strokeBorder(Color.muroRim.opacity(0.11), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -737,7 +738,7 @@ struct TimeChip: View {
         .overlay(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .strokeBorder(
-                    focused ? Color.muroAccent.opacity(0.45) : Color.muroInk.opacity(0.14),
+                    focused ? Color.muroAccent.opacity(0.45) : Color.muroRim.opacity(0.14),
                     lineWidth: 1
                 )
         )
@@ -793,7 +794,7 @@ struct DurationStepper: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(Color.muroInk.opacity(0.14), lineWidth: 1)
+                .strokeBorder(Color.muroRim.opacity(0.14), lineWidth: 1)
         )
     }
 
@@ -847,6 +848,7 @@ struct CustomDurationPicker: View {
         ) {
             PillSegments(
                 options: [PillOption("1", L("sec")), PillOption("60", L("min")), PillOption("3600", L("hr"))],
+                picker: true,
                 selection: $unit,
                 height: 32,
                 labelSize: 12,

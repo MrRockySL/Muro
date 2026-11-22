@@ -3,6 +3,9 @@ import MuroKit
 
 struct MenuBarView: View {
     @EnvironmentObject var store: AppStore
+    /// Dark's panel is drawn the way Default's is (see `muroDefaultStyle`),
+    /// rims included, which Light and Dark otherwise leave out.
+    @Environment(\.muroDefaultStyle) private var defaultStyle
 
     private var currentItem: WallpaperItem? {
         store.currentAppliedID.flatMap { store.item(id: $0) }
@@ -55,7 +58,7 @@ struct MenuBarView: View {
                     .foregroundStyle(Color.muroSecondary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 70)
-                    .glass(cornerRadius: 12)
+                    .modifier(PanelGlass(shape: RoundedRectangle(cornerRadius: 12, style: .continuous)))
             }
             if let version = store.latestRelease?.version {
                 Button {
@@ -127,7 +130,7 @@ struct MenuBarView: View {
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(Color.muroSecondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .glass(cornerRadius: 12)
+                .modifier(PanelGlass(shape: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                 .overlay(alignment: .topLeading) { displayChip(display) }
         }
     }
@@ -146,17 +149,19 @@ struct MenuBarView: View {
                 startPoint: .center, endPoint: .bottom
             )
             VStack(alignment: .leading, spacing: 4) {
+                // On the picture, so white whatever the look. The light look
+                // drew these in its dark text colour on a dark picture.
                 Text(item.title)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.muroInk)
+                    .foregroundStyle(.white)
                 HStack(spacing: 5) {
                     Circle()
-                        .fill(store.isPaused || store.desktopResting ? Color.muroSecondary : Color.muroGreen)
+                        .fill(store.isPaused || store.desktopResting ? Color.muroSecondaryOnMedia : Color.muroGreen)
                         .frame(width: 5, height: 5)
                     Text(statusLine(item, on: named ? display : nil))
                         .font(.system(size: 8.5, weight: .semibold))
                         .tracking(0.8)
-                        .foregroundStyle(Color.muroInk.opacity(0.75))
+                        .foregroundStyle(.white.opacity(0.75))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
@@ -263,9 +268,9 @@ struct MenuBarView: View {
             } label: {
                 Image(systemName: store.isPaused || store.desktopResting ? "play.fill" : "pause.fill")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.muroOnInk)
+                    .foregroundStyle(Color.muroOnPrimary)
                     .frame(width: 44, height: 44)
-                    .background(Circle().fill(Color.muroInk))
+                    .background(Circle().fill(Color.muroPrimary))
             }
             .buttonStyle(.plain)
             .disabled(currentItem == nil)
@@ -290,7 +295,7 @@ struct MenuBarView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(active ? Color.muroAccent : Color.muroInk)
                 .frame(width: 34, height: 34)
-                .glassCapsule(fill: 0.08, stroke: 0.14)
+                .modifier(PanelGlass(shape: Capsule(), fill: 0.08, stroke: 0.14, interactive: true))
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -307,16 +312,16 @@ struct MenuBarView: View {
                     .font(.system(size: 10.5, weight: selected ? .semibold : .medium))
                     .lineLimit(1)
                     .fixedSize()
-                    .foregroundStyle(selected ? Color.muroOnInk : Color.muroInk.opacity(0.7))
+                    .foregroundStyle(selected ? Color.muroOnPicked : Color.muroInk.opacity(0.7))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
-                    .background { if selected { Capsule().fill(Color.muroInk) } }
+                    .background { if selected { Capsule().fill(Color.muroPicked) } }
                     .contentShape(Capsule())
                     .onTapGesture { store.setPlaybackSpeed(speed) }
             }
         }
         .padding(3)
-        .glassCapsule(fill: 0.07, stroke: 0.12)
+        .modifier(PanelGlass(shape: Capsule(), fill: 0.07, stroke: 0.12))
     }
 
     // MARK: - Recents
@@ -341,7 +346,7 @@ struct MenuBarView: View {
             Text(L("RECENTS"))
                 .font(.system(size: 9, weight: .semibold))
                 .tracking(1.4)
-                .foregroundStyle(Color.muroAccent)
+                .foregroundStyle(Color.muroCaption)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(store.recentItems) { item in
@@ -351,7 +356,7 @@ struct MenuBarView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1)
+                                    .strokeBorder((defaultStyle ? Color.muroInk : Color.muroRim).opacity(0.12), lineWidth: 1)
                             )
                             .onTapGesture {
                                 store.setWallpaper(item, mode: store.defaultMode(for: item))
@@ -418,7 +423,7 @@ struct MenuBarView: View {
             Text(L("PLAYLISTS & AUTOMATIONS"))
                 .font(.system(size: 9, weight: .semibold))
                 .tracking(1.4)
-                .foregroundStyle(Color.muroAccent)
+                .foregroundStyle(Color.muroCaption)
             VStack(spacing: 6) {
                 ForEach(store.schedulePlaces) { place in
                     placeRow(place)
@@ -461,7 +466,8 @@ struct MenuBarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .glass(cornerRadius: 12, fill: 0.06, stroke: 0.1)
+        .modifier(PanelGlass(shape: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                             fill: 0.06, stroke: 0.1, interactive: true))
     }
 
     // MARK: - Bottom menu
@@ -544,7 +550,9 @@ struct MenuBarView: View {
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(Capsule().fill(Color.muroAccent.opacity(0.14)))
-                        .overlay(Capsule().strokeBorder(Color.muroAccent.opacity(0.30), lineWidth: 1))
+                        .overlay(Capsule().strokeBorder(
+                            (defaultStyle ? Color.muroAccent : Color.muroAccentRim).opacity(0.30), lineWidth: 1
+                        ))
                 }
                 if let trailing {
                     Image(systemName: trailing)
@@ -814,3 +822,25 @@ private struct RowScrollerProbe: NSViewRepresentable {
     }
 }
 
+/// A control in the menu bar panel. Default, and Dark since its panel is
+/// Default's: Muro's glass, exactly as before (`glass` takes a corner radius,
+/// a capsule is radius 99). Light: a piece of Liquid Glass on the panel's
+/// glass, the way Control Center's buttons and tiles are, so each one has
+/// Apple's clear edge.
+private struct PanelGlass<S: InsettableShape>: ViewModifier {
+    var shape: S
+    var fill: Double = 0.07
+    var stroke: Double = 0.12
+    var interactive = false
+    @Environment(\.muroDefaultStyle) private var defaultStyle
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if Appearance.shared.native && !defaultStyle {
+            content.appleGlass(shape, interactive: interactive)
+        } else if let rounded = shape as? RoundedRectangle {
+            content.glass(cornerRadius: rounded.cornerSize.width, fill: fill, stroke: stroke)
+        } else {
+            content.glassCapsule(fill: fill, stroke: stroke)
+        }
+    }
+}

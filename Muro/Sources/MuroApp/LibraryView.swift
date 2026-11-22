@@ -261,19 +261,10 @@ struct LibraryView: View {
                 Text(selecting ? L("Done") : L("Select"))
                     .font(.system(size: 12.5, weight: .semibold))
             }
-            .foregroundStyle(selecting ? Color.muroOnInk : Color.muroInk.opacity(0.88))
+            .foregroundStyle(selecting ? Color.muroOnPrimary : Color.muroInk.opacity(0.88))
             .padding(.horizontal, 16)
             .frame(height: 38)
-            .background {
-                if selecting {
-                    Capsule().fill(Color.muroInk)
-                } else {
-                    Capsule().fill(.glassSheen(0.10, 0.045))
-                }
-            }
-            .overlay {
-                if !selecting { Capsule().strokeBorder(Color.muroInk.opacity(0.13), lineWidth: 1) }
-            }
+            .modifier(SelectSurface(selecting: selecting))
         }
         .buttonStyle(.plain)
     }
@@ -290,7 +281,7 @@ struct LibraryView: View {
         .padding(.horizontal, 12)
         .frame(height: 30)
         .background(Capsule().fill(Color.muroAccent.opacity(0.13)))
-        .overlay(Capsule().strokeBorder(Color.muroAccent.opacity(0.28), lineWidth: 1))
+        .overlay(Capsule().strokeBorder(Color.muroAccentRim.opacity(0.28), lineWidth: 1))
     }
 
     /// Floating bar, deliberately not a row in the layout: it appears over the
@@ -381,7 +372,7 @@ struct LibraryView: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(
                     dropTargeted ? Color.muroAccent.opacity(0.65)
-                        : Color.muroInk.opacity(lit ? 0.2 : 0.12),
+                        : Color.muroRim.opacity(lit ? 0.2 : 0.12),
                     lineWidth: dropTargeted ? 1.5 : 1
                 )
         )
@@ -619,7 +610,7 @@ struct NewThingCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.muroInk.opacity(hovering ? 0.16 : 0.1), lineWidth: 1)
+                .strokeBorder(Color.muroRim.opacity(hovering ? 0.16 : 0.1), lineWidth: 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 22))
         .onHover { hovering = $0 }
@@ -732,7 +723,7 @@ struct ThumbStrip: View {
                         .fill(Color.muroInk.opacity(0.04))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color.muroInk.opacity(0.06), lineWidth: 1)
+                                .strokeBorder(Color.muroRim.opacity(0.06), lineWidth: 1)
                         )
                         .frame(maxWidth: .infinity)
                         .frame(height: height)
@@ -759,7 +750,7 @@ struct ThumbStrip: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.muroInk.opacity(0.09), lineWidth: 1)
+                    .strokeBorder(Color.muroRim.opacity(0.09), lineWidth: 1)
             )
     }
 }
@@ -922,7 +913,7 @@ struct AutomationCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.muroInk.opacity(0.09), lineWidth: 1)
+                    .strokeBorder(Color.muroRim.opacity(0.09), lineWidth: 1)
             )
     }
 
@@ -1036,6 +1027,7 @@ struct PlaylistEditorView: View {
                 PillSegments(
                     options: Self.presets.map { PillOption("\($0)", Self.shortLabel($0)) }
                         + [PillOption("custom", L("Custom"))],
+                    picker: true,
                     selection: Binding(
                         get: { intervalIsCustom ? "custom" : "\(intervalMinutes)" },
                         set: { raw in
@@ -1164,7 +1156,7 @@ struct PlaylistEditorView: View {
             .background(Capsule().fill(shuffle ? Color.muroAccent.opacity(0.14) : Color.muroInk.opacity(0.06)))
             .overlay(
                 Capsule().strokeBorder(
-                    shuffle ? Color.muroAccent.opacity(0.34) : Color.muroInk.opacity(0.12),
+                    shuffle ? Color.muroAccent.opacity(0.34) : Color.muroRim.opacity(0.12),
                     lineWidth: 1
                 )
             )
@@ -1184,7 +1176,7 @@ struct PlaylistEditorView: View {
         .padding(.horizontal, 12)
         .frame(height: 26)
         .background(Capsule().fill(Color.muroAccent.opacity(0.13)))
-        .overlay(Capsule().strokeBorder(Color.muroAccent.opacity(0.28), lineWidth: 1))
+        .overlay(Capsule().strokeBorder(Color.muroAccentRim.opacity(0.28), lineWidth: 1))
     }
 
     private func load() {
@@ -1255,6 +1247,7 @@ struct CustomIntervalPicker: View {
         ) {
             PillSegments(
                 options: [PillOption("1", L("min")), PillOption("60", L("hr"))],
+                picker: true,
                 selection: $unit,
                 height: 32,
                 labelSize: 12,
@@ -1292,6 +1285,31 @@ extension View {
             Text(kind == "playlist"
                  ? L("This playlist is deleted for good. Its wallpapers stay in your Library.")
                  : L("This automation is deleted for good. Its wallpapers stay in your Library."))
+        }
+    }
+}
+
+/// The Select button's surface. Default: Muro's glass, solid while
+/// selecting. Light and Dark: Apple's Liquid Glass button, and the accent
+/// glass of a prominent one while it says Done.
+private struct SelectSurface: ViewModifier {
+    var selecting: Bool
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if Appearance.shared.native {
+            content.appleGlass(Capsule(), interactive: true, tint: selecting ? Color.sysAccent : nil)
+        } else {
+            content
+                .background {
+                    if selecting {
+                        Capsule().fill(Color.muroPrimary)
+                    } else {
+                        Capsule().fill(.glassSheen(0.10, 0.045))
+                    }
+                }
+                .overlay {
+                    if !selecting { Capsule().strokeBorder(Color.muroRim.opacity(0.13), lineWidth: 1) }
+                }
         }
     }
 }

@@ -356,6 +356,7 @@ struct RootView: View {
                 .id(store.tab)
                 .transition(.opacity)
 
+                TopBarBackdrop()
                 TopBar()
 
                 if let preview = store.previewItem {

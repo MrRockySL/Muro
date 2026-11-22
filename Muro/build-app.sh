@@ -43,6 +43,22 @@ rm -rf "$DIR/dist"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 cp "$BIN_PATH/muro-app" "$APP/Contents/MacOS/Muro"
+# Mark the app with the SDK it was really compiled against. SwiftPM's
+# universal build writes the deployment target (14.0) as the SDK as well, and
+# macOS then runs Muro in the older design's compatibility mode: the grey
+# window colour, the old greys, and none of macOS 26's Liquid Glass on its
+# system parts (owner, 2026-11-20: Muro must look exactly like Apple's own
+# apps). The minimum stays 14.0, so who can run Muro does not change.
+SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+vtool -set-build-version macos 14.0 "$SDK_VERSION" -replace \
+    -output "$APP/Contents/MacOS/Muro.stamped" "$APP/Contents/MacOS/Muro" 2>&1 \
+    | grep -v "code signature will be invalid" || true
+mv "$APP/Contents/MacOS/Muro.stamped" "$APP/Contents/MacOS/Muro"
+if ! otool -l "$APP/Contents/MacOS/Muro" | grep -q "sdk $SDK_VERSION"; then
+    echo "ERROR: the app is not marked with SDK $SDK_VERSION" >&2
+    exit 1
+fi
+echo "==> marked as built with the macOS $SDK_VERSION SDK (runs on 14.0 and later)"
 # Takes a picture of an imported screen saver that carries none of its own,
 # in a process of its own so a broken screen saver cannot crash Muro.
 if [[ ! -f "$BIN_PATH/muro-saver-picture" ]]; then

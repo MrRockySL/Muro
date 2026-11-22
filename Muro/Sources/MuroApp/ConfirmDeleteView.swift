@@ -172,7 +172,7 @@ struct ConfirmDeleteView: View {
                     .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .strokeBorder(Color.muroInk.opacity(0.08), lineWidth: 1)
+                            .strokeBorder(Color.muroRim.opacity(0.08), lineWidth: 1)
                     )
             }
             if overflow {

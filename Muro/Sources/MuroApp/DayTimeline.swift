@@ -120,7 +120,7 @@ private struct DayTrack: View {
             .fill(Color.muroInk.opacity(0.05))
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.muroInk.opacity(0.11), lineWidth: 1)
+                    .strokeBorder(Color.muroRim.opacity(0.11), lineWidth: 1)
             )
             .overlay {
                 GeometryReader { geo in
@@ -176,7 +176,7 @@ private struct SpanBlock: View {
                 .allowsHitTesting(false)
             }
         }
-        .overlay(shape.strokeBorder(Color.muroInk.opacity(0.22), lineWidth: 1))
+        .overlay(shape.strokeBorder(Color.muroRim.opacity(0.22), lineWidth: 1))
         .padding(.leading, 2)
     }
 

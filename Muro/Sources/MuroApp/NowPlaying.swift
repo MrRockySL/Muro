@@ -131,7 +131,7 @@ private struct NowPlayingTile: View {
                 // The top bar's white glass bubble, glyph glow included, so
                 // the three places read as the app's own controls.
                 PlaceGlyph(place: place, size: 17)
-                    .shadow(color: .white.opacity(0.45), radius: 3)
+                    .shadow(color: .white.opacity(Appearance.shared.native ? 0 : 0.45), radius: 3)
                     .bubbleSurface(size: 34, tint: .white)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(place.title.uppercased())
@@ -159,7 +159,7 @@ private struct NowPlayingTile: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.muroInk.opacity(hovering ? 0.18 : 0.12), lineWidth: 1)
+                    .strokeBorder(Color.muroRim.opacity(hovering ? 0.18 : 0.12), lineWidth: 1)
             )
             .contentShape(RoundedRectangle(cornerRadius: 18))
             .onHover { hovering = $0 }

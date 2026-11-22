@@ -73,26 +73,32 @@ struct AppleNoticeCard: View {
         .padding(.horizontal, 28)
         .padding(.bottom, 20)
         .frame(width: Self.width)
-        .background(surface)
+        .background { if !Appearance.shared.native { surface } }
         .modifier(DarkGlass(shape: shape))
         .overlay(
             shape.strokeBorder(
                 LinearGradient(
-                    colors: [Color.muroInk.opacity(0.3), Color.muroInk.opacity(0.06)],
+                    colors: Appearance.shared.native
+                        ? [Color.clear, Color.clear]
+                        : [Color.muroInk.opacity(0.3), Color.muroInk.opacity(0.06)],
                     startPoint: .top, endPoint: .bottom
                 ),
                 lineWidth: 1
             )
         )
         .overlay(alignment: .top) {
-            LinearGradient(
-                colors: [.white.opacity(0), .white.opacity(0.35), .white.opacity(0)],
-                startPoint: .leading, endPoint: .trailing
-            )
-            .frame(height: 1)
-            .padding(.horizontal, 90)
+            if !Appearance.shared.native {
+                LinearGradient(
+                    colors: [.white.opacity(0), .white.opacity(0.35), .white.opacity(0)],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(height: 1)
+                .padding(.horizontal, 90)
+            }
         }
-        .shadow(color: .black.opacity(0.5), radius: 30, y: 14)
+        // Light and Dark: the soft shadow of a macOS sheet, lighter on Light.
+        .shadow(color: .black.opacity(Appearance.shared.isLight ? 0.18 : 0.5),
+                radius: Appearance.shared.native ? 24 : 30, y: Appearance.shared.native ? 10 : 14)
         // Return is Got it (`PrimaryPill`); this is Esc.
         .background {
             Button("", action: close)
@@ -106,7 +112,7 @@ struct AppleNoticeCard: View {
     private var header: some View {
         HStack(spacing: 14) {
             NoticeGlyph(kind: .people, size: 20)
-                .shadow(color: .white.opacity(0.45), radius: 3)
+                .shadow(color: .white.opacity(Appearance.shared.native ? 0 : 0.45), radius: 3)
                 .bubbleSurface(size: 40, tint: .white)
             VStack(alignment: .leading, spacing: 3) {
                 Text(L("About this section"))
@@ -114,7 +120,7 @@ struct AppleNoticeCard: View {
                     .foregroundStyle(Color.muroInk)
                 Text(L("This section was added by community request."))
                     .font(.system(size: 13))
-                    .foregroundStyle(Color.muroAccent)
+                    .foregroundStyle(Color.muroCaption)
             }
             Spacer(minLength: 0)
         }
@@ -146,7 +152,7 @@ struct AppleNoticeCard: View {
         let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
         return VStack(alignment: .leading, spacing: 12) {
             glyph()
-                .shadow(color: .white.opacity(0.45), radius: 3)
+                .shadow(color: .white.opacity(Appearance.shared.native ? 0 : 0.45), radius: 3)
                 .bubbleSurface(size: 34, tint: .white)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -162,8 +168,7 @@ struct AppleNoticeCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(shape.fill(.glassSheen(0.08, 0.025)))
-        .overlay(shape.strokeBorder(Color.muroInk.opacity(0.1), lineWidth: 1))
+        .modifier(KindTile(shape: shape))
     }
 
     /// Muro's own live wallpapers are what the low CPU, RAM and power promise
@@ -211,7 +216,8 @@ struct AppleNoticeCard: View {
     /// (owner, 2026-10-02).
     private var surface: some View {
         let shape = RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
-        let solid = Appearance.shared.mode == .dark
+        // Solid on Light and Dark, a macOS sheet; Default keeps its glass.
+        let solid = Appearance.shared.native
         return shape
             .fill(
                 LinearGradient(
@@ -241,14 +247,50 @@ struct AppleNoticeCard: View {
 /// card's own dark surface sits over it, so the page behind shows only as a
 /// soft blur at the edges; clear glass let it through too much (owner,
 /// 2026-10-02).
-private struct DarkGlass<S: Shape>: ViewModifier {
+private struct DarkGlass<S: InsettableShape>: ViewModifier {
     let shape: S
 
-    func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
+    /// How much of the window's own colour lies under the glass. With none,
+    /// the pictures of the section showed through too much on Dark, and on
+    /// Light the card could not be seen (owner, 2026-11-21).
+    static var base: Double { 0.35 }
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if Appearance.shared.native {
+            // Light and Dark: a pane of Liquid Glass, the menu bar panel's
+            // own kind, over the lightly dimmed section (owner, 2026-11-20).
+            // The regular glass on Light too, and the window's colour under
+            // it, so less of the page shows through.
+            content
+                .appleGlass(shape)
+                .background(shape.fill(Color.sysWindow.opacity(Self.base)))
+                .environment(\.muroRegularGlass, true)
+        } else if #available(macOS 26.0, *) {
             content.glassEffect(.regular.tint(Color.muroShade.opacity(0.4)), in: shape)
         } else {
             content.background(.ultraThinMaterial, in: shape)
+        }
+    }
+}
+
+/// One of the three kinds on the card. Default: a lit glass tile. Light and
+/// Dark: a piece of Liquid Glass on the glass card, like the rows of the menu
+/// bar panel.
+private struct KindTile: ViewModifier {
+    let shape: RoundedRectangle
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if Appearance.shared.native {
+            content
+                // On Light a pane of glass on the white card is white on
+                // white, so it takes the grey of a grouped box in System
+                // Settings to be seen.
+                .background(shape.fill(Appearance.shared.isLight ? Color.sysGroupFill : Color.clear))
+                .appleGlass(shape)
+        } else {
+            content
+                .background(shape.fill(.glassSheen(0.08, 0.025)))
+                .overlay(shape.strokeBorder(Color.muroRim.opacity(0.1), lineWidth: 1))
         }
     }
 }

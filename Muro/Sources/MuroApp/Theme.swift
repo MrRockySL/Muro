@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import CoreImage
 import Observation
 import MuroKit
 
@@ -66,6 +67,11 @@ final class Appearance {
 
     var isLight: Bool { mode == .light }
 
+    /// Light and Dark are macOS's own Light and Dark: its colours, its blue,
+    /// its greys, drawn the way Apple's apps draw their controls (owner,
+    /// 2026-11-20). Default is Muro's own look and keeps every old value.
+    var native: Bool { mode != .standard }
+
     /// What SwiftUI is told, for the system parts of each window.
     var colorScheme: ColorScheme { isLight ? .light : .dark }
 
@@ -130,6 +136,39 @@ struct Palette {
     /// leaves it out: black there means black (owner, 2026-10-02).
     var wash: Double = 1
 
+    // The roles below only Light and Dark set. On Default each is nil and the
+    // token it stands in for is used, so Default draws exactly as before.
+
+    /// The small caps that head a section. Default: the accent.
+    var captionColor: Color? = nil
+    /// The selected item of a bar that moves between pages (the top bar's
+    /// tabs, the Library's tabs, Explore's categories): Apple's toolbars give
+    /// it a soft grey pill, not the accent. Default: the ink pill.
+    var navSelectedColor: Color? = nil
+    var onNavSelectedColor: Color? = nil
+    /// The chosen value of a picker (Appearance, Quality, a speed): Apple's
+    /// form pickers fill it with the accent. Default: the ink pill.
+    var pickedColor: Color? = nil
+    var onPickedColor: Color? = nil
+    /// The one button a sheet or bar is asking you to press. Default: ink.
+    var primaryColor: Color? = nil
+    var onPrimaryColor: Color? = nil
+    /// Hairline rims on controls and panels. Apple's controls have none.
+    /// Default: the ink.
+    var rimColor: Color? = nil
+    /// The shadow under a control. Apple's controls cast none. Default: black.
+    var controlShadowColor: Color? = nil
+
+    var caption: Color { captionColor ?? accent }
+    var navSelected: Color { navSelectedColor ?? ink }
+    var onNavSelected: Color { onNavSelectedColor ?? onInk }
+    var picked: Color { pickedColor ?? ink }
+    var onPicked: Color { onPickedColor ?? onInk }
+    var primary: Color { primaryColor ?? ink }
+    var onPrimary: Color { onPrimaryColor ?? onInk }
+    var rim: Color { rimColor ?? ink }
+    var controlShadow: Color { controlShadowColor ?? .black }
+
     /// Muro as it has always looked. Every value is the one the app used
     /// before 6.0, so Default is the old app exactly.
     static let standard = Palette(
@@ -155,58 +194,129 @@ struct Palette {
         wash: 1
     )
 
-    /// Black and white. The midnight blue goes to true black and neutral
-    /// greys, the moonbeam to white, the page's coloured blooms to a faint
-    /// white one. Green, amber and red keep their meaning.
+    /// macOS's Dark. Every colour is one of macOS's own, so it resolves to
+    /// exactly what Apple's apps draw: the window's dark grey, its text greys,
+    /// its fills, and the accent the person picked in System Settings (blue
+    /// for most). Measured against App Store, Music, Calendar and System
+    /// Settings on 2026-11-20. Over a playing wallpaper things stay white.
     static let mono = Palette(
-        background: Color(hex: 0x050505),
-        pageTop: Color(hex: 0x0B0B0B), pageMid: Color(hex: 0x060606), pageBottom: Color(hex: 0x000000),
-        blooms: 0.35,
-        accent: .white,
-        onAccent: .black,
-        glow: .white,
-        secondary: Color(hex: 0x98989D),
-        ink: .white,
-        onInk: .black,
-        shade: .black,
-        sheetTop: Color(hex: 0x0A0A0A), sheetBottom: Color(hex: 0x000000),
-        menuBase: Color(hex: 0x000000),
-        trayTop: .white.opacity(0.055), trayBottom: .white.opacity(0.022),
-        scrim: .black.opacity(0.55),
-        // A white track would hide the switch's white knob.
-        switchOn: Color(hex: 0x8E8E93),
-        accentOnMedia: .white, secondaryOnMedia: Color(hex: 0xA1A1A6),
-        green: Color(hex: 0x7DE8A8), warn: Color(hex: 0xFFC46B), danger: Color(hex: 0xFF6B6B),
-        violet: .white, teal: .white,
-        darkMaterials: true,
-        wash: 0
-    )
-
-    /// White. Apple's light greys for the page and the second-level text, a
-    /// near black for text and for everything the moonbeam marked, so the
-    /// buttons go dark. Green, amber and red are deepened to read on white.
-    static let light = Palette(
-        background: Color(hex: 0xF5F5F7),
-        pageTop: Color(hex: 0xF7F7F9), pageMid: Color(hex: 0xF0F0F3), pageBottom: Color(hex: 0xE8E8EC),
+        background: .sysWindow,
+        pageTop: .sysWindow, pageMid: .sysWindow, pageBottom: .sysWindow,
         blooms: 0,
-        accent: Color(hex: 0x1D1D1F),
+        accent: .sysAccent,
         onAccent: .white,
         glow: .clear,
-        secondary: Color(hex: 0x6E6E73),
-        ink: Color(hex: 0x1D1D1F),
-        onInk: .white,
-        shade: .white,
-        sheetTop: Color(hex: 0xFFFFFF), sheetBottom: Color(hex: 0xF4F4F7),
-        menuBase: Color(hex: 0xFFFFFF),
-        trayTop: .white.opacity(0.8), trayBottom: .white.opacity(0.62),
-        scrim: .black.opacity(0.22),
-        switchOn: Color(hex: 0x1D1D1F),
-        accentOnMedia: .white, secondaryOnMedia: Color(hex: 0xD1D1D6),
-        green: Color(hex: 0x1E8E4E), warn: Color(hex: 0xB26A00), danger: Color(hex: 0xD7263D),
-        violet: Color(hex: 0x5E5CE6), teal: Color(hex: 0x0E9E90),
-        darkMaterials: false,
-        wash: 0
+        secondary: .sysSecondaryLabel,
+        ink: .sysLabel,
+        onInk: .sysInverse,
+        shade: .black,
+        sheetTop: .sysWindow, sheetBottom: .sysWindow,
+        menuBase: .sysWindow,
+        trayTop: .clear, trayBottom: .clear,
+        scrim: .black.opacity(0.25),
+        switchOn: .sysAccent,
+        accentOnMedia: .white, secondaryOnMedia: Color(hex: 0xA1A1A6),
+        green: .sysGreen, warn: .sysWarn, danger: .sysDanger,
+        violet: Color(nsColor: .systemIndigo), teal: Color(nsColor: .systemTeal),
+        darkMaterials: true,
+        wash: 0,
+        captionColor: .sysSecondaryLabel,
+        navSelectedColor: .sysFill, onNavSelectedColor: .sysLabel,
+        pickedColor: .sysAccent, onPickedColor: .white,
+        primaryColor: .sysAccent, onPrimaryColor: .white,
+        rimColor: .clear,
+        controlShadowColor: .clear
     )
+
+    /// macOS's Light, the same way: white window, Apple's text greys and
+    /// fills, the system accent. Green, amber and red are a shade deeper than
+    /// Apple's, the way its own status text is, so they read on white.
+    static let light = Palette(
+        background: .sysWindow,
+        pageTop: .sysWindow, pageMid: .sysWindow, pageBottom: .sysWindow,
+        blooms: 0,
+        accent: .sysAccent,
+        onAccent: .white,
+        glow: .clear,
+        secondary: .sysSecondaryLabel,
+        ink: .sysLabel,
+        onInk: .sysInverse,
+        // The window's own colour: white here, and dark wherever a part of
+        // the light look is drawn dark, such as the bar over a playing video.
+        shade: .sysWindow,
+        sheetTop: .sysWindow, sheetBottom: .sysWindow,
+        menuBase: .sysWindow,
+        trayTop: .clear, trayBottom: .clear,
+        scrim: .black.opacity(0.1),
+        switchOn: .sysAccent,
+        // Dark's grey where a part of the light look is drawn dark, such as
+        // the menu bar panel (owner, 2026-11-21).
+        accentOnMedia: .white,
+        secondaryOnMedia: .dynamic(light: NSColor(hex: 0xD1D1D6), dark: NSColor(hex: 0xA1A1A6)),
+        green: .sysGreen, warn: .sysWarn, danger: .sysDanger,
+        violet: Color(nsColor: .systemIndigo), teal: Color(nsColor: .systemTeal),
+        darkMaterials: false,
+        wash: 0,
+        captionColor: .sysSecondaryLabel,
+        navSelectedColor: .sysFill, onNavSelectedColor: .sysLabel,
+        pickedColor: .sysAccent, onPickedColor: .white,
+        primaryColor: .sysAccent, onPrimaryColor: .white,
+        rimColor: .clear,
+        controlShadowColor: .clear
+    )
+}
+
+extension Color {
+    // macOS 26's own colours, Light and Dark, as Apple's apps get them.
+    //
+    // Written out rather than read from NSColor's names, because Muro is
+    // built to run on macOS 14, and macOS hands an app built that way the
+    // colours of the design before 26: a grey window (#ECECEC) and greys about
+    // twice as strong for every fill, line and second-level text. Measured on
+    // 2026-11-20 against a test app built both ways. These are the values the
+    // names return to an app built for 26 (sRGB), so Muro draws exactly what
+    // App Store, Music and System Settings draw. The accent is the same either
+    // way and stays the person's own choice from System Settings.
+    static let sysWindow = dynamic(light: .white, dark: NSColor(hex: 0x1E1E1E))
+    static let sysLabel = dynamic(light: .black.withAlphaComponent(0.85), dark: .white.withAlphaComponent(0.85))
+    static let sysSecondaryLabel = dynamic(light: .black.withAlphaComponent(0.5), dark: .white.withAlphaComponent(0.55))
+    static let sysTertiaryLabel = dynamic(light: .black.withAlphaComponent(0.26), dark: .white.withAlphaComponent(0.25))
+    static let sysAccent = Color(nsColor: .controlAccentColor)
+    static let sysSeparator = dynamic(light: .black.withAlphaComponent(0.1), dark: .white.withAlphaComponent(0.12))
+    /// A switch that is off, a selected toolbar segment (10%).
+    static let sysFill = dynamic(light: .black.withAlphaComponent(0.1), dark: .white.withAlphaComponent(0.1))
+    /// A button, a segmented control's track, a pop-up (8%).
+    static let sysControlFill = dynamic(light: .black.withAlphaComponent(0.08), dark: .white.withAlphaComponent(0.08))
+    /// A grouped box like System Settings' (3%).
+    static let sysGroupFill = dynamic(light: .black.withAlphaComponent(0.03), dark: .white.withAlphaComponent(0.03))
+
+    /// White on Light and black on Dark: words on a fill of the text colour.
+    static let sysInverse = dynamic(light: .white, dark: .black)
+    /// Apple's green, orange and red on Dark. On Light the shade deeper that
+    /// Apple's own status words use, so they read on white.
+    static let sysGreen = dynamic(light: NSColor(hex: 0x1E8E4E), dark: .systemGreen)
+    static let sysWarn = dynamic(light: NSColor(hex: 0xB26A00), dark: .systemOrange)
+    static let sysDanger = dynamic(light: NSColor(hex: 0xD7263D), dark: .systemRed)
+
+    /// One colour on Light and another on Dark, picked the way macOS picks
+    /// its own: by the appearance of whatever is drawing it. So a part of the
+    /// light look that is told to be dark (the bar over a video) gets Dark's.
+    static func dynamic(light: NSColor, dark: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+        })
+    }
+}
+
+extension NSColor {
+    convenience init(hex: UInt32) {
+        self.init(
+            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
+        )
+    }
 }
 
 extension Color {
@@ -238,6 +348,21 @@ extension Color {
     static var muroMenuBase: Color { Appearance.shared.palette.menuBase }
     static var muroAccentOnMedia: Color { Appearance.shared.palette.accentOnMedia }
     static var muroSecondaryOnMedia: Color { Appearance.shared.palette.secondaryOnMedia }
+
+    // 6.2, the roles Light and Dark draw the way macOS does. On Default each
+    // is the old token. See `Palette`.
+    static var muroCaption: Color { Appearance.shared.palette.caption }
+    static var muroNavSelected: Color { Appearance.shared.palette.navSelected }
+    static var muroOnNavSelected: Color { Appearance.shared.palette.onNavSelected }
+    static var muroPicked: Color { Appearance.shared.palette.picked }
+    static var muroOnPicked: Color { Appearance.shared.palette.onPicked }
+    static var muroPrimary: Color { Appearance.shared.palette.primary }
+    static var muroOnPrimary: Color { Appearance.shared.palette.onPrimary }
+    static var muroRim: Color { Appearance.shared.palette.rim }
+    static var muroControlShadow: Color { Appearance.shared.palette.controlShadow }
+    /// The rim of an accent-tinted chip ("Clear filters"). Apple's tinted
+    /// buttons have none, so only Default draws it.
+    static var muroAccentRim: Color { Appearance.shared.native ? .clear : Appearance.shared.palette.accent }
 }
 
 struct Glass: ViewModifier {
@@ -245,18 +370,110 @@ struct Glass: ViewModifier {
     var fill: Double = 0.07
     var stroke: Double = 0.12
     @Environment(\.muroOnMedia) private var onMedia
+    @Environment(\.muroDefaultStyle) private var defaultStyle
 
-    func body(content: Content) -> some View {
-        let ink = onMedia ? Color.white : Color.muroInk
-        content
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(ink.opacity(fill))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(ink.opacity(stroke), lineWidth: 1)
-            )
+    @ViewBuilder func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        if Appearance.shared.native && !onMedia && !defaultStyle {
+            // macOS draws a control as a flat fill with no rim: 8% for a
+            // button, a field or a segmented track, 3% for a box that groups
+            // things. The light washes Muro asks for map onto those two.
+            content
+                .background(shape.fill(fill >= 0.07 ? Color.sysControlFill : Color.sysGroupFill))
+        } else {
+            let ink = onMedia ? Color.white : Color.muroInk
+            content
+                .background(shape.fill(ink.opacity(fill)))
+                .overlay(shape.strokeBorder(ink.opacity(stroke), lineWidth: 1))
+        }
+    }
+}
+
+// MARK: - Liquid Glass (Light and Dark)
+
+extension View {
+    /// macOS 26's Liquid Glass, for a control that floats over the page on
+    /// Light and Dark: a tab bar, a toolbar button, the menu bar panel and its
+    /// controls, the bar over a video. It is the glass Apple's own apps are
+    /// made of, with its own edge light and shadow, so nothing is drawn around
+    /// it. `interactive` gives it the press response of Apple's glass buttons.
+    /// Before macOS 26 it is a blurred material with a hairline edge.
+    func appleGlass<S: InsettableShape>(_ shape: S, interactive: Bool = false, tint: Color? = nil) -> some View {
+        modifier(AppleGlass(shape: shape, interactive: interactive, tint: tint))
+    }
+}
+
+private struct AppleGlass<S: InsettableShape>: ViewModifier {
+    let shape: S
+    let interactive: Bool
+    let tint: Color?
+    @Environment(\.muroRegularGlass) private var regular
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.glassEffect(style, in: shape)
+        } else {
+            content
+                .background(.regularMaterial, in: shape)
+                .overlay(shape.strokeBorder(Color.sysSeparator, lineWidth: 0.5))
+        }
+    }
+
+    @available(macOS 26.0, *)
+    private var style: SwiftUI.Glass {
+        var glass = lookGlass(regular: regular)
+        if let tint { glass = glass.tint(tint) }
+        if interactive { glass = glass.interactive() }
+        return glass
+    }
+}
+
+/// Dark takes the regular glass, which darkens what is behind it. Light takes
+/// the clear glass: the regular one turns milky white on Light, and Apple's
+/// own glass on Light reads as clear glass bending the colours behind it
+/// (owner, 2026-11-20: "use the pure liquid glass, not the whitish one").
+/// Where `muroRegularGlass` is set, Light keeps the regular glass too.
+@available(macOS 26.0, *)
+func lookGlass(regular: Bool) -> SwiftUI.Glass {
+    Appearance.shared.isLight && !regular ? .clear : .regular
+}
+
+private struct MuroRegularGlassKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// True where Light keeps the regular, whitish Liquid Glass instead of
+    /// the clear one for the glass controls (`appleGlass`): the menu bar
+    /// panel, the panel and menus that open over a playing wallpaper on a
+    /// wallpaper's page, and the card at the top of the Apple section. Clear
+    /// glass let the picture behind show through so much that the words on
+    /// it could not be read (owner, 2026-11-21: "You have to go with the
+    /// whitish liquid because there is no solution for that"). Dark always
+    /// has the regular glass, so this changes nothing there. Menus and cards
+    /// themselves (`GlassCard`) are the regular glass on every look.
+    ///
+    /// A menu or card is drawn by the window, away from the control that
+    /// opens it, so the control reads this where it sits and hands it on.
+    var muroRegularGlass: Bool {
+        get { self[MuroRegularGlassKey.self] }
+        set { self[MuroRegularGlassKey.self] = newValue }
+    }
+}
+
+private struct MuroDefaultStyleKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// True where Light or Dark draws a part the way Default does, its glass,
+    /// rims and washes, in the look's own colours. The menu bar panel on Dark
+    /// is Default's dark glass with Dark's macOS blue buttons (owner,
+    /// 2026-11-21: "the same default, but the buttons go with blue"). See
+    /// `StatusBarController.drawsDefaultPanel`.
+    var muroDefaultStyle: Bool {
+        get { self[MuroDefaultStyleKey.self] }
+        set { self[MuroDefaultStyleKey.self] = newValue }
     }
 }
 
@@ -288,12 +505,12 @@ struct LiquidGlass: ViewModifier {
         if #available(macOS 26.0, *) {
             content
                 .glassEffect(tint > 0 ? .regular.tint(Color.muroShade.opacity(tint)) : .regular, in: shape)
-                .overlay(shape.strokeBorder(Color.muroInk.opacity(stroke), lineWidth: 1))
+                .overlay(shape.strokeBorder(Color.muroRim.opacity(stroke), lineWidth: 1))
         } else {
             content
                 .background(shape.fill(Color.muroShade.opacity(tint)))
                 .background(.ultraThinMaterial, in: shape)
-                .overlay(shape.strokeBorder(Color.muroInk.opacity(stroke), lineWidth: 1))
+                .overlay(shape.strokeBorder(Color.muroRim.opacity(stroke), lineWidth: 1))
         }
     }
 }
@@ -528,7 +745,27 @@ private struct Bloom: View {
 struct MuroPageBackground: View {
     private var blooms: Double { Appearance.shared.palette.blooms }
 
-    var body: some View {
+    @ViewBuilder var body: some View {
+        if Appearance.shared.native {
+            // Light and Dark: the window's colour, lit from the top by the
+            // wallpaper's own colours (`AmbientLight`). Apple's apps never
+            // sit their glass on an empty page: their sidebars and toolbars
+            // show the desktop through them, macOS tints its windows with the
+            // wallpaper, and Music and TV light their pages with the artwork.
+            // On a flat page the glass bars read as grey pills (owner,
+            // 2026-11-20).
+            ZStack(alignment: .top) {
+                Color.sysWindow
+                AmbientLight()
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+        } else {
+            standardBackground
+        }
+    }
+
+    private var standardBackground: some View {
         LinearGradient(
             colors: [.muroBGTop, .muroBGMid, .muroBGBottom],
             startPoint: .top, endPoint: .bottom
@@ -556,6 +793,119 @@ struct MuroPageBackground: View {
     }
 }
 
+/// The wallpaper's own light at the top of a page, on Light and Dark.
+///
+/// The wallpaper Home features (`heroItem`: the one picked in Home's strip,
+/// else the one on the desktop) is blurred into a wash of its colours, made
+/// darker and richer on Dark and paler on Light, and laid over the top of the
+/// page, fading out by two thirds of the way down. It gives the Liquid Glass
+/// bars real colour to bend, as the desktop does through Apple's sidebars.
+/// On Home it sits behind the banner, so the banner melts into its own light.
+///
+/// A still picture, made once per wallpaper and look off the main thread and
+/// kept: nothing here redraws while the page scrolls or the video plays.
+struct AmbientLight: View {
+    @EnvironmentObject var store: AppStore
+    @State private var landed = 0
+
+    private var key: String? {
+        store.heroItem.map { "\($0.id)|\(Appearance.shared.isLight ? "light" : "dark")" }
+    }
+
+    var body: some View {
+        let key = key
+        GeometryReader { geo in
+            ZStack {
+                if let key, let image = AmbientLightPicture.cached(key) {
+                    Image(decorative: image, scale: 1)
+                        .resizable()
+                        .interpolation(.high)
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height * 0.72)
+                        .clipped()
+                        .mask(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .white, location: 0),
+                                    .init(color: .white.opacity(0.85), location: 0.35),
+                                    .init(color: .white.opacity(0.4), location: 0.65),
+                                    .init(color: .clear, location: 1)
+                                ],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                        .id(key)
+                        .transition(.opacity)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+        }
+        .animation(.easeInOut(duration: 0.45), value: "\(key ?? "") \(landed)")
+        .task(id: key) {
+            guard let key, AmbientLightPicture.cached(key) == nil,
+                  let item = store.heroItem, let path = store.thumbnailPath(for: item) else { return }
+            let dark = !Appearance.shared.isLight
+            let picture = await Task.detached(priority: .utility) {
+                AmbientLightPicture.make(thumbnailPath: path, dark: dark)
+            }.value
+            guard let picture, !Task.isCancelled else { return }
+            AmbientLightPicture.remember(picture, for: key)
+            landed += 1
+        }
+    }
+}
+
+/// Makes and keeps the ambient light's pictures.
+enum AmbientLightPicture {
+    /// Wallpaper id and look to picture. Touched on the main thread only.
+    private static var cache: [String: CGImage] = [:]
+
+    static func cached(_ key: String) -> CGImage? { cache[key] }
+
+    static func remember(_ picture: CGImage, for key: String) {
+        // A handful at most: one per wallpaper featured this session.
+        if cache.count > 24 { cache.removeAll() }
+        cache[key] = picture
+    }
+
+    /// The thumbnail at 192 pixels, blurred until no shape is left, then on
+    /// Dark richer and darker (the light of the picture, not the picture),
+    /// on Light mixed most of the way to white. Off the main thread.
+    static func make(thumbnailPath path: String, dark: Bool) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+              let thumb = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                  kCGImageSourceCreateThumbnailFromImageAlways: true,
+                  kCGImageSourceCreateThumbnailWithTransform: true,
+                  kCGImageSourceThumbnailMaxPixelSize: 192,
+              ] as CFDictionary)
+        else { return nil }
+        let input = CIImage(cgImage: thumb)
+        let extent = input.extent
+        var light = input.clampedToExtent()
+            .applyingGaussianBlur(sigma: 14)
+            .cropped(to: extent)
+            .applyingFilter("CIColorControls", parameters: [
+                kCIInputSaturationKey: dark ? 1.35 : 1.3,
+                kCIInputContrastKey: 1.0,
+                kCIInputBrightnessKey: 0.0,
+            ])
+        // Dark keeps half of the light. Light keeps 62% and is lifted the
+        // rest of the way to white: a light page with the wallpaper's colour
+        // in it, so its glass has colour to bend the way Dark's has (owner,
+        // 2026-11-20). Tuned against his own wallpapers in a copy of Explore.
+        let keep: CGFloat = dark ? 0.52 : 0.62
+        let lift: CGFloat = dark ? 0.0 : 0.38
+        light = light.applyingFilter("CIColorMatrix", parameters: [
+            "inputRVector": CIVector(x: keep, y: 0, z: 0, w: 0),
+            "inputGVector": CIVector(x: 0, y: keep, z: 0, w: 0),
+            "inputBVector": CIVector(x: 0, y: 0, z: keep, w: 0),
+            "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
+            "inputBiasVector": CIVector(x: lift, y: lift, z: lift, w: 0),
+        ])
+        return CIContext(options: [.cacheIntermediates: false]).createCGImage(light, from: extent)
+    }
+}
+
 /// The rounded glass panel a page's content sits inside. Content is clipped to
 /// it, so a scrolled grid dissolves at the corner instead of spilling onto the
 /// background.
@@ -565,6 +915,17 @@ struct GlassTray<Content: View>: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        if Appearance.shared.native {
+            // App Store, Music and TV put their grids straight on the window:
+            // no panel, no rim, no shadow. The content is still clipped, so a
+            // scrolled grid ends where the tray always ended.
+            content.clipShape(shape)
+        } else {
+            standardTray(shape)
+        }
+    }
+
+    private func standardTray(_ shape: RoundedRectangle) -> some View {
         content
             .background(
                 shape.fill(
@@ -596,7 +957,15 @@ extension ShapeStyle where Self == LinearGradient {
     /// Top-lit glass fill. Two stops, because a flat white wash looks like
     /// paper and a real pane is brighter where the light lands.
     static func glassSheen(_ top: Double, _ bottom: Double) -> LinearGradient {
-        LinearGradient(
+        if Appearance.shared.native {
+            // macOS fills a control flat, with no light falling on it. The
+            // same strength as the sheen's middle, a touch more because the
+            // ink here is Apple's 85% text colour: 0.11/0.05 lands on the 8%
+            // Apple fills a button with, 0.05/0.02 on the 3% of a box.
+            let flat = Color.muroInk.opacity((top + bottom) / 2 * 1.15)
+            return LinearGradient(colors: [flat, flat], startPoint: .top, endPoint: .bottom)
+        }
+        return LinearGradient(
             colors: [Color.muroInk.opacity(top), Color.muroInk.opacity(bottom)],
             startPoint: .top, endPoint: .bottom
         )
@@ -617,21 +986,37 @@ extension View {
             .background(shape.fill(.glassSheen(active ? 0.10 : top, active ? 0.04 : bottom)))
             .overlay(
                 shape.strokeBorder(
-                    active ? Color.muroAccent.opacity(0.5) : Color.muroInk.opacity(0.1),
+                    active ? Color.muroAccent.opacity(0.5) : Color.muroRim.opacity(0.1),
                     lineWidth: active ? 1.5 : 1
                 )
             )
-            .shadow(color: active ? Color.muroAccent.opacity(0.18) : .clear, radius: 13, x: 0, y: 3)
+            .shadow(color: active ? Color.muroGlow.opacity(0.18) : .clear, radius: 13, x: 0, y: 3)
     }
 }
 
 // MARK: - The look, per window
 
 /// What each window tells SwiftUI about light and dark, read inside a body so
-/// it follows the look the moment it changes.
+/// it follows the look the moment it changes. A window that is dark on every
+/// look (the menu bar panel and its menus) says so with
+/// `muroColorSchemeOverride`, which every card inside it follows too.
 private struct MuroColorScheme: ViewModifier {
+    @Environment(\.muroColorSchemeOverride) private var override
+
     func body(content: Content) -> some View {
-        content.preferredColorScheme(Appearance.shared.colorScheme)
+        content.preferredColorScheme(override ?? Appearance.shared.colorScheme)
+    }
+}
+
+private struct MuroColorSchemeOverrideKey: EnvironmentKey {
+    static let defaultValue: ColorScheme? = nil
+}
+
+extension EnvironmentValues {
+    /// Set on a window drawn in one scheme whatever the look. Nil: the look's.
+    var muroColorSchemeOverride: ColorScheme? {
+        get { self[MuroColorSchemeOverrideKey.self] }
+        set { self[MuroColorSchemeOverrideKey.self] = newValue }
     }
 }
 

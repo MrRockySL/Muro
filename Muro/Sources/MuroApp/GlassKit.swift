@@ -57,7 +57,30 @@ struct BubbleSurface: ViewModifier {
     private var lit: Bool { hovering || active }
     @Environment(\.muroOnMedia) private var onMedia
 
-    func body(content: Content) -> some View {
+    @ViewBuilder func body(content: Content) -> some View {
+        if Appearance.shared.native {
+            nativeBubble(content)
+        } else {
+            standardBubble(content)
+        }
+    }
+
+    /// Light and Dark: a toolbar button the way macOS 26 draws one in
+    /// Calendar or Finder, a disc of liquid glass with no light or rim of
+    /// its own. On (search open) it holds the soft grey of a selected toolbar
+    /// item; under the pointer it lightens a little.
+    private func nativeBubble(_ content: Content) -> some View {
+        let wash = onMedia ? Color.white.opacity(active ? 0.24 : (hovering ? 0.1 : 0))
+            : (active ? Color.sysFill : Color.sysLabel.opacity(hovering ? 0.05 : 0))
+        return content
+            .frame(width: size, height: size)
+            .background { Circle().fill(wash) }
+            .appleGlass(Circle(), interactive: true)
+            .animation(.easeOut(duration: 0.15), value: hovering)
+            .animation(.easeOut(duration: 0.2), value: active)
+    }
+
+    private func standardBubble(_ content: Content) -> some View {
         let ink = onMedia ? Color.white : Color.muroInk
         return content
             .frame(width: size, height: size)
@@ -206,7 +229,7 @@ struct GlassBubbleButton: View {
             Image(systemName: systemName)
                 .font(.system(size: size * glyphScale, weight: weight))
                 .foregroundStyle(glyph)
-                .shadow(color: tint.opacity(0.45), radius: hovering ? 5 : 3)
+                .shadow(color: Appearance.shared.native ? .clear : tint.opacity(0.45), radius: hovering ? 5 : 3)
                 .rotationEffect(.degrees(turns && hovering ? 40 : 0))
                 .animation(.spring(response: 0.34, dampingFraction: 0.7), value: hovering)
         }
@@ -350,18 +373,18 @@ struct GlassPlayButton: View {
         Button(action: action) {
             Image(systemName: playing ? "pause.fill" : "play.fill")
                 .font(.system(size: diameter * 0.28, weight: .semibold))
-                .foregroundStyle(playing ? Color.muroOnInk : Color.muroInk)
+                .foregroundStyle(playing ? Color.muroOnPicked : Color.muroInk)
                 // The play triangle's ink sits left of its box; nudging it
                 // back is what makes it look centred in a circle.
                 .offset(x: playing ? 0 : 1)
                 .frame(width: diameter, height: diameter)
                 .background(
-                    Circle().fill(playing ? AnyShapeStyle(Color.muroInk) : AnyShapeStyle(LinearGradient.glassSheen(0.16, 0.06)))
+                    Circle().fill(playing ? AnyShapeStyle(Color.muroPicked) : AnyShapeStyle(LinearGradient.glassSheen(0.16, 0.06)))
                 )
                 .overlay {
-                    if !playing { Circle().strokeBorder(Color.muroInk.opacity(0.2), lineWidth: 1) }
+                    if !playing { Circle().strokeBorder(Color.muroRim.opacity(0.2), lineWidth: 1) }
                 }
-                .shadow(color: .black.opacity(0.32), radius: 6, x: 0, y: 3)
+                .shadow(color: Color.muroControlShadow.opacity(0.32), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -408,6 +431,11 @@ private struct SegmentFrames: PreferenceKey {
 /// that.
 struct PillSegments: View {
     var options: [PillOption]
+    /// A choice of value (an interval, Timer or Clock, a unit) rather than a
+    /// way between pages. On Light and Dark it is then drawn as macOS draws a
+    /// form's segmented picker: a flat track with the chosen one in the
+    /// accent. A bar between pages is Liquid Glass with a soft grey pill.
+    var picker: Bool = false
     @Binding var selection: String
     var height: CGFloat = 38
     var labelSize: CGFloat = 13
@@ -431,9 +459,7 @@ struct PillSegments: View {
         }
         .padding(5)
         .background(alignment: .topLeading) { pill }
-        .background(Capsule().fill(Color.muroInk.opacity(0.06)))
-        .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.13), lineWidth: 1))
-        .shadow(color: .black.opacity(0.30), radius: 9, x: 0, y: 4)
+        .modifier(SegmentsTrack(picker: picker))
         .coordinateSpace(name: "segments")
         .onPreferenceChange(SegmentFrames.self) { value in
             frames = value
@@ -444,8 +470,8 @@ struct PillSegments: View {
     @ViewBuilder private var pill: some View {
         if let rect = frames[selection], rect.width > 0 {
             Capsule()
-                .fill(Color.muroInk)
-                .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 2)
+                .fill(picker ? Color.muroPicked : Color.muroNavSelected)
+                .shadow(color: Color.muroControlShadow.opacity(0.35), radius: 4, x: 0, y: 2)
                 .frame(width: rect.width, height: rect.height)
                 .offset(x: rect.minX, y: rect.minY)
                 .animation(Self.travel, value: selection)
@@ -453,13 +479,16 @@ struct PillSegments: View {
         }
     }
 
+    /// Words on the selected pill.
+    private var onPill: Color { picker ? Color.muroOnPicked : Color.muroOnNavSelected }
+
     @ViewBuilder private func segment(_ option: PillOption) -> some View {
         let on = selection == option.id
         HStack(spacing: option.count == nil ? 7 : 8) {
             if let symbol = option.systemImage {
                 Image(systemName: symbol)
                     .font(.system(size: labelSize * 0.85, weight: .medium))
-                    .foregroundStyle(on ? Color.muroOnInk : Color.muroInk.opacity(0.7))
+                    .foregroundStyle(on ? onPill : Color.muroInk.opacity(0.7))
             }
             Text(option.label)
                 // Without this "Every 15 min" wrapped onto two lines and the
@@ -467,19 +496,19 @@ struct PillSegments: View {
                 .font(.system(size: labelSize, weight: .semibold))
                 .lineLimit(1)
                 .fixedSize()
-                .foregroundStyle(on ? Color.muroOnInk : Color.muroInk.opacity(0.78))
+                .foregroundStyle(on ? onPill : Color.muroInk.opacity(0.78))
             if let count = option.count {
                 Text("\(count)")
                     .font(.system(size: labelSize * 0.81, weight: .semibold))
                     .monospacedDigit()
-                    .foregroundStyle(on ? Color.muroOnInk.opacity(0.55) : Color.muroAccent)
+                    .foregroundStyle(on ? onPill.opacity(0.55) : Color.muroCaption)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
                     // A fixed width, so a count going from 9 to 10 cannot
                     // resize the segment the pill is sitting on.
                     .frame(minWidth: 22)
                     .background(
-                        Capsule().fill(on ? Color.muroOnInk.opacity(0.10) : Color.muroAccent.opacity(0.16))
+                        Capsule().fill(on ? onPill.opacity(0.10) : Color.muroCaption.opacity(0.16))
                     )
             }
         }
@@ -499,9 +528,31 @@ struct PillSegments: View {
         // playlist editor's "Custom" is exactly that: tapping it again has to
         // bring the picker back.
         .onTapGesture { selection = option.id }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { selection = option.id }
     }
 }
 
+
+/// The track under a `PillSegments` bar. Default: Muro's glass capsule as it
+/// always was. Light and Dark: Liquid Glass for a bar between pages, the flat
+/// 8% track of a macOS form picker for a value.
+private struct SegmentsTrack: ViewModifier {
+    var picker: Bool
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if !Appearance.shared.native {
+            content
+                .background(Capsule().fill(Color.muroInk.opacity(0.06)))
+                .overlay(Capsule().strokeBorder(Color.muroRim.opacity(0.13), lineWidth: 1))
+                .shadow(color: Color.muroControlShadow.opacity(0.30), radius: 9, x: 0, y: 4)
+        } else if picker {
+            content.background(Capsule().fill(Color.sysControlFill))
+        } else {
+            content.appleGlass(Capsule())
+        }
+    }
+}
 
 // MARK: - Window chrome
 
@@ -580,12 +631,14 @@ struct SheetSurface: ViewModifier {
                     )
                     .overlay(shape.strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1))
                     .overlay(alignment: .top) {
-                        LinearGradient(
-                            colors: [.white.opacity(0), .white.opacity(0.3), .white.opacity(0)],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                        .frame(height: 1)
-                        .padding(.horizontal, 90)
+                        if !Appearance.shared.native {
+                            LinearGradient(
+                                colors: [.white.opacity(0), .white.opacity(0.3), .white.opacity(0)],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                            .frame(height: 1)
+                            .padding(.horizontal, 90)
+                        }
                     }
             }
             // Sheets are their own window on macOS, so the rounded corners
@@ -606,7 +659,7 @@ extension View {
         self
             .frame(width: diameter, height: diameter)
             .background(Circle().fill(.glassSheen(0.13, 0.05)))
-            .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.16), lineWidth: 1))
+            .overlay(Circle().strokeBorder(Color.muroRim.opacity(0.16), lineWidth: 1))
     }
 }
 
@@ -651,7 +704,7 @@ struct SectionLabel: View {
             Text(text)
                 .font(.system(size: 9.5, weight: .semibold))
                 .tracking(1.3)
-                .foregroundStyle(Color.muroAccent)
+                .foregroundStyle(Color.muroCaption)
             if let trailing {
                 Spacer()
                 Text(trailing)
@@ -678,7 +731,7 @@ struct GlassTextField: View {
                 Text(label)
                     .font(.system(size: 8.5, weight: .semibold))
                     .tracking(1.2)
-                    .foregroundStyle(problem == nil ? Color.muroAccent : Color.muroWarn)
+                    .foregroundStyle(problem == nil ? Color.muroCaption : Color.muroWarn)
                 TextField(placeholder, text: $text)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14, weight: .semibold))
@@ -712,7 +765,7 @@ struct GlassTextField: View {
         .overlay(
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .strokeBorder(
-                    problem == nil ? Color.muroInk.opacity(0.13) : Color.muroWarn.opacity(0.5),
+                    problem == nil ? Color.muroRim.opacity(0.13) : Color.muroWarn.opacity(0.5),
                     lineWidth: 1
                 )
         )
@@ -749,7 +802,7 @@ struct PickerTile: View {
             .overlay(alignment: .bottomLeading) {
                 Text(item.title)
                     .font(.system(size: titleSize, weight: .semibold))
-                    .foregroundStyle(Color.muroInk)
+                    .foregroundStyle(.white)
                     .lineLimit(1)
                     .padding(9)
             }
@@ -760,7 +813,7 @@ struct PickerTile: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .strokeBorder(
-                        selected ? Color.muroAccent.opacity(0.85) : Color.muroInk.opacity(0.09),
+                        selected ? Color.muroAccent.opacity(0.85) : Color.muroRim.opacity(0.09),
                         lineWidth: selected ? 1.6 : 1
                     )
             )
@@ -803,11 +856,11 @@ struct PrimaryPill: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(Color.muroOnInk)
+                .foregroundStyle(Color.muroOnPrimary)
                 .padding(.horizontal, 22)
                 .frame(height: 38)
-                .background(Capsule().fill(Color.muroInk))
-                .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
+                .background(Capsule().fill(Color.muroPrimary))
+                .shadow(color: Color.muroControlShadow.opacity(0.4), radius: 6, y: 3)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -828,7 +881,7 @@ struct GhostPill: View {
                 .padding(.horizontal, 20)
                 .frame(height: 38)
                 .background(Capsule().fill(.glassSheen(0.11, 0.05)))
-                .overlay(Capsule().strokeBorder(Color.muroInk.opacity(0.15), lineWidth: 1))
+                .overlay(Capsule().strokeBorder(Color.muroRim.opacity(0.15), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -852,19 +905,63 @@ struct DangerPill: View {
     }
 }
 
+/// The switch in Settings, drawn by hand in every look.
+///
+/// macOS 26 draws its own switch grey in a window that is not the active one,
+/// and Muro's windows never are: with no Dock icon Muro is never the active
+/// app, so every switch read as off (2026-11-20). So it is drawn here, to the
+/// measure of macOS 26's own on Light and Dark (a 54 by 24 track, a 31 by 20
+/// pill knob, the accent when on, the 10% fill when off), and at the old
+/// 38 by 22 with a round knob and Default's own colours on Default.
+struct MuroSwitchStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        MuroSwitch(isOn: configuration.isOn) { configuration.isOn.toggle() }
+    }
+}
+
+private struct MuroSwitch: View {
+    var isOn: Bool
+    var toggle: () -> Void
+
+    var body: some View {
+        let native = Appearance.shared.native
+        let track = native ? CGSize(width: 54, height: 24) : CGSize(width: 38, height: 22)
+        let knob = native ? CGSize(width: 31, height: 20) : CGSize(width: 18, height: 18)
+        Capsule()
+            .fill(isOn ? Color.muroSwitch : (native ? Color.sysFill : Color.muroInk.opacity(0.16)))
+            .frame(width: track.width, height: track.height)
+            .overlay(alignment: isOn ? .trailing : .leading) {
+                Capsule()
+                    .fill(Color.white)
+                    .frame(width: knob.width, height: knob.height)
+                    .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
+                    .padding(.horizontal, 2)
+            }
+            .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isOn)
+            .contentShape(Capsule())
+            .onTapGesture(perform: toggle)
+            .accessibilityElement()
+            .accessibilityAddTraits(.isButton)
+            .accessibilityValue(isOn ? L("On") : L("Off"))
+            .accessibilityAction { toggle() }
+    }
+}
+
 /// A switch drawn by hand. The stock `Toggle` drags AppKit's own blue and its
 /// light-mode chrome into a dark sheet.
 struct MiniSwitch: View {
     var on: Bool
 
     var body: some View {
+        let native = Appearance.shared.native
         Capsule()
-            .fill(on ? Color.muroAccent : Color.muroInk.opacity(0.16))
+            .fill(on ? Color.muroAccent : (native ? Color.sysFill : Color.muroInk.opacity(0.16)))
             .frame(width: 34, height: 20)
             .overlay(alignment: on ? .trailing : .leading) {
                 Circle()
-                    .fill(on ? Color.muroOnAccent : Color.muroInk.opacity(0.85))
+                    .fill(native ? Color.white : (on ? Color.muroOnAccent : Color.muroInk.opacity(0.85)))
                     .frame(width: 15, height: 15)
+                    .shadow(color: .black.opacity(native ? 0.22 : 0), radius: 1, y: 0.5)
                     .padding(.horizontal, 2.5)
             }
     }
@@ -1137,6 +1234,20 @@ struct GlassCard: ViewModifier {
     /// behind the card rather than as depth (owner, 2026-09-11).
     var shadow: Bool = true
 
+    /// Default's card on Light or Dark (see `muroDefaultStyle`).
+    @Environment(\.muroDefaultStyle) private var defaultStyle
+    private var native: Bool { Appearance.shared.native && !defaultStyle }
+
+    /// Apple's menus cast a soft shadow, lighter on Light where a dark one
+    /// reads as dirt on the white.
+    private static var shadowStrength: Double {
+        switch Appearance.shared.mode {
+        case .standard: return 0.5
+        case .light: return 0.16
+        case .dark: return 0.4
+        }
+    }
+
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         return content
@@ -1152,26 +1263,33 @@ struct GlassCard: ViewModifier {
                 )
                 .clipShape(shape)
             }
-            .modifier(GlassMaterial(shape: shape, tint: tint))
+            .modifier(GlassMaterial(shape: shape, tint: native ? 0 : tint))
             // A dark base behind the glass. Two reasons: white text over a
             // bright 4K wallpaper needs it, and the menu bar's menus live in a
             // transparent window of their own, where a material with nothing
-            // behind it has nothing to blur.
-            .background(shape.fill(Color.muroMenuBase.opacity(0.38)))
-            .overlay(shape.strokeBorder(Color.muroInk.opacity(0.18), lineWidth: 1))
+            // behind it has nothing to blur. Light and Dark are macOS 26's
+            // menus instead: the glass alone, which keeps its words readable
+            // by itself.
+            .background(shape.fill(Color.muroMenuBase.opacity(native ? 0 : 0.38)))
+            .overlay(shape.strokeBorder(
+                native ? Color.sysSeparator : Color.muroInk.opacity(0.18), lineWidth: 1
+            ))
             // The top edge catch-light, the detail that makes glass read as
             // glass rather than as a lighter rectangle.
             .overlay(alignment: .top) {
-                LinearGradient(
-                    colors: [.white.opacity(0), .white.opacity(0.34), .white.opacity(0)],
-                    startPoint: .leading, endPoint: .trailing
-                )
-                .frame(height: 1)
-                .padding(.horizontal, cornerRadius * 1.8)
+                if !native {
+                    LinearGradient(
+                        colors: [.white.opacity(0), .white.opacity(0.34), .white.opacity(0)],
+                        startPoint: .leading, endPoint: .trailing
+                    )
+                    .frame(height: 1)
+                    .padding(.horizontal, cornerRadius * 1.8)
+                }
             }
             .shadow(
-                color: .black.opacity(shadow ? 0.5 : 0),
-                radius: shadow ? 20 : 0, x: 0, y: shadow ? 10 : 0
+                color: .black.opacity(shadow ? Self.shadowStrength : 0),
+                radius: shadow ? (native ? 16 : 20) : 0, x: 0,
+                y: shadow ? (native ? 6 : 10) : 0
             )
             .muroColorScheme()
     }
@@ -1179,13 +1297,22 @@ struct GlassCard: ViewModifier {
 
 /// Real liquid glass where the system has it, a blurred material where it does
 /// not. Written once so every menu, card and picker is made of the same thing.
+///
+/// The regular glass on Light too, never the clear one: a menu is words over
+/// whatever is behind it, and on the clear glass the page behind showed
+/// through so plainly that the words were hard to read (owner, 2026-11-21:
+/// "the drop-down shows the reflection fully"). Dark's menus were already
+/// the regular glass, and he called them perfect.
 private struct GlassMaterial: ViewModifier {
     let shape: RoundedRectangle
     let tint: Double
 
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
-            content.glassEffect(.regular.tint(Color.muroShade.opacity(tint)), in: shape)
+            content.glassEffect(
+                tint > 0 ? .regular.tint(Color.muroShade.opacity(tint)) : .regular,
+                in: shape
+            )
         } else {
             content
                 .background(shape.fill(Color.muroShade.opacity(tint)))
@@ -1263,7 +1390,7 @@ struct CustomValueCard<Unit: View>: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 15, style: .continuous)
-                            .strokeBorder(Color.muroInk.opacity(0.22), lineWidth: 1)
+                            .strokeBorder(Color.muroRim.opacity(0.22), lineWidth: 1)
                     )
                 unit
             }
@@ -1271,11 +1398,11 @@ struct CustomValueCard<Unit: View>: View {
             Button(action: apply) {
                 Text(canApply ? applyLabel : L("Enter a number"))
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(Color.muroOnInk)
+                    .foregroundStyle(Color.muroOnPrimary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 38)
-                    .background(Capsule().fill(Color.muroInk))
-                    .shadow(color: .black.opacity(0.35), radius: 5, y: 3)
+                    .background(Capsule().fill(Color.muroPrimary))
+                    .shadow(color: Color.muroControlShadow.opacity(0.35), radius: 5, y: 3)
             }
             .buttonStyle(.plain)
             .disabled(!canApply)
@@ -1534,6 +1661,7 @@ struct MenuButton<Label: View>: View {
     @ViewBuilder var label: () -> Label
 
     @Environment(\.menuPresenter) private var presenter
+    @Environment(\.muroRegularGlass) private var regularGlass
     @State private var anchor: CGRect = .zero
     @State private var screenAnchor = ScreenAnchor()
 
@@ -1557,6 +1685,7 @@ struct MenuButton<Label: View>: View {
             }
             presenter.show(anchor: anchor, width: width, align: align) { dismiss in
                 GlassMenuList(width: width, options: items, dismiss: dismiss)
+                    .environment(\.muroRegularGlass, regularGlass)
             }
         } label: {
             label().contentShape(Rectangle())
@@ -1622,6 +1751,7 @@ private struct GlassContextMenu: ViewModifier {
     var options: () -> [MenuOption]
 
     @Environment(\.menuPresenter) private var presenter
+    @Environment(\.muroRegularGlass) private var regularGlass
     @State private var anchor: CGRect = .zero
     @State private var screenAnchor = ScreenAnchor()
 
@@ -1641,6 +1771,7 @@ private struct GlassContextMenu: ViewModifier {
                 }
                 presenter.show(anchor: anchor, width: width) { dismiss in
                     GlassMenuList(width: width, options: items, dismiss: dismiss)
+                        .environment(\.muroRegularGlass, regularGlass)
                 }
             })
     }
@@ -1653,6 +1784,7 @@ private struct AnchoredCard<C: View>: ViewModifier {
     var card: () -> C
 
     @Environment(\.menuPresenter) private var presenter
+    @Environment(\.muroRegularGlass) private var regularGlass
     @State private var anchor: CGRect = .zero
     @State private var screenAnchor = ScreenAnchor()
 
@@ -1681,6 +1813,7 @@ private struct AnchoredCard<C: View>: ViewModifier {
                     presenter.show(anchor: anchor, width: width, align: align) { _ in
                         card()
                             .glassCard(cornerRadius: 22)
+                            .environment(\.muroRegularGlass, regularGlass)
                             // Fires whether the card closed itself or the user
                             // clicked away, so the flag never gets stuck on.
                             .onDisappear { isPresented = false }

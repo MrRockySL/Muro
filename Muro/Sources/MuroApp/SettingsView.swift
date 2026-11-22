@@ -32,9 +32,16 @@ struct SettingsView: View {
             // the transparent, separator-less titlebar (so the top bar is the
             // same glass, no seam). Content scrolls on top.
             // The light look takes the light kind of glass (6.0).
-            VisualEffectBackground(material: Appearance.shared.isLight ? .popover : .hudWindow)
-                .overlay(Color.muroShade.opacity(0.22))
-                .ignoresSafeArea()
+            if Appearance.shared.native {
+                // Light and Dark: System Settings' own window, the plain
+                // window colour, with the settings in grouped boxes on it.
+                Color.sysWindow
+                    .ignoresSafeArea()
+            } else {
+                VisualEffectBackground(material: .hudWindow)
+                    .overlay(Color.muroShade.opacity(0.22))
+                    .ignoresSafeArea()
+            }
 
             ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
@@ -48,7 +55,7 @@ struct SettingsView: View {
                     row(icon: .launchAtLogin, title: L("Launch at Login"),
                         subtitle: L("Starts quietly in the background")) {
                         Toggle("", isOn: $launchAtLogin)
-                            .toggleStyle(.switch)
+                            .toggleStyle(MuroSwitchStyle())
                             .tint(Color.muroSwitch)
                             .labelsHidden()
                             .onChange(of: launchAtLogin) { _, enabled in
@@ -59,7 +66,7 @@ struct SettingsView: View {
                     row(icon: .menuBar, title: L("Show Menu Bar Icon"),
                         subtitle: menuBarSubtitle) {
                         Toggle("", isOn: $showMenuBarIcon)
-                            .toggleStyle(.switch)
+                            .toggleStyle(MuroSwitchStyle())
                             .tint(Color.muroSwitch)
                             .labelsHidden()
                     }
@@ -67,7 +74,7 @@ struct SettingsView: View {
                     row(icon: .dockIcon, title: L("Show Dock Icon"),
                         subtitle: L("Off keeps Muro in the menu bar only")) {
                         Toggle("", isOn: $showDockIcon)
-                            .toggleStyle(.switch)
+                            .toggleStyle(MuroSwitchStyle())
                             .tint(Color.muroSwitch)
                             .labelsHidden()
                             .onChange(of: showDockIcon) { _, on in
@@ -193,7 +200,7 @@ struct SettingsView: View {
                             get: { store.soundEnabled },
                             set: { store.setSoundEnabled($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
+                        .toggleStyle(MuroSwitchStyle()).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
                     row(icon: .pauseAfter, title: L("Pause After"),
@@ -237,7 +244,7 @@ struct SettingsView: View {
                             get: { store.replayOnClearDesktop },
                             set: { store.setReplayOnClearDesktop($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
+                        .toggleStyle(MuroSwitchStyle()).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
                     // Apple's setting, offered here so a Mac running Muro as
@@ -281,7 +288,7 @@ struct SettingsView: View {
                             get: { store.autoPauseLowPower },
                             set: { store.setAutoPauseLowPower($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
+                        .toggleStyle(MuroSwitchStyle()).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
                     row(icon: .lowBattery, title: L("Auto-pause below 20% battery"),
@@ -290,7 +297,7 @@ struct SettingsView: View {
                             get: { store.autoPauseBattery },
                             set: { store.setAutoPauseBattery($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
+                        .toggleStyle(MuroSwitchStyle()).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
                     row(icon: .covered, title: L("Auto-pause when covered"),
@@ -299,7 +306,7 @@ struct SettingsView: View {
                             get: { store.autoPauseFullScreen },
                             set: { store.setAutoPauseFullScreen($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
+                        .toggleStyle(MuroSwitchStyle()).tint(Color.muroSwitch).labelsHidden()
                     }
                     divider
                     // Issue #22. Any app window open on a screen freezes that
@@ -310,7 +317,7 @@ struct SettingsView: View {
                             get: { store.playOnlyOnDesktop },
                             set: { store.setPlayOnlyOnDesktop($0) }
                         ))
-                        .toggleStyle(.switch).tint(Color.muroSwitch).labelsHidden()
+                        .toggleStyle(MuroSwitchStyle()).tint(Color.muroSwitch).labelsHidden()
                     }
                 }
 
@@ -435,6 +442,21 @@ struct SettingsView: View {
                 screenSaverDelay = ScreenSaverDelay.current()
                 screenSaverDelayJustChanged = false
             }
+            }
+            // Light and Dark: rows that scroll up under the window's
+            // buttons fade into the window, the way System Settings' do,
+            // instead of passing under the traffic lights in full.
+            if Appearance.shared.native {
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        stops: [.init(color: .sysWindow, location: 0.45), .init(color: .sysWindow.opacity(0), location: 1)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                    .frame(height: 30)
+                    Spacer(minLength: 0)
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
             }
         }
         .frame(width: 560, height: 600)
@@ -567,15 +589,15 @@ struct SettingsView: View {
                 .foregroundStyle(Color.muroSecondary)
                 .padding(.leading, 2)
             VStack(spacing: 0) { content() }
-                .liquidGlass(cornerRadius: 14, tint: 0.14, stroke: 0.1)
+                .modifier(SettingsBox())
         }
         .padding(.top, 20)
     }
 
     private var divider: some View {
         Rectangle()
-            .fill(Color.muroInk.opacity(0.06))
-            .frame(height: 1)
+            .fill(Appearance.shared.native ? Color.sysSeparator : Color.muroInk.opacity(0.06))
+            .frame(height: Appearance.shared.native ? 0.5 : 1)
             .padding(.leading, 58)
     }
 
@@ -794,5 +816,19 @@ struct SettingsWindowConfigurator: NSViewRepresentable {
         window.styleMask.insert(.fullSizeContentView)
         window.titlebarSeparatorStyle = .none
         window.isMovableByWindowBackground = true
+    }
+}
+
+/// A group of settings. Default: Muro's glass. Light and Dark: System
+/// Settings' grouped box, a 3% fill of the text colour on the window.
+private struct SettingsBox: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if Appearance.shared.native {
+            content.background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.sysGroupFill)
+            )
+        } else {
+            content.liquidGlass(cornerRadius: 14, tint: 0.14, stroke: 0.1)
+        }
     }
 }
