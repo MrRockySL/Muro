@@ -4,8 +4,8 @@
 
 | Version | Supported |
 | ------- | --------- |
-| 6.1.x   | Yes |
-| < 6.1   | Please update |
+| 6.2.x   | Yes |
+| < 6.2   | Please update |
 
 Only the latest release receives security fixes. Updates are published on the
 [Releases](https://github.com/MrRockySL/Muro/releases) page.
@@ -267,12 +267,18 @@ whenever that screen saver is in use, so only import screen savers you trust.
 ### Interactive wallpapers
 
 Since 6.1, a wallpaper can be an interactive wallpaper: a web page on the
-desktop instead of a video. Muro comes with a few of its own, and the Library's
+desktop instead of a video. Muro has a few of its own, and the Library's
 import bar takes yours, as an HTML page or a folder with one in it. Muro copies
 what you choose into `Interactive` in its own library folder and leaves your
 original where it was. None of this runs unless an interactive wallpaper is on
 your desktop or open on its page in Muro: no web view is made and nothing is
 listened to.
+
+Since 6.2, Muro's own interactive wallpapers come from Muro's server, the same
+place as the live wallpapers. Muro downloads a wallpaper's files only when you
+press Download or Preview, into `Hosted Interactive` in its own library folder,
+and checks each file against the size and SHA-256 in the server's list before
+using it. They run under the same rules as a page you import.
 
 **The page.** An interactive wallpaper is shown by macOS's own web engine
 (WebKit), in separate processes that macOS sandboxes. A page you import is code
@@ -462,7 +468,7 @@ You can inspect and compile the tagged source:
 ```bash
 git clone https://github.com/MrRockySL/Muro.git
 cd Muro
-git checkout v6.1.1
+git checkout v6.2
 swift build -c release --package-path Muro
 ```
 
