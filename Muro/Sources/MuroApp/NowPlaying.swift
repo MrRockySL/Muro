@@ -131,7 +131,6 @@ private struct NowPlayingTile: View {
                 // The top bar's white glass bubble, glyph glow included, so
                 // the three places read as the app's own controls.
                 PlaceGlyph(place: place, size: 17)
-                    .shadow(color: .white.opacity(Appearance.shared.native ? 0 : 0.45), radius: 3)
                     .bubbleSurface(size: 34, tint: .white)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(place.title.uppercased())

@@ -108,8 +108,7 @@ if ! xcrun assetutil --info "$ICON_OUT/Assets.car" | grep -q NSAppearanceNameDar
     exit 1
 fi
 cp "$ICON_OUT/Assets.car" "$ICON_OUT/MuroIcon.icns" "$APP/Contents/Resources/"
-cp "$DIR/Icon/InApp/MuroIcon-Default.png" "$DIR/Icon/InApp/MuroIcon-Light.png" \
-    "$DIR/Icon/InApp/MuroIcon-Dark.png" "$APP/Contents/Resources/"
+cp "$DIR/Icon/InApp/MuroIcon-Light.png" "$DIR/Icon/InApp/MuroIcon-Dark.png" "$APP/Contents/Resources/"
 cp "$DIR/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 
 # The first-launch welcome's two films (WelcomeView.swift): the Muro moon

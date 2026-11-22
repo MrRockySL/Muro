@@ -281,7 +281,6 @@ struct LibraryView: View {
         .padding(.horizontal, 12)
         .frame(height: 30)
         .background(Capsule().fill(Color.muroAccent.opacity(0.13)))
-        .overlay(Capsule().strokeBorder(Color.muroAccentRim.opacity(0.28), lineWidth: 1))
     }
 
     /// Floating bar, deliberately not a row in the layout: it appears over the
@@ -1176,7 +1175,6 @@ struct PlaylistEditorView: View {
         .padding(.horizontal, 12)
         .frame(height: 26)
         .background(Capsule().fill(Color.muroAccent.opacity(0.13)))
-        .overlay(Capsule().strokeBorder(Color.muroAccentRim.opacity(0.28), lineWidth: 1))
     }
 
     private func load() {
@@ -1289,27 +1287,12 @@ extension View {
     }
 }
 
-/// The Select button's surface. Default: Muro's glass, solid while
-/// selecting. Light and Dark: Apple's Liquid Glass button, and the accent
+/// The Select button's surface: Apple's Liquid Glass button, and the accent
 /// glass of a prominent one while it says Done.
 private struct SelectSurface: ViewModifier {
     var selecting: Bool
 
-    @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native {
-            content.appleGlass(Capsule(), interactive: true, tint: selecting ? Color.sysAccent : nil)
-        } else {
-            content
-                .background {
-                    if selecting {
-                        Capsule().fill(Color.muroPrimary)
-                    } else {
-                        Capsule().fill(.glassSheen(0.10, 0.045))
-                    }
-                }
-                .overlay {
-                    if !selecting { Capsule().strokeBorder(Color.muroRim.opacity(0.13), lineWidth: 1) }
-                }
-        }
+    func body(content: Content) -> some View {
+        content.appleGlass(Capsule(), interactive: true, tint: selecting ? Color.sysAccent : nil)
     }
 }

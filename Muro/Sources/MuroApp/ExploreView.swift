@@ -375,7 +375,6 @@ struct ExploreView: View {
             .padding(.horizontal, 18)
             .frame(height: 40)
             .background(Capsule().fill(Color.muroAccent.opacity(0.13)))
-            .overlay(Capsule().strokeBorder(Color.muroAccentRim.opacity(0.28), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .disabled(store.catalogRefreshing)
@@ -399,31 +398,15 @@ struct ExploreView: View {
     }
 }
 
-/// A filter that opens a glass menu. Bigger than the pair Explore used to
-/// A filter button's surface. Default: Muro's lit glass with an accent rim
-/// while a filter is set. Light and Dark: Apple's Liquid Glass button; the
-/// value in the accent says a filter is set.
+/// A filter button's surface: Apple's Liquid Glass button. The value in the
+/// accent says a filter is set.
 private struct FilterSurface: ViewModifier {
-    var set: Bool
-    var hovering: Bool
-
-    @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native {
-            content.appleGlass(Capsule(), interactive: true)
-        } else {
-            content
-                .background(Capsule().fill(.glassSheen(hovering ? 0.14 : 0.10, hovering ? 0.06 : 0.045)))
-                .overlay(
-                    Capsule().strokeBorder(
-                        set ? Color.muroAccent.opacity(0.35) : Color.muroRim.opacity(hovering ? 0.2 : 0.13),
-                        lineWidth: 1
-                    )
-                )
-                .shadow(color: Color.muroControlShadow.opacity(0.28), radius: 8, x: 0, y: 3)
-        }
+    func body(content: Content) -> some View {
+        content.appleGlass(Capsule(), interactive: true)
     }
 }
 
+/// A filter that opens a glass menu. Bigger than the pair Explore used to
 /// carry (the owner asked for both the bubbles and the segments above them to
 /// grow), and split into a grey name and a white value so the current setting
 /// is the part you read.
@@ -457,7 +440,7 @@ struct FilterDropdown: View {
             .fixedSize()
             .padding(.horizontal, 18)
             .frame(height: 42)
-            .modifier(FilterSurface(set: set, hovering: hovering))
+            .modifier(FilterSurface())
             .onHover { hovering = $0 }
             .animation(.easeOut(duration: 0.16), value: hovering)
         }

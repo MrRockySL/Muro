@@ -245,23 +245,22 @@ struct TopBar: View {
     }
 
     private var navPill: some View {
-        let native = Appearance.shared.native
-        return HStack(spacing: 2) {
+        HStack(spacing: 2) {
             ForEach(AppStore.Tab.allCases) { tab in
                 let selected = store.tab == tab
                 Text(tab.title)
                     .font(.system(size: 13, weight: selected ? .semibold : .medium))
                     .foregroundStyle(selected
-                        ? (onMedia ? (native ? Color.white : Color.black) : Color.muroOnNavSelected)
+                        ? (onMedia ? Color.white : Color.muroOnNavSelected)
                         : ink.opacity(0.85))
                     .padding(.horizontal, 20)
                     .padding(.vertical, 9)
                     .background {
                         if selected {
-                            // Light and Dark: the soft grey of a selected
-                            // toolbar segment (Calendar's Day/Week/Month), and
-                            // a white wash of the same weight over the video.
-                            Capsule().fill(onMedia ? (native ? Color.white.opacity(0.22) : ink) : Color.muroNavSelected)
+                            // The soft grey of a selected toolbar segment
+                            // (Calendar's Day/Week/Month), and a white wash of
+                            // the same weight over the video.
+                            Capsule().fill(onMedia ? Color.white.opacity(0.22) : Color.muroNavSelected)
                                 .matchedGeometryEffect(id: "navTab", in: navNS)
                         }
                     }
@@ -381,7 +380,7 @@ struct UpdateCallout: View {
                 }
                 .buttonStyle(.plain)
             }
-            .foregroundStyle(Appearance.shared.native ? Color.muroOnAccent : Color.muroInk)
+            .foregroundStyle(Color.muroOnAccent)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(
@@ -401,15 +400,15 @@ struct UpdateCallout: View {
     }
 }
 
-/// Light and Dark, on Home: once the page has scrolled up under the top bar,
-/// what passes beneath it blurs and fades into the window, the way content
-/// does under the toolbar of Apple's own apps. Before, the wallpapers ran
-/// straight up behind the logo and the tabs. Default draws nothing here.
+/// On Home: once the page has scrolled up under the top bar, what passes
+/// beneath it blurs and fades into the window, the way content does under
+/// the toolbar of Apple's own apps. Before, the wallpapers ran straight up
+/// behind the logo and the tabs.
 struct TopBarBackdrop: View {
     @EnvironmentObject var store: AppStore
 
     private var shown: Bool {
-        Appearance.shared.native && store.tab == .home && !store.heroUnderTopBar
+        store.tab == .home && !store.heroUnderTopBar
     }
 
     var body: some View {
@@ -436,16 +435,12 @@ struct TopBarBackdrop: View {
     }
 }
 
-/// The top bar's tab track. Default: Muro's glass capsule. Light and Dark: the
-/// liquid glass Apple's toolbars sit on (Calendar, Activity Monitor), which
-/// also turns darker by itself over Home's playing banner.
+/// The top bar's tab track: the liquid glass Apple's toolbars sit on
+/// (Calendar, Activity Monitor), which also turns darker by itself over
+/// Home's playing banner.
 private struct NavTrack: ViewModifier {
-    @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native {
-            content.appleGlass(Capsule())
-        } else {
-            content.glassCapsule(fill: 0.08, stroke: 0.14)
-        }
+    func body(content: Content) -> some View {
+        content.appleGlass(Capsule())
     }
 }
 
@@ -477,7 +472,6 @@ struct ImportButton: View {
             // White here, accent in the Library. Same bubble, but the top bar
             // is chrome and the Library's is the page's own call to action.
             PlusGlyph(span: size * 0.36, thickness: size * 0.054, colour: onMedia ? .white : Color.muroInk)
-                .shadow(color: Appearance.shared.native ? .clear : Color.white.opacity(0.45), radius: hovering ? 5 : 3)
         }
         .buttonStyle(BubbleButtonStyle(size: size, hovering: hovering, active: false, tint: .white))
         // An import shows on every tab, not only in the Library where its
@@ -895,11 +889,9 @@ private struct GlassMenuRow: View {
     var dismiss: () -> Void
     @State private var hovering = false
 
-    /// Light and Dark: the row under the pointer turns the accent with white
-    /// words, the way every macOS menu highlights. A checked row is marked by
-    /// its tick alone.
-    private var native: Bool { Appearance.shared.native }
-    private var highlighted: Bool { native && hovering }
+    /// The row under the pointer turns the accent with white words, the way
+    /// every macOS menu highlights. A checked row is marked by its tick alone.
+    private var highlighted: Bool { hovering }
 
     var body: some View {
         Button {
@@ -948,12 +940,7 @@ private struct GlassMenuRow: View {
     }
 
     private var rowFill: Color {
-        if native {
-            return hovering ? (option.destructive ? Color.muroDanger : Color.sysAccent) : .clear
-        }
-        return option.destructive
-            ? Color.muroDanger.opacity(hovering ? 0.12 : 0)
-            : Color.muroInk.opacity(hovering || option.checked ? 0.10 : 0)
+        hovering ? (option.destructive ? Color.muroDanger : Color.sysAccent) : .clear
     }
 }
 
@@ -1167,7 +1154,7 @@ private struct HeartSurface: ViewModifier {
     var glass: Bool
 
     @ViewBuilder func body(content: Content) -> some View {
-        if glass && Appearance.shared.native {
+        if glass {
             content.appleGlass(Circle(), interactive: true)
         } else {
             content.background(Circle().fill(Color.black.opacity(0.4)))
@@ -1495,7 +1482,7 @@ struct CreditLink: View {
             .foregroundStyle(hovering ? Color.muroAccent : ink.opacity(0.78))
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .modifier(CreditChipSurface(onMedia: onMedia, hovering: hovering, ink: ink))
+            .modifier(CreditChipSurface())
             .contentShape(Capsule())
             .onHover { hovering = $0 }
             .onTapGesture { NSWorkspace.shared.open(Credits.url) }
@@ -1504,61 +1491,32 @@ struct CreditLink: View {
     }
 }
 
-/// The credit chip's surface. Default: the dark capsule it always had. Light
-/// and Dark: a small piece of Liquid Glass, like the rest of the top bar.
+/// The credit chip's surface: a small piece of Liquid Glass, like the rest of
+/// the top bar.
 private struct CreditChipSurface: ViewModifier {
-    var onMedia: Bool
-    var hovering: Bool
-    var ink: Color
-
-    @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native {
-            content.appleGlass(Capsule())
-        } else {
-            content
-                .background(Capsule().fill((onMedia ? Color.black : Color.muroShade).opacity(0.38)))
-                .overlay(
-                    Capsule().strokeBorder(
-                        hovering ? Color.muroAccent.opacity(0.45) : ink.opacity(0.14),
-                        lineWidth: 1
-                    )
-                )
-        }
+    func body(content: Content) -> some View {
+        content.appleGlass(Capsule())
     }
 }
 
-/// A floating control's surface: Muro's glass capsule on Default, Apple's
-/// Liquid Glass on Light and Dark. For the search field, the Select button,
-/// the filters and the small chips beside them.
+/// A floating control's surface: Apple's Liquid Glass. For the search field,
+/// the Select button, the filters and the small chips beside them.
 struct FloatingCapsule: ViewModifier {
-    var fill: Double = 0.08
-    var stroke: Double = 0.14
     var interactive = false
     var tint: Color? = nil
 
-    @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native {
-            content.appleGlass(Capsule(), interactive: interactive, tint: tint)
-        } else {
-            content.glassCapsule(fill: fill, stroke: stroke)
-        }
+    func body(content: Content) -> some View {
+        content.appleGlass(Capsule(), interactive: interactive, tint: tint)
     }
 }
 
-/// An accent chip ("Clear filters", "2 on this Mac"). Default: an accent
-/// wash with an accent rim. Light and Dark: Liquid Glass; the accent is in
-/// the words.
+/// An accent chip ("Clear filters", "2 on this Mac"): Liquid Glass, with the
+/// accent in the words.
 struct TintedChipSurface: ViewModifier {
     var interactive = false
 
-    @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native {
-            content.appleGlass(Capsule(), interactive: interactive)
-        } else {
-            content
-                .background(Capsule().fill(Color.muroAccent.opacity(0.13)))
-                .overlay(Capsule().strokeBorder(Color.muroAccentRim.opacity(0.28), lineWidth: 1))
-        }
+    func body(content: Content) -> some View {
+        content.appleGlass(Capsule(), interactive: interactive)
     }
 }
 
@@ -1582,7 +1540,7 @@ struct SearchField: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .frame(width: 260)
-        .modifier(FloatingCapsule(fill: 0.08, stroke: 0.14))
+        .modifier(FloatingCapsule())
         // The field only appears because the search button was pressed, so
         // the cursor goes straight into it. It used to wait for a click of
         // its own, and typing right after the button went nowhere (full

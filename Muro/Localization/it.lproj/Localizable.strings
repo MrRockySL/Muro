@@ -392,7 +392,7 @@
 "Show Dock Icon" = "Mostra l’icona nel Dock";
 "Off keeps Muro in the menu bar only" = "Se disattivato, Muro resta solo nella barra dei menu";
 "Appearance" = "Aspetto";
-"Default, Light or Dark" = "Predefinito, chiaro o scuro";
+"Light, Dark or System" = "Chiaro, scuro o sistema";
 "Menu Bar Icon" = "Icona della barra dei menu";
 "The icon Muro shows in the menu bar" = "L’icona che Muro mostra nella barra dei menu";
 "The language Muro is in" = "La lingua di Muro";
@@ -515,7 +515,7 @@
 "A picture could not be taken from it." = "Impossibile ricavarne un’immagine.";
 
 /* Looks and sizes */
-"Default@@look" = "Predefinito";
+"System@@look" = "Sistema";
 "%@ GB" = "%@ GB";
 "%@ MB" = "%@ MB";
 

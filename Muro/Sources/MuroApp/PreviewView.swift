@@ -77,7 +77,7 @@ struct PreviewView: View {
             .overlay(alignment: .topTrailing) { creditBadge(item) }
             .ignoresSafeArea()
             // Black behind a video, as in any player, on Light too.
-            .background(Appearance.shared.native ? Color.black : Color.muroBG)
+            .background(Color.black)
             .onAppear { prepareAerial() }
             .onChange(of: itemID) { _, _ in prepareAerial() }
         }
@@ -207,18 +207,15 @@ struct PreviewView: View {
 
     // MARK: - Pill bar
 
-    // The bar sits on the playing video, so on Light and Dark it is drawn in
-    // Dark's colours whatever the look, the way video controls stay dark in
-    // Apple's own players. Written out because macOS picks a system colour by
-    // the window's look, not by the part of the window drawing it. Default's
-    // own colours are already these.
-    private var native: Bool { Appearance.shared.native }
-    private var barInk: Color { native ? Color.white.opacity(0.85) : Color.muroInk }
-    private var barOnInk: Color { native ? Color.black : Color.muroOnInk }
-    private var barSecondary: Color { native ? Color.white.opacity(0.55) : Color.muroSecondary }
-    private var barShade: Color { native ? Color.black : Color.muroShade }
-    private var barGreen: Color { native ? Color(hex: 0x30D158) : Color.muroGreen }
-    private var barWarn: Color { native ? Color(hex: 0xFF9F0A) : Color.muroWarn }
+    // The bar sits on the playing video, so it is drawn in Dark's colours
+    // whatever the look, the way video controls stay dark in Apple's own
+    // players. Written out because macOS picks a system colour by the
+    // window's look, not by the part of the window drawing it.
+    private var barInk: Color { Color.white.opacity(0.85) }
+    private var barOnInk: Color { Color.black }
+    private var barSecondary: Color { Color.white.opacity(0.55) }
+    private var barGreen: Color { Color(hex: 0x30D158) }
+    private var barWarn: Color { Color(hex: 0xFF9F0A) }
 
     private func pillBar(_ item: WallpaperItem) -> some View {
         HStack(spacing: 14) {
@@ -311,7 +308,7 @@ struct PreviewView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .modifier(BarSurface(shade: barShade))
+        .modifier(BarSurface())
         .modifier(OnTheVideo())
     }
 
@@ -1209,38 +1206,23 @@ enum ShareFile {
     }
 }
 
-/// The wallpaper page's bar. Default: the thin material with a dark wash and
-/// a rim, as before. Light and Dark: Liquid Glass over the video, the way
-/// Apple's players float their controls, with a dark wash inside it so the
-/// white words read on a bright picture too.
+/// The wallpaper page's bar: Liquid Glass over the video, the way Apple's
+/// players float their controls, with a dark wash inside it so the white
+/// words read on a bright picture too.
 private struct BarSurface: ViewModifier {
-    var shade: Color
-
-    @ViewBuilder func body(content: Content) -> some View {
+    func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
-        if Appearance.shared.native {
-            content
-                .background(shape.fill(Color.black.opacity(0.28)))
-                .appleGlass(shape)
-        } else {
-            content
-                .background(shape.fill(.ultraThinMaterial.opacity(0.9)))
-                .background(shape.fill(shade.opacity(0.35)))
-                .overlay(shape.strokeBorder(Color.muroRim.opacity(0.14), lineWidth: 1))
-        }
+        return content
+            .background(shape.fill(Color.black.opacity(0.28)))
+            .appleGlass(shape)
     }
 }
 
 /// The wallpaper page's bar sits on the playing video, so on Light it takes
 /// Dark's colours, the way video controls stay dark in Apple's own players.
-/// Every Light and Dark colour is macOS's own and follows this. Default is
-/// dark already and is left alone.
+/// Every Light and Dark colour is macOS's own and follows this.
 private struct OnTheVideo: ViewModifier {
-    @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native {
-            content.environment(\.colorScheme, .dark)
-        } else {
-            content
-        }
+    func body(content: Content) -> some View {
+        content.environment(\.colorScheme, .dark)
     }
 }

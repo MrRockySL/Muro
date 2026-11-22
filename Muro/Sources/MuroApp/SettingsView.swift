@@ -28,20 +28,11 @@ struct SettingsView: View {
 
     var body: some View {
         ZStack {
-            // Full-bleed glass layer: fills the ENTIRE window including under
-            // the transparent, separator-less titlebar (so the top bar is the
-            // same glass, no seam). Content scrolls on top.
-            // The light look takes the light kind of glass (6.0).
-            if Appearance.shared.native {
-                // Light and Dark: System Settings' own window, the plain
-                // window colour, with the settings in grouped boxes on it.
-                Color.sysWindow
-                    .ignoresSafeArea()
-            } else {
-                VisualEffectBackground(material: .hudWindow)
-                    .overlay(Color.muroShade.opacity(0.22))
-                    .ignoresSafeArea()
-            }
+            // System Settings' own window: the plain window colour under the
+            // whole window, the transparent title bar included, with the
+            // settings in grouped boxes on it. Content scrolls on top.
+            Color.sysWindow
+                .ignoresSafeArea()
 
             ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
@@ -83,17 +74,16 @@ struct SettingsView: View {
                             }
                     }
                     divider
-                    // Default is Muro as it has always looked; Dark is the
-                    // same glass in black and white; Light is white with dark
-                    // buttons (owner, 2026-10-02). It changes at once, in
-                    // every window and the menu bar.
+                    // Light and Dark are macOS's own; System follows the Mac
+                    // and changes when it does (owner, 2026-11-22). It changes
+                    // at once, in every window and the menu bar.
                     row(icon: .appearance, title: L("Appearance"),
-                        subtitle: L("Default, Light or Dark")) {
+                        subtitle: L("Light, Dark or System")) {
                         CapsuleSegments(
-                            options: [AppearanceMode.standard, .light, .dark].map { ($0.title, $0.rawValue) },
+                            options: [AppearanceMode.light, .dark, .system].map { ($0.title, $0.rawValue) },
                             selection: Binding(
                                 get: { Appearance.shared.mode.rawValue },
-                                set: { Appearance.shared.set(AppearanceMode(rawValue: $0) ?? .standard) }
+                                set: { Appearance.shared.set(AppearanceMode.saved($0)) }
                             )
                         )
                     }
@@ -443,21 +433,19 @@ struct SettingsView: View {
                 screenSaverDelayJustChanged = false
             }
             }
-            // Light and Dark: rows that scroll up under the window's
-            // buttons fade into the window, the way System Settings' do,
-            // instead of passing under the traffic lights in full.
-            if Appearance.shared.native {
-                VStack(spacing: 0) {
-                    LinearGradient(
-                        stops: [.init(color: .sysWindow, location: 0.45), .init(color: .sysWindow.opacity(0), location: 1)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                    .frame(height: 30)
-                    Spacer(minLength: 0)
-                }
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+            // Rows that scroll up under the window's buttons fade into the
+            // window, the way System Settings' do, instead of passing under
+            // the traffic lights in full.
+            VStack(spacing: 0) {
+                LinearGradient(
+                    stops: [.init(color: .sysWindow, location: 0.45), .init(color: .sysWindow.opacity(0), location: 1)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .frame(height: 30)
+                Spacer(minLength: 0)
             }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
         }
         .frame(width: 560, height: 600)
         .menuHost()
@@ -596,8 +584,8 @@ struct SettingsView: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(Appearance.shared.native ? Color.sysSeparator : Color.muroInk.opacity(0.06))
-            .frame(height: Appearance.shared.native ? 0.5 : 1)
+            .fill(Color.sysSeparator)
+            .frame(height: 0.5)
             .padding(.leading, 58)
     }
 
@@ -772,28 +760,10 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Frosted-glass window chrome
-
-/// NSVisualEffectView bridge — the translucent blurred "liquid glass" base
-/// behind the Settings content.
-struct VisualEffectBackground: NSViewRepresentable {
-    var material: NSVisualEffectView.Material = .hudWindow
-
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = material
-        view.blendingMode = .behindWindow
-        view.state = .active
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {
-        view.material = material
-    }
-}
+// MARK: - Window chrome
 
 /// Only touches the window chrome: transparent, full-size-content,
-/// separator-less titlebar so the SwiftUI glass background shows through it
+/// separator-less titlebar so the SwiftUI background shows through it
 /// seamlessly. It does NOT insert any view (that previously covered the
 /// content and blanked the window).
 struct SettingsWindowConfigurator: NSViewRepresentable {
@@ -819,16 +789,12 @@ struct SettingsWindowConfigurator: NSViewRepresentable {
     }
 }
 
-/// A group of settings. Default: Muro's glass. Light and Dark: System
-/// Settings' grouped box, a 3% fill of the text colour on the window.
+/// A group of settings: System Settings' grouped box, a 3% fill of the text
+/// colour on the window.
 private struct SettingsBox: ViewModifier {
-    @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native {
-            content.background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.sysGroupFill)
-            )
-        } else {
-            content.liquidGlass(cornerRadius: 14, tint: 0.14, stroke: 0.1)
-        }
+    func body(content: Content) -> some View {
+        content.background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.sysGroupFill)
+        )
     }
 }

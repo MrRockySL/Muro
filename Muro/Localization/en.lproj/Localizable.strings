@@ -395,7 +395,7 @@
 "Show Dock Icon" = "Show Dock Icon";
 "Off keeps Muro in the menu bar only" = "Off keeps Muro in the menu bar only";
 "Appearance" = "Appearance";
-"Default, Light or Dark" = "Default, Light or Dark";
+"Light, Dark or System" = "Light, Dark or System";
 "Menu Bar Icon" = "Menu Bar Icon";
 "The icon Muro shows in the menu bar" = "The icon Muro shows in the menu bar";
 "The language Muro is in" = "The language Muro is in";
@@ -518,7 +518,7 @@
 "A picture could not be taken from it." = "A picture could not be taken from it.";
 
 /* Looks and sizes */
-"Default@@look" = "Default";
+"System@@look" = "System";
 "%@ GB" = "%@ GB";
 "%@ MB" = "%@ MB";
 

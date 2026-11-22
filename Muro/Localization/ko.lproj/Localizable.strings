@@ -381,7 +381,7 @@
 "Show Dock Icon" = "Dock에 아이콘 보기";
 "Off keeps Muro in the menu bar only" = "끄면 Muro가 메뉴 막대에만 표시됩니다";
 "Appearance" = "화면 모드";
-"Default, Light or Dark" = "기본, 라이트 또는 다크";
+"Light, Dark or System" = "라이트, 다크 또는 시스템";
 "Menu Bar Icon" = "메뉴 막대 아이콘";
 "The icon Muro shows in the menu bar" = "Muro가 메뉴 막대에 표시하는 아이콘";
 "The language Muro is in" = "Muro에서 사용하는 언어";
@@ -497,7 +497,7 @@
 "A picture could not be taken from it." = "이미지를 추출할 수 없습니다.";
 
 /* Looks and sizes */
-"Default@@look" = "기본";
+"System@@look" = "시스템";
 "%@ GB" = "%@GB";
 "%@ MB" = "%@MB";
 

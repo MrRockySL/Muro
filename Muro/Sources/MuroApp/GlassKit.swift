@@ -39,11 +39,8 @@ struct PlusGlyph: View {
 /// import "+", the New Playlist and New Automation cards, and the four
 /// controls in the top bar.
 ///
-/// It lives in one place because the four top-bar buttons were asked for as
-/// "the plus button with that animation". Two copies of a lit circle drift
-/// apart the moment one of them is tuned, so the circle, the light inside it,
-/// the rim, the catch-light and the two springs are written once and the
-/// callers only supply what goes in the middle.
+/// It lives in one place so every round glass control in the app is the same
+/// one, and the callers only supply what goes in the middle.
 struct BubbleSurface: ViewModifier {
     var size: CGFloat
     var hovering = false
@@ -54,22 +51,13 @@ struct BubbleSurface: ViewModifier {
     var active = false
     var tint: Color = .muroAccent
 
-    private var lit: Bool { hovering || active }
     @Environment(\.muroOnMedia) private var onMedia
 
-    @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native {
-            nativeBubble(content)
-        } else {
-            standardBubble(content)
-        }
-    }
-
-    /// Light and Dark: a toolbar button the way macOS 26 draws one in
-    /// Calendar or Finder, a disc of liquid glass with no light or rim of
-    /// its own. On (search open) it holds the soft grey of a selected toolbar
-    /// item; under the pointer it lightens a little.
-    private func nativeBubble(_ content: Content) -> some View {
+    /// A toolbar button the way macOS 26 draws one in Calendar or Finder, a
+    /// disc of liquid glass with no light or rim of its own. On (search open)
+    /// it holds the soft grey of a selected toolbar item; under the pointer it
+    /// lightens a little.
+    func body(content: Content) -> some View {
         let wash = onMedia ? Color.white.opacity(active ? 0.24 : (hovering ? 0.1 : 0))
             : (active ? Color.sysFill : Color.sysLabel.opacity(hovering ? 0.05 : 0))
         return content
@@ -77,61 +65,6 @@ struct BubbleSurface: ViewModifier {
             .background { Circle().fill(wash) }
             .appleGlass(Circle(), interactive: true)
             .animation(.easeOut(duration: 0.15), value: hovering)
-            .animation(.easeOut(duration: 0.2), value: active)
-    }
-
-    private func standardBubble(_ content: Content) -> some View {
-        let ink = onMedia ? Color.white : Color.muroInk
-        return content
-            .frame(width: size, height: size)
-            // The accent light lives inside the circle.
-            //
-            // It used to be a radial gradient nearly four times the diameter,
-            // painted behind the bubble so it lit the card around it. At the
-            // sizes this is actually used at that is not a glow, it is a
-            // purple smudge with a button in the middle of it, and the edge of
-            // the gradient is visible against the panel. Clipping the same
-            // light to the circle keeps the lit look and stops it leaking.
-            .background {
-                Circle()
-                    .fill(LinearGradient(
-                        colors: [ink.opacity(lit ? 0.26 : 0.20), ink.opacity(lit ? 0.09 : 0.06)],
-                        startPoint: .top, endPoint: .bottom
-                    ))
-                    .overlay {
-                        RadialGradient(
-                            gradient: Gradient(colors: [
-                                tint.opacity(active ? 0.38 : (hovering ? 0.30 : 0.20)),
-                                tint.opacity(0)
-                            ]),
-                            center: .center, startRadius: 0, endRadius: size * 0.52
-                        )
-                        .clipShape(Circle())
-                    }
-            }
-            .overlay(
-                Circle().strokeBorder(
-                    active ? tint.opacity(0.55) : ink.opacity(hovering ? 0.34 : 0.26),
-                    lineWidth: 1
-                )
-            )
-            // The top inner highlight, so the bubble looks lit rather than
-            // filled.
-            .overlay(
-                Circle()
-                    .trim(from: 0.55, to: 0.95)
-                    .stroke(Color.white.opacity(0.30), lineWidth: 1)
-                    .blur(radius: 0.5)
-                    .padding(1)
-            )
-            .shadow(color: .black.opacity(0.35), radius: pressed ? 3 : 7, x: 0, y: pressed ? 1 : 4)
-            .shadow(color: tint.opacity(active ? 0.28 : 0), radius: 10)
-            // It lifts under the pointer and dips when pressed, so clicking
-            // the strip feels like pressing something rather than like
-            // nothing happening until a file panel appears.
-            .scaleEffect(pressed ? 0.94 : (hovering ? 1.06 : 1))
-            .animation(.spring(response: 0.26, dampingFraction: 0.62), value: hovering)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: pressed)
             .animation(.easeOut(duration: 0.2), value: active)
     }
 }
@@ -229,7 +162,6 @@ struct GlassBubbleButton: View {
             Image(systemName: systemName)
                 .font(.system(size: size * glyphScale, weight: weight))
                 .foregroundStyle(glyph)
-                .shadow(color: Appearance.shared.native ? .clear : tint.opacity(0.45), radius: hovering ? 5 : 3)
                 .rotationEffect(.degrees(turns && hovering ? 40 : 0))
                 .animation(.spring(response: 0.34, dampingFraction: 0.7), value: hovering)
         }
@@ -534,19 +466,13 @@ struct PillSegments: View {
 }
 
 
-/// The track under a `PillSegments` bar. Default: Muro's glass capsule as it
-/// always was. Light and Dark: Liquid Glass for a bar between pages, the flat
-/// 8% track of a macOS form picker for a value.
+/// The track under a `PillSegments` bar: Liquid Glass for a bar between
+/// pages, the flat 8% track of a macOS form picker for a value.
 private struct SegmentsTrack: ViewModifier {
     var picker: Bool
 
     @ViewBuilder func body(content: Content) -> some View {
-        if !Appearance.shared.native {
-            content
-                .background(Capsule().fill(Color.muroInk.opacity(0.06)))
-                .overlay(Capsule().strokeBorder(Color.muroRim.opacity(0.13), lineWidth: 1))
-                .shadow(color: Color.muroControlShadow.opacity(0.30), radius: 9, x: 0, y: 4)
-        } else if picker {
+        if picker {
             content.background(Capsule().fill(Color.sysControlFill))
         } else {
             content.appleGlass(Capsule())
@@ -630,16 +556,6 @@ struct SheetSurface: ViewModifier {
                         .clipShape(shape)
                     )
                     .overlay(shape.strokeBorder(Color.muroInk.opacity(0.12), lineWidth: 1))
-                    .overlay(alignment: .top) {
-                        if !Appearance.shared.native {
-                            LinearGradient(
-                                colors: [.white.opacity(0), .white.opacity(0.3), .white.opacity(0)],
-                                startPoint: .leading, endPoint: .trailing
-                            )
-                            .frame(height: 1)
-                            .padding(.horizontal, 90)
-                        }
-                    }
             }
             // Sheets are their own window on macOS, so the rounded corners
             // only show once the window's own background is out of the way.
@@ -905,14 +821,13 @@ struct DangerPill: View {
     }
 }
 
-/// The switch in Settings, drawn by hand in every look.
+/// The switch in Settings, drawn by hand.
 ///
 /// macOS 26 draws its own switch grey in a window that is not the active one,
 /// and Muro's windows never are: with no Dock icon Muro is never the active
 /// app, so every switch read as off (2026-11-20). So it is drawn here, to the
-/// measure of macOS 26's own on Light and Dark (a 54 by 24 track, a 31 by 20
-/// pill knob, the accent when on, the 10% fill when off), and at the old
-/// 38 by 22 with a round knob and Default's own colours on Default.
+/// measure of macOS 26's own: a 54 by 24 track, a 31 by 20 pill knob, the
+/// accent when on, the 10% fill when off.
 struct MuroSwitchStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         MuroSwitch(isOn: configuration.isOn) { configuration.isOn.toggle() }
@@ -924,16 +839,13 @@ private struct MuroSwitch: View {
     var toggle: () -> Void
 
     var body: some View {
-        let native = Appearance.shared.native
-        let track = native ? CGSize(width: 54, height: 24) : CGSize(width: 38, height: 22)
-        let knob = native ? CGSize(width: 31, height: 20) : CGSize(width: 18, height: 18)
         Capsule()
-            .fill(isOn ? Color.muroSwitch : (native ? Color.sysFill : Color.muroInk.opacity(0.16)))
-            .frame(width: track.width, height: track.height)
+            .fill(isOn ? Color.muroSwitch : Color.sysFill)
+            .frame(width: 54, height: 24)
             .overlay(alignment: isOn ? .trailing : .leading) {
                 Capsule()
                     .fill(Color.white)
-                    .frame(width: knob.width, height: knob.height)
+                    .frame(width: 31, height: 20)
                     .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
                     .padding(.horizontal, 2)
             }
@@ -953,15 +865,14 @@ struct MiniSwitch: View {
     var on: Bool
 
     var body: some View {
-        let native = Appearance.shared.native
         Capsule()
-            .fill(on ? Color.muroAccent : (native ? Color.sysFill : Color.muroInk.opacity(0.16)))
+            .fill(on ? Color.muroAccent : Color.sysFill)
             .frame(width: 34, height: 20)
             .overlay(alignment: on ? .trailing : .leading) {
                 Circle()
-                    .fill(native ? Color.white : (on ? Color.muroOnAccent : Color.muroInk.opacity(0.85)))
+                    .fill(Color.white)
                     .frame(width: 15, height: 15)
-                    .shadow(color: .black.opacity(native ? 0.22 : 0), radius: 1, y: 0.5)
+                    .shadow(color: .black.opacity(0.22), radius: 1, y: 0.5)
                     .padding(.horizontal, 2.5)
             }
     }
@@ -1234,15 +1145,14 @@ struct GlassCard: ViewModifier {
     /// behind the card rather than as depth (owner, 2026-09-11).
     var shadow: Bool = true
 
-    /// Default's card on Light or Dark (see `muroDefaultStyle`).
-    @Environment(\.muroDefaultStyle) private var defaultStyle
-    private var native: Bool { Appearance.shared.native && !defaultStyle }
+    /// The classic card in the menu bar panel on Dark (see `muroClassicGlass`).
+    @Environment(\.muroClassicGlass) private var classic
+    private var native: Bool { !classic }
 
     /// Apple's menus cast a soft shadow, lighter on Light where a dark one
     /// reads as dirt on the white.
     private static var shadowStrength: Double {
-        switch Appearance.shared.mode {
-        case .standard: return 0.5
+        switch Appearance.shared.look {
         case .light: return 0.16
         case .dark: return 0.4
         }

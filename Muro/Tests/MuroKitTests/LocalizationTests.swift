@@ -177,10 +177,12 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(L("Settings"), "Einstellungen")
         XCTAssertEqual(LN("%@ wallpapers", 1), "1 Hintergrundbild")
         XCTAssertEqual(LN("%@ wallpapers", 3), "3 Hintergrundbilder")
-        XCTAssertEqual(L("Default", ctx: "look"), "Standard")
+        XCTAssertEqual(L("System", ctx: "look"), "System")
+        XCTAssertEqual(L("Light, Dark or System"), "Hell, Dunkel oder System")
 
         localization.use(.simplifiedChinese)
         XCTAssertEqual(L("Lock screen"), "锁屏")
+        XCTAssertEqual(L("System", ctx: "look"), "跟随系统")
         XCTAssertEqual(LN("Delete %@ wallpapers?", 1), "删除这个墙纸？")
         XCTAssertEqual(LN("Delete %@ wallpapers?", 3), "删除 3 个墙纸？")
         XCTAssertEqual(L("%@ wallpapers in %@", ctx: nil), "%@ wallpapers in %@",

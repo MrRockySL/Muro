@@ -381,7 +381,7 @@
 "Show Dock Icon" = "在 Dock 中顯示圖像";
 "Off keeps Muro in the menu bar only" = "關閉後 Muro 只會留在選單列中";
 "Appearance" = "外觀";
-"Default, Light or Dark" = "預設、淺色或深色";
+"Light, Dark or System" = "淺色、深色或跟隨系統";
 "Menu Bar Icon" = "選單列圖像";
 "The icon Muro shows in the menu bar" = "Muro 在選單列中顯示的圖像";
 "The language Muro is in" = "Muro 使用的語言";
@@ -497,7 +497,7 @@
 "A picture could not be taken from it." = "無法從中擷取圖片。";
 
 /* Looks and sizes */
-"Default@@look" = "預設";
+"System@@look" = "跟隨系統";
 "%@ GB" = "%@ GB";
 "%@ MB" = "%@ MB";
 

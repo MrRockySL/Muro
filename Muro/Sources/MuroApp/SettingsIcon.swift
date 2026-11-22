@@ -97,13 +97,11 @@ enum SettingsIcon {
         }
     }
 
-    /// The glyph's colour in each look. Default and Dark keep the tint mixed
-    /// halfway to white (on Dark the tile is graphite but the glyph keeps its
-    /// colour, owner 2026-10-02); Light puts the tint, deepened, on a white
-    /// tile.
-    func glyph(for mode: AppearanceMode) -> Color {
-        switch mode {
-        case .standard: return glyphColor
+    /// The glyph's colour in each look. Dark keeps the tint mixed halfway to
+    /// white (the tile is graphite but the glyph keeps its colour, owner
+    /// 2026-10-02); Light puts the tint, deepened, on a white tile.
+    func glyph(for look: AppearanceLook) -> Color {
+        switch look {
         case .dark: return glyphColor
         case .light: return tint.map { $0.mixed(withBlack: 0.32) } ?? Color(hex: 0x6E6E73)
         }
@@ -482,18 +480,12 @@ struct SettingsIconView: View {
 
     var body: some View {
         // Read in the body, so the tile redraws when the look changes.
-        let mode = Appearance.shared.mode
-        let glyph = icon.glyph(for: mode)
+        let look = Appearance.shared.look
+        let glyph = icon.glyph(for: look)
         let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
         ZStack {
             if let tint = icon.tint {
-                switch mode {
-                case .standard:
-                    shape.fill(Color(hex: 0x0C0F16))
-                    shape.fill(LinearGradient(colors: [tint.opacity(0.46), tint.opacity(0.16)],
-                                              startPoint: .top, endPoint: .bottom))
-                    shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.3), .white.opacity(0.04)],
-                                                      startPoint: .top, endPoint: .bottom), lineWidth: 1)
+                switch look {
                 case .dark:
                     // Black and white: graphite glass, no colour.
                     shape.fill(Color(hex: 0x161616))

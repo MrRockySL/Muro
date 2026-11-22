@@ -92,13 +92,13 @@ final class StatusBarController: NSObject {
         Task { @MainActor in self.applyLook() }
     }
 
-    /// The panel is dark on every look (owner, 2026-11-21). Dark's is
-    /// Default's: the dark heads-up glass with its wash and white edge, and
-    /// Muro's own glass rows, in Dark's colours, so its buttons are macOS blue
-    /// ("the same default, but the buttons go with blue"). Light's is the one
-    /// Dark had before: macOS 26's Liquid Glass, dark, in Dark's colours. The
-    /// menus it opens match.
-    static var drawsDefaultPanel: Bool { !Appearance.shared.isLight }
+    /// The panel is dark on every look (owner, 2026-11-21). Dark's is Muro's
+    /// classic panel: the dark heads-up glass with its wash and white edge,
+    /// and Muro's own glass rows, in Dark's colours, so its buttons are macOS
+    /// blue ("the same default, but the buttons go with blue"). Light's is
+    /// macOS 26's Liquid Glass, dark, in Dark's colours. The menus it opens
+    /// match. On System, whichever look the Mac is on.
+    static var drawsClassicPanel: Bool { !Appearance.shared.isLight }
 
     /// The panel's AppKit half follows the look: the material behind the
     /// card, and the rim. Always the dark appearance, so macOS's own colours
@@ -106,14 +106,14 @@ final class StatusBarController: NSObject {
     private func applyLook() {
         panel.appearance = NSAppearance(named: .darkAqua)
         // Light uses the material macOS gives its own popovers and menu bar
-        // panels. Default and Dark keep Default's darker heads-up glass.
-        blur.material = Self.drawsDefaultPanel ? .hudWindow : .popover
+        // panels. Dark keeps the classic, darker heads-up glass.
+        blur.material = Self.drawsClassicPanel ? .hudWindow : .popover
         container.layer?.borderColor = NSColor.white.withAlphaComponent(0.14).cgColor
         // On macOS 26, Light sits on Liquid Glass itself, the panel Apple's
         // menu bar items open, with the controls inside it: its own edge
-        // light replaces the rim. Default and Dark keep the blur and the rim.
+        // light replaces the rim. Dark keeps the blur and the rim.
         if #available(macOS 26.0, *), let glass = glassView as? NSGlassEffectView {
-            let useGlass = !Self.drawsDefaultPanel
+            let useGlass = !Self.drawsClassicPanel
             // Regular on Light as well as Dark. The clear glass let the
             // desktop show through and the panel could not be read (owner,
             // 2026-11-21: "go with the whitish liquid"). `muroRegularGlass`
@@ -293,12 +293,12 @@ struct MenuBarPanelRoot: View {
         MenuBarView()
             .environmentObject(store)
             // Light: macOS's own glass alone, the way Apple's menu bar panels
-            // look. Default and Dark keep Default's dark wash.
-            .background(Color.muroShade.opacity(StatusBarController.drawsDefaultPanel ? 0.25 : 0))
+            // look. Dark keeps the classic dark wash.
+            .background(Color.muroShade.opacity(StatusBarController.drawsClassicPanel ? 0.25 : 0))
             .environment(\.muroRegularGlass, true)
-            .environment(\.muroDefaultStyle, StatusBarController.drawsDefaultPanel)
+            .environment(\.muroClassicGlass, StatusBarController.drawsClassicPanel)
             .muroColorScheme()
-            // Dark on every look, Light included (see `drawsDefaultPanel`).
+            // Dark on every look, Light included (see `drawsClassicPanel`).
             .environment(\.muroColorSchemeOverride, .dark)
     }
 }
@@ -378,9 +378,9 @@ final class MenuBarMenuPanel {
         let body = content()
             .frame(width: width)
             .padding(Self.pad)
-            // Like the panel: dark on every look, Default's card on Dark.
+            // Like the panel: dark on every look, the classic card on Dark.
             .environment(\.muroRegularGlass, true)
-            .environment(\.muroDefaultStyle, StatusBarController.drawsDefaultPanel)
+            .environment(\.muroClassicGlass, StatusBarController.drawsClassicPanel)
             .muroColorScheme()
             .environment(\.muroColorSchemeOverride, .dark)
 

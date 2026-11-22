@@ -3,9 +3,9 @@ import MuroKit
 
 struct MenuBarView: View {
     @EnvironmentObject var store: AppStore
-    /// Dark's panel is drawn the way Default's is (see `muroDefaultStyle`),
+    /// Dark's panel is drawn in the classic glass (see `muroClassicGlass`),
     /// rims included, which Light and Dark otherwise leave out.
-    @Environment(\.muroDefaultStyle) private var defaultStyle
+    @Environment(\.muroClassicGlass) private var classic
 
     private var currentItem: WallpaperItem? {
         store.currentAppliedID.flatMap { store.item(id: $0) }
@@ -356,7 +356,7 @@ struct MenuBarView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .strokeBorder((defaultStyle ? Color.muroInk : Color.muroRim).opacity(0.12), lineWidth: 1)
+                                    .strokeBorder((classic ? Color.muroInk : Color.muroRim).opacity(0.12), lineWidth: 1)
                             )
                             .onTapGesture {
                                 store.setWallpaper(item, mode: store.defaultMode(for: item))
@@ -551,7 +551,7 @@ struct MenuBarView: View {
                         .padding(.vertical, 3)
                         .background(Capsule().fill(Color.muroAccent.opacity(0.14)))
                         .overlay(Capsule().strokeBorder(
-                            (defaultStyle ? Color.muroAccent : Color.muroAccentRim).opacity(0.30), lineWidth: 1
+                            (classic ? Color.muroAccent : Color.clear).opacity(0.30), lineWidth: 1
                         ))
                 }
                 if let trailing {
@@ -832,10 +832,10 @@ private struct PanelGlass<S: InsettableShape>: ViewModifier {
     var fill: Double = 0.07
     var stroke: Double = 0.12
     var interactive = false
-    @Environment(\.muroDefaultStyle) private var defaultStyle
+    @Environment(\.muroClassicGlass) private var classic
 
     @ViewBuilder func body(content: Content) -> some View {
-        if Appearance.shared.native && !defaultStyle {
+        if !classic {
             content.appleGlass(shape, interactive: interactive)
         } else if let rounded = shape as? RoundedRectangle {
             content.glass(cornerRadius: rounded.cornerSize.width, fill: fill, stroke: stroke)
