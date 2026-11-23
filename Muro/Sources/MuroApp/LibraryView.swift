@@ -113,7 +113,7 @@ struct LibraryView: View {
                     // ZStack, so the two pass through each other in place.
                     ZStack {
                         ScrollViewReader { proxy in
-                            ScrollView(.vertical, showsIndicators: false) {
+                            GlassScrollView(fadeTop: 22, fadeBottom: 46) {
                                 VStack(alignment: .leading, spacing: 22) {
                                     switch tab {
                                     case .all:
@@ -140,7 +140,6 @@ struct LibraryView: View {
                                 proxy.scrollTo(Self.scrollTop, anchor: .top)
                             }
                         }
-                        .scrollFade(top: 22, bottom: 46)
                         .id(tab)
                         .transition(.muroPage(shift: tabShift))
                     }
@@ -1084,9 +1083,9 @@ struct PlaylistEditorView: View {
             .padding(.horizontal, 26)
             .padding(.top, 22)
 
-            // Our own scroller. A library that runs past the bottom of the
-            // grid has to say so, and AppKit's own indicator is either absent
-            // or the wide grey legacy one. See `GlassScrollView`.
+            // A library that runs past the bottom of the grid has to say so,
+            // and Apple's scroll bar flashes when the grid appears. See
+            // `GlassScrollView`.
             GlassScrollView(fadeTop: 14, fadeBottom: 24) {
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(store.scheduleItems) { item in

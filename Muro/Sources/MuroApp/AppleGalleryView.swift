@@ -123,7 +123,7 @@ struct AppleGalleryView: View {
             // A new scroll view for each category, so every category starts
             // at its top (owner, 2026-09-30). See Explore.
             ZStack {
-                ScrollView(.vertical, showsIndicators: false) {
+                GlassScrollView(fadeTop: 20, fadeBottom: 46) {
                     Group {
                         if shown.isEmpty {
                             emptyState
@@ -135,7 +135,6 @@ struct AppleGalleryView: View {
                     .padding(.top, 20)
                     .padding(.bottom, 40)
                 }
-                .scrollFade(top: 20, bottom: 46)
                 .id(category)
                 .transition(.muroPage(shift: categoryShift))
             }
@@ -245,7 +244,7 @@ struct AppleGalleryView: View {
     private var screenSaversPage: some View {
         let savers = model.screenSavers(matching: store.searchText)
         return ZStack {
-            ScrollView(.vertical, showsIndicators: false) {
+            GlassScrollView(fadeTop: 20, fadeBottom: 46) {
                 Group {
                     // A search that matched none of the eight left a blank
                     // page with the tab still saying 8 (full check,
@@ -260,7 +259,6 @@ struct AppleGalleryView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 40)
             }
-            .scrollFade(top: 20, bottom: 46)
         }
         .padding(.top, 18)
     }

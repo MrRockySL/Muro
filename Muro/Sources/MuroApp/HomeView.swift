@@ -389,7 +389,7 @@ struct HomeView: View {
 /// scrolls exactly as before; it only no longer stretches.
 ///
 /// A probe inside the scrolling content that finds the `NSScrollView` SwiftUI
-/// made, like `ScrollViewFinder`, and never takes a click.
+/// made, and never takes a click.
 private struct NoOverscroll: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { Probe() }
     func updateNSView(_ nsView: NSView, context: Context) {}

@@ -849,8 +849,11 @@ struct GlassTray<Content: View>: View {
     var body: some View {
         // App Store, Music and TV put their grids straight on the window: no
         // panel, no rim, no shadow. The content is still clipped, so a
-        // scrolled grid ends where the tray always ended.
-        content.clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        // scrolled grid ends where the tray always ended. A scroll bar inside
+        // reads the corner to keep its end clear of it.
+        content
+            .environment(\.muroTrayCorner, cornerRadius)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 

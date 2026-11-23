@@ -881,236 +881,93 @@ struct MiniSwitch: View {
 extension View {
     /// Soft fades at both ends of a scroll area, so content dissolves instead
     /// of being sliced off at the clip edge.
+    ///
+    /// `sparingTrailing` leaves a strip that wide on the right out of the
+    /// fades, for a scroll bar running down that edge.
     @ViewBuilder
-    func scrollFade(top: CGFloat = 22, bottom: CGFloat = 0) -> some View {
+    func scrollFade(top: CGFloat = 22, bottom: CGFloat = 0, sparingTrailing: CGFloat = 0) -> some View {
         if top <= 0 && bottom <= 0 {
             // No mask at all rather than a mask that happens to be opaque: a
             // mask costs an offscreen pass and dims anything drawn inside it.
             self
-        } else {
+        } else if sparingTrailing > 0 {
             mask(
-                VStack(spacing: 0) {
-                    if top > 0 {
-                        LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                            .frame(height: top)
-                    }
-                    Color.black
-                    if bottom > 0 {
-                        LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                            .frame(height: bottom)
-                    }
+                HStack(spacing: 0) {
+                    scrollFadeColumn(top: top, bottom: bottom)
+                    Color.black.frame(width: sparingTrailing)
                 }
             )
+        } else {
+            mask(scrollFadeColumn(top: top, bottom: bottom))
+        }
+    }
+}
+
+/// The mask of `scrollFade`: the two fades, opaque between them.
+@ViewBuilder
+private func scrollFadeColumn(top: CGFloat, bottom: CGFloat) -> some View {
+    VStack(spacing: 0) {
+        if top > 0 {
+            LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                .frame(height: top)
+        }
+        Color.black
+        if bottom > 0 {
+            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: bottom)
         }
     }
 }
 
 // MARK: - Scrolling
 
-private struct GlassScrollMetrics: Equatable {
-    var offset: CGFloat = 0
-    var content: CGFloat = 0
+private struct TrayCornerKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
 }
 
-private struct GlassScrollKey: PreferenceKey {
-    static let defaultValue = GlassScrollMetrics()
-    static func reduce(value: inout GlassScrollMetrics, nextValue: () -> GlassScrollMetrics) {
-        let next = nextValue()
-        if next.content > 0 { value = next }
+extension EnvironmentValues {
+    /// The corner radius of the `GlassTray` a view sits in, 0 outside one.
+    var muroTrayCorner: CGFloat {
+        get { self[TrayCornerKey.self] }
+        set { self[TrayCornerKey.self] = newValue }
     }
 }
 
-/// Holds the `NSScrollView` SwiftUI made, so a drawn indicator can move it.
-@MainActor
-final class ScrollViewHandle: ObservableObject {
-    weak var scrollView: NSScrollView?
-
-    /// Scrolls so that `y` points of content sit above the top edge.
-    func scroll(to y: CGFloat, maximum: CGFloat) {
-        guard let scrollView else { return }
-        let clamped = min(max(y, 0), max(maximum, 0))
-        let clip = scrollView.contentView
-        // SwiftUI's document view is flipped, so its origin counts downwards.
-        // Handle the other case too rather than assume it.
-        let flipped = scrollView.documentView?.isFlipped ?? true
-        let target = flipped ? clamped : max(maximum - clamped, 0)
-        clip.scroll(to: NSPoint(x: clip.bounds.origin.x, y: target))
-        scrollView.reflectScrolledClipView(clip)
-    }
-}
-
-/// Walks up from inside the scroller to find it.
-private struct ScrollViewFinder: NSViewRepresentable {
-    let handle: ScrollViewHandle
-
-    func makeNSView(context: Context) -> NSView { Finder(handle: handle) }
-    func updateNSView(_ nsView: NSView, context: Context) {}
-
-    final class Finder: NSView {
-        let handle: ScrollViewHandle
-
-        init(handle: ScrollViewHandle) {
-            self.handle = handle
-            super.init(frame: .zero)
-        }
-
-        required init?(coder: NSCoder) { fatalError("not used") }
-
-        // It is a probe, not a surface. Left hit-testable it would be an
-        // invisible AppKit view stretched across the whole scrolling content,
-        // which is exactly the shape of bug this file has already paid for
-        // once.
-        override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            var view: NSView? = superview
-            while let current = view {
-                if let scroller = current as? NSScrollView {
-                    let handle = handle
-                    Task { @MainActor in handle.scrollView = scroller }
-                    return
-                }
-                view = current.superview
-            }
-        }
-    }
-}
-
-/// A vertical scroller that draws its own indicator.
+/// A vertical scroll view with soft fades at its ends and Apple's own scroll
+/// bar, the one Music and the App Store have (owner, 2026-11-23; Muro drew a
+/// thin bar of its own here before).
 ///
-/// AppKit's is one of two things and neither belongs here. Left to itself it is
-/// an overlay scroller that only exists while the wheel is turning, so a grid
-/// with more below it looks like a grid with nothing below it. Forced visible,
-/// or on a Mac set to "Show scroll bars: Always", it becomes the legacy
-/// scroller: a wide light track with a fat knob, flush to the edge, lifted out
-/// of a different decade of the operating system.
+/// The bar follows System Settings > Appearance > Show scroll bars, as it does
+/// everywhere else on the Mac: with a trackpad it shows while scrolling and can
+/// be grabbed and dragged, and with a mouse plugged in, or the setting on
+/// Always, it is the wider bar that stays. It flashes once when the view
+/// appears, which is how a Mac says there is more below.
 ///
-/// So it is drawn here, the same way the switches, menus and segmented bars in
-/// this app are drawn: a thin capsule, inset from the edge, as long as the
-/// share of the content you can see, and only present when there is something
-/// to scroll to. It is a working scroller and not a painted marker: the knob
-/// drags, and a click on the track above or below it moves a page that way.
+/// Two things keep it looking like the system's own. The fades are a mask,
+/// and a mask over the whole view would fade the bar with the content just as
+/// it reached the end of its travel, so the bar's strip is left out of them.
+/// And in a tray the bar stops above the tray's rounded corner, which would
+/// otherwise slice its end off at the bottom of the scroll.
 struct GlassScrollView<Content: View>: View {
-    /// Soft fades at the ends of the content. The indicator is added after
-    /// them, so it never fades out at the moment it reaches the end of its
-    /// travel.
     var fadeTop: CGFloat = 0
     var fadeBottom: CGFloat = 0
-    var inset: CGFloat = 6
     @ViewBuilder var content: Content
 
-    @StateObject private var handle = ScrollViewHandle()
-    @State private var offset: CGFloat = 0
-    @State private var contentHeight: CGFloat = 0
-    @State private var viewportHeight: CGFloat = 0
-    /// Where the content sat when the knob was picked up. The knob moves as
-    /// the content moves, so measuring each frame against the previous one
-    /// would have the pointer and the knob chasing each other.
-    @State private var grabbedAt: CGFloat?
-    @State private var hovering = false
-
-    private static var space: String { "muro.glassScroll" }
-    private static var lane: CGFloat { 13 }
-
-    private var overflow: CGFloat { contentHeight - viewportHeight }
-    private var track: CGFloat { viewportHeight - inset * 2 }
-    private var knob: CGFloat {
-        guard contentHeight > 0 else { return 0 }
-        return max(28, min(track, track * viewportHeight / contentHeight))
-    }
+    @Environment(\.muroTrayCorner) private var trayCorner
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            content
-                .background {
-                    GeometryReader { geo in
-                        Color.clear.preference(
-                            key: GlassScrollKey.self,
-                            value: GlassScrollMetrics(
-                                offset: -geo.frame(in: .named(Self.space)).minY,
-                                content: geo.size.height
-                            )
-                        )
-                    }
-                }
-                .background(ScrollViewFinder(handle: handle))
-        }
-        .onPreferenceChange(GlassScrollKey.self) { metrics in
-            offset = metrics.offset
-            contentHeight = metrics.content
-        }
-        .scrollFade(top: fadeTop, bottom: fadeBottom)
-        .background {
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear { viewportHeight = geo.size.height }
-                    .onChange(of: geo.size.height) { _, height in viewportHeight = height }
-            }
-        }
-        .overlay(alignment: .topTrailing) { indicator }
-        // Named last, so both the content and the indicator sit inside it. A
-        // drag measured against the knob itself would be measured against a
-        // view the drag is moving.
-        .coordinateSpace(name: Self.space)
-    }
-
-    @ViewBuilder private var indicator: some View {
-        if overflow > 1, track > 24 {
-            let travel = track - knob
-            let progress = min(max(offset / overflow, 0), 1)
-            ZStack(alignment: .top) {
-                // The lane. Invisible until the pointer is near, but always
-                // there to be clicked.
-                Capsule()
-                    .fill(Color.muroInk.opacity(hovering ? 0.05 : 0))
-                    .frame(width: 5)
-                    .frame(maxHeight: .infinity)
-                Capsule()
-                    .fill(Color.muroInk.opacity(hovering || grabbedAt != nil ? 0.42 : 0.28))
-                    .frame(width: grabbedAt != nil ? 5 : 4, height: knob)
-                    .frame(width: Self.lane)
-                    .contentShape(Rectangle())
-                    .offset(y: travel * progress)
-                    .gesture(knobDrag(travel: travel))
-            }
-            .frame(width: Self.lane)
-            .padding(.vertical, inset)
-            .padding(.trailing, 3)
-            .contentShape(Rectangle())
-            // A click on the lane above or below the knob moves a page that
-            // way, which is what a scroller does everywhere else.
-            .gesture(pageTap(travel: travel, progress: progress))
-            .onHover { hovering = $0 }
-            .animation(.easeOut(duration: 0.14), value: hovering)
-            .animation(.easeOut(duration: 0.12), value: grabbedAt != nil)
-        }
-    }
-
-    private func pageTap(travel: CGFloat, progress: CGFloat) -> some Gesture {
-        SpatialTapGesture(coordinateSpace: .named(Self.space))
-            .onEnded { value in
-                let knobTop = inset + travel * progress
-                let page = max(viewportHeight * 0.9, 40)
-                let target = value.location.y < knobTop ? offset - page : offset + page
-                handle.scroll(to: target, maximum: overflow)
-            }
-    }
-
-    private func knobDrag(travel: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.space))
-            .onChanged { value in
-                let start = grabbedAt ?? offset
-                if grabbedAt == nil { grabbedAt = start }
-                guard travel > 0 else { return }
-                let moved = value.translation.height / travel * overflow
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    handle.scroll(to: start + moved, maximum: overflow)
-                }
-            }
-            .onEnded { _ in grabbedAt = nil }
+        ScrollView(.vertical) { content }
+            // A continuous corner of radius r is 0.63 r tall 2 pt in from the
+            // edge, where the bar's knob runs. nil leaves the system's margin.
+            .contentMargins(.bottom, trayCorner > 0 ? trayCorner * 0.64 : nil, for: .scrollIndicators)
+            .scrollIndicatorsFlash(onAppear: true)
+            // Wide enough for either bar: the thin one that comes and goes and
+            // the wider one that stays.
+            .scrollFade(
+                top: fadeTop,
+                bottom: fadeBottom,
+                sparingTrailing: NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
+            )
     }
 }
 
