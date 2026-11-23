@@ -85,7 +85,7 @@ struct ExploreView: View {
                     // Overlaid in a ZStack, so the two pass through each other
                     // in place while the transition runs.
                     ZStack {
-                        ScrollView(.vertical, showsIndicators: false) {
+                        GlassScrollView(fadeTop: 22, fadeBottom: 46) {
                             Group {
                                 if filtered.isEmpty {
                                     emptyState
@@ -100,7 +100,6 @@ struct ExploreView: View {
                             .padding(.top, 22)
                             .padding(.bottom, 40)
                         }
-                        .scrollFade(top: 22, bottom: 46)
                         .id(filterKey)
                         .transition(.muroPage(shift: categoryShift))
                     }
