@@ -691,6 +691,7 @@ struct GlassTextField: View {
 
 /// One wallpaper in a picker grid, shared by both editors.
 struct PickerTile: View {
+    @EnvironmentObject var store: AppStore
     let item: WallpaperItem
     var selected: Bool
     var titleSize: CGFloat = 11
@@ -716,11 +717,20 @@ struct PickerTile: View {
             )
             .overlay { if selected { Color.muroAccent.opacity(0.14) } }
             .overlay(alignment: .bottomLeading) {
-                Text(item.title)
-                    .font(.system(size: titleSize, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .padding(9)
+                // Every colour of a live wallpaper has the same title, so its
+                // colour is named under it, as on the Library's cards (owner,
+                // 2026-11-27).
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.system(size: titleSize, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    if let colour = store.colorMember(for: item.id) {
+                        ColorNameLine(member: colour, size: titleSize - 1.5)
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                }
+                .padding(9)
             }
             .overlay(alignment: .topTrailing) {
                 SelectionTick(isSelected: selected, size: 21).padding(7)
