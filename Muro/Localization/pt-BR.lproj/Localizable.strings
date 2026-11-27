@@ -567,7 +567,7 @@
 "Other@@category" = "Outras";
 "Yours@@category" = "Seus";
 "Screen Savers@@category" = "Protetores de Tela";
-"Interactive Wallpapers@@category" = "Imagens de fundo interativas";
+"Interactive Wallpapers@@category" = "Interativas";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "Arabesque";
@@ -609,3 +609,9 @@
 "Community" = "Comunidade";
 "Website ↗" = "Site ↗";
 "On" = "Ativado";
+
+/* Static wallpapers (still pictures), 2026-11-27 */
+"Static Wallpapers@@category" = "Estáticas";
+"STATIC" = "ESTÁTICA";
+"%@ static wallpapers#one" = "%@ imagem de fundo estática";
+"%@ static wallpapers#other" = "%@ imagens de fundo estáticas";

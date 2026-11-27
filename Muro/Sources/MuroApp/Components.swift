@@ -1411,6 +1411,9 @@ struct WallpaperCard: View {
         if let label = store.appliedChipLabel(for: item.id) {
             AppliedChip(label: label)
                 .padding(12)
+        } else if item.isStatic {
+            // Always said on a static, new or not (owner, 2026-11-27).
+            StaticBadge().padding(12)
         } else if store.isNew(item) {
             NewBadge().padding(12)
         } else if item.isInteractive {

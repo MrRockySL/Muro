@@ -42,11 +42,16 @@ struct WallpaperItem: Identifiable, Equatable {
     /// downloaded only when the person asks, and deleting it from the
     /// Library deletes its files (owner, 2026-11-19).
     var isBuiltInInteractive: Bool { InteractiveWallpapers.isBuiltIn(id) }
+    /// A static wallpaper: a still picture Muro shows itself, the way it
+    /// shows a live wallpaper, listed under Static in Explore
+    /// (`HostedStatics`).
+    var isStatic: Bool { HostedStatics.isStatic(id) }
     var resolutionLabel: String {
         width >= 3200 ? "4K" : (width >= 2200 ? "1440p" : "1080p")
     }
     var metaLine: String {
         if isInteractive { return categoryTitle(InteractiveWallpapers.category) }
+        if isStatic { return "\(categoryTitle(category)) · \(width)×\(height) · \(formatSize(sizeBytes))" }
         return "\(categoryTitle(category)) · \(width)×\(height) · \(formatDuration(duration)) · \(formatSize(sizeBytes))"
     }
 
@@ -511,6 +516,7 @@ final class AppStore: ObservableObject {
         }
         Task { await refreshCatalog() }
         Task { await refreshHostedInteractive() }
+        Task { await refreshHostedStatics() }
         Task { await checkForUpdatesIfDue() }
         // Reads Apple's wallpaper plists and may run pluginkit and restart
         // WallpaperAgent, so it must never sit on the launch path.
@@ -540,6 +546,7 @@ final class AppStore: ObservableObject {
             Task { @MainActor in
                 await self?.refreshCatalog()
                 await self?.refreshHostedInteractive()
+                await self?.refreshHostedStatics()
                 await self?.checkForUpdatesIfDue()
             }
         }
@@ -586,6 +593,13 @@ final class AppStore: ObservableObject {
         cachedCategories = nil
     }
 
+    /// A static wallpaper was downloaded or deleted, so its card changes
+    /// between waiting in Explore and being here.
+    func staticFilesChanged() {
+        invalidateItemCache()
+        objectWillChange.send()
+    }
+
     var items: [WallpaperItem] {
         if let cachedItems { return cachedItems }
         // `Dictionary(uniqueKeysWithValues:)` traps on a repeated key, and the
@@ -624,6 +638,27 @@ final class AppStore: ObservableObject {
                     liked: liked.contains(hosted.id)
                 ))
             }
+        }
+        // Static wallpapers, from their own list. They wait in Explore for
+        // Download too; downloaded, Muro shows them like a live wallpaper.
+        let downloadedStatics = Dictionary(
+            HostedStatics.libraryEntries(root: root).map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        if let base = hostedStaticsListURL?.deletingLastPathComponent() {
+            for hosted in HostedStatics.sorted(hostedStatics.wallpapers)
+            where HostedStatics.isUsable(hosted) && seen.insert(hosted.id).inserted {
+                out.append(WallpaperItem(
+                    local: downloadedStatics[hosted.id],
+                    remote: HostedStatics.catalogEntry(for: hosted, base: base),
+                    liked: liked.contains(hosted.id)
+                ))
+            }
+        }
+        // One the list no longer has stays here until it is deleted.
+        for entry in downloadedStatics.values.sorted(by: { $0.title < $1.title })
+        where seen.insert(entry.id).inserted {
+            out.append(WallpaperItem(local: entry, remote: nil, liked: liked.contains(entry.id)))
         }
         for remote in catalog where !seen.contains(remote.id) {
             out.append(WallpaperItem(
@@ -832,8 +867,9 @@ final class AppStore: ObservableObject {
     }
 
     func heroPlayable(_ item: WallpaperItem) -> Bool {
-        // The banner plays videos. An interactive wallpaper is a page.
-        if item.isInteractive { return false }
+        // The banner plays videos. An interactive wallpaper is a page, and a
+        // static wallpaper a picture.
+        if item.isInteractive || item.isStatic { return false }
         return item.isDownloaded
             || (item.id == BundledWallpaper.id && BundledWallpaper.videoURL != nil)
     }
@@ -886,6 +922,9 @@ final class AppStore: ObservableObject {
         config = EngineConfig.load(root: root)
         if let saved = HostedInteractive.loadLocalList(root: root), saved != hostedInteractive {
             hostedInteractive = saved
+        }
+        if let saved = HostedStatics.loadLocalList(root: root), saved != hostedStatics {
+            hostedStatics = saved
         }
         loadInteractiveLibrary()
         playlists = PlaylistStore.load(root: root)
@@ -1116,6 +1155,12 @@ final class AppStore: ObservableObject {
     /// The interactive wallpapers on the server (`HostedInteractive`), as last
     /// read. Kept beside library.json, so Explore lists them offline too.
     private var hostedInteractive = HostedInteractive.List() {
+        didSet { invalidateItemCache() }
+    }
+
+    /// The static wallpapers on the server (`HostedStatics`), as last read.
+    /// Kept beside library.json, so Explore lists them offline too.
+    var hostedStatics = HostedStatics.List() {
         didSet { invalidateItemCache() }
     }
 
@@ -1560,6 +1605,14 @@ final class AppStore: ObservableObject {
             showThroughMacOS(item, target: target, surface: surface ?? .desktop)
             return
         }
+        // A static wallpaper not downloaded yet is fetched first, then set
+        // like any live wallpaper (`applyStaticAfterDownload`).
+        if item.isStatic, item.local == nil {
+            applyStaticAfterDownload(
+                item, mode: mode, target: target, surface: surface, fromSchedule: fromSchedule
+            )
+            return
+        }
         guard item.local != nil else { return }
         // Whatever path it came by, one of Muro's own interactive wallpapers
         // on the desktop is in the Library.
@@ -1619,7 +1672,18 @@ final class AppStore: ObservableObject {
                 return
             }
             ensureAerialThumbnail(entry)
-            let videoURL = resolveVideoURL(entry: entry, mode: resolvedMode, root: root)
+            // A static wallpaper's lock screen and screen saver play its
+            // picture as a still video, made once (`StaticStill`).
+            let videoURL: URL
+            if entry.isStatic {
+                guard let still = await staticStillVideo(for: entry) else {
+                    couldNotSet(L("The downloaded wallpaper files could not be found."), quiet)
+                    return
+                }
+                videoURL = still
+            } else {
+                videoURL = resolveVideoURL(entry: entry, mode: resolvedMode, root: root)
+            }
             let thumbnailURL = resolveLibraryFile(entry.thumbnail, root: root)
             guard FileManager.default.fileExists(atPath: videoURL.path),
                   FileManager.default.fileExists(atPath: thumbnailURL.path)
@@ -2382,6 +2446,8 @@ final class AppStore: ObservableObject {
         var combined = manifest
         combined.wallpapers += AppleAerials.libraryEntries(libraryRoot: root)
         combined.wallpapers += InteractiveWallpapers.builtInEntries()
+        // Static wallpapers too: the picture Muro leaves behind is theirs.
+        combined.wallpapers += HostedStatics.libraryEntries(root: root)
         return combined
     }
 
@@ -2716,6 +2782,11 @@ final class AppStore: ObservableObject {
         // catalog path below would write them into `library.json` and copy
         // them into `Masters/`, which is exactly what this feature promised
         // not to do.
+        // A static wallpaper is one picture from Muro's own server.
+        if item.isStatic {
+            downloadStaticNow(item)
+            return
+        }
         if AppleAerials.isAppleID(item.id) {
             // A still picture comes as a zip to be cut in two. The ones macOS
             // draws have nothing to download.
@@ -3241,7 +3312,10 @@ final class AppStore: ObservableObject {
     /// only then does the file go. That is also why an applied wallpaper no
     /// longer has to be protected from deletion: this un-applies it first.
     func deleteWallpapers(_ items: [WallpaperItem]) {
-        let entries = items.filter { !AppleAerials.isAppleID($0.id) && !$0.isBuiltInInteractive }
+        // Static wallpapers leave every place they are shown, like a live
+        // wallpaper, and then their downloaded picture goes.
+        let statics = Set(items.filter { $0.isStatic && isStaticDownloaded($0) }.map(\.id))
+        let entries = items.filter { !AppleAerials.isAppleID($0.id) && !$0.isBuiltInInteractive && !$0.isStatic }
             .compactMap(\.local)
         // Muro's own interactive wallpapers come out of the Library at once,
         // and their files go with a live wallpaper's below.
@@ -3251,8 +3325,8 @@ final class AppStore: ObservableObject {
         // The person's own screen savers go to the Trash (owner, 2026-09-30).
         let savers = items.map(\.id).filter(canDeleteScreenSaver)
         if !savers.isEmpty { Task { await deleteScreenSavers(savers) } }
-        guard !entries.isEmpty || !apple.isEmpty || !builtIn.isEmpty else { return }
-        Task { await performDelete(entries, apple: apple, interactive: builtIn) }
+        guard !entries.isEmpty || !apple.isEmpty || !builtIn.isEmpty || !statics.isEmpty else { return }
+        Task { await performDelete(entries, apple: apple, interactive: builtIn, statics: statics) }
     }
 
     /// What the interface calls. Nothing deletes without an answer, so the
@@ -3265,6 +3339,7 @@ final class AppStore: ObservableObject {
             // Muro's own interactive wallpapers come out of the Library, and
             // their files with them. Download brings one back.
             if item.isBuiltInInteractive { return item.isDownloaded }
+            if item.isStatic { return isStaticDownloaded(item) }
             return (AppleAerials.isAppleID(item.id) ? appleDownloadFile(id: item.id) != nil : item.local != nil)
                 || canDeleteScreenSaver(item.id)
         }
@@ -3277,7 +3352,8 @@ final class AppStore: ObservableObject {
     }
 
     private func performDelete(
-        _ entries: [WallpaperEntry], apple: [String] = [], interactive: Set<String> = []
+        _ entries: [WallpaperEntry], apple: [String] = [], interactive: Set<String> = [],
+        statics: Set<String> = []
     ) async {
         // A shared copy is a hard link and would keep a deleted video on disk.
         ShareFile.clear()
@@ -3288,6 +3364,7 @@ final class AppStore: ObservableObject {
         let ids = Set(entries.map(\.id))
             .union(apple.filter { !macOSKeepsAerial($0) })
             .union(interactive)
+            .union(statics)
 
         // Whether the desktop was showing one of them, for step 5: a playlist
         // or automation playing there has to put something else on.
@@ -3440,6 +3517,15 @@ final class AppStore: ObservableObject {
         // playlist or automation holds them (owner, 2026-11-19). Download
         // brings one back.
         if !interactive.isEmpty { await deleteHostedInteractiveCopies(interactive) }
+
+        // Static wallpapers: their pictures, now that nothing shows them.
+        if !statics.isEmpty {
+            let root = self.root
+            await Task.detached(priority: .utility) {
+                for id in statics { HostedStatics.removeDownloads(id: id, root: root) }
+            }.value
+            staticFilesChanged()
+        }
 
         recomputeSize()
     }
@@ -3618,6 +3704,7 @@ final class AppStore: ObservableObject {
     func removeDownload(_ item: WallpaperItem) {
         // Apple's go through the same sheet and the same delete as the rest.
         if AppleAerials.isAppleID(item.id) { requestDelete([item], removingDownload: true); return }
+        if item.isStatic { requestDelete([item], removingDownload: true); return }
         guard item.remote != nil, item.local != nil else { return }
         requestDelete([item], removingDownload: true)
     }
@@ -3625,8 +3712,9 @@ final class AppStore: ObservableObject {
     // MARK: - Files
 
     func videoURL(for item: WallpaperItem, mode: String) -> URL? {
-        // An interactive wallpaper has a page, not a video (`pageURL`).
-        guard let entry = item.local, !entry.isInteractive else { return nil }
+        // An interactive wallpaper has a page, not a video (`pageURL`), and
+        // a static wallpaper a picture.
+        guard let entry = item.local, !entry.isInteractive, !entry.isStatic else { return nil }
         let url = resolveVideoURL(entry: entry, mode: mode, root: root)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
@@ -3646,6 +3734,9 @@ final class AppStore: ObservableObject {
             if let path = appleAerialThumbnailPath(id: item.id) { return path }
             return nil
         }
+        // A downloaded static has its card picture on disk; until then the
+        // one on the server is shown, like any wallpaper's.
+        if item.isStatic { return staticThumbnailPath(item) }
         if let entry = item.local {
             let path = resolveLibraryFile(entry.thumbnail, root: root).path
             return FileManager.default.fileExists(atPath: path) ? path : nil

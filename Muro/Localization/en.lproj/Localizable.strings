@@ -562,7 +562,7 @@
 "Other@@category" = "Other";
 "Yours@@category" = "Yours";
 "Screen Savers@@category" = "Screen Savers";
-"Interactive Wallpapers@@category" = "Interactive Wallpapers";
+"Interactive Wallpapers@@category" = "Interactive";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "Arabesque";
@@ -604,3 +604,9 @@
 "Community" = "Community";
 "Website ↗" = "Website ↗";
 "On" = "On";
+
+/* Static wallpapers (still pictures), 2026-11-27 */
+"Static Wallpapers@@category" = "Static";
+"STATIC" = "STATIC";
+"%@ static wallpapers#one" = "%@ static wallpaper";
+"%@ static wallpapers#other" = "%@ static wallpapers";

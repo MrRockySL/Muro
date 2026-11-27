@@ -29,12 +29,12 @@ struct ExploreView: View {
     /// Real values present in the catalog/library — the dropdowns only
     /// offer resolutions and frame rates that actually exist.
     private var resolutionOptions: [String] {
-        let present = Set(store.exploreItems.filter { !$0.isInteractive }.map(\.resolutionLabel))
+        let present = Set(store.exploreItems.filter { !$0.isInteractive && !$0.isStatic }.map(\.resolutionLabel))
         return ["4K", "1440p", "1080p"].filter(present.contains)
     }
 
     private var fpsOptions: [String] {
-        Set(store.exploreItems.filter { !$0.isInteractive }.map { "\(standardFrameRate($0.fps))" })
+        Set(store.exploreItems.filter { !$0.isInteractive && !$0.isStatic }.map { "\(standardFrameRate($0.fps))" })
             .sorted { (Int($0) ?? 0) > (Int($1) ?? 0) }
     }
 
@@ -43,11 +43,14 @@ struct ExploreView: View {
     /// The category tabs and the two filters narrow this order rather than
     /// replacing it, so a fresh batch is at the top of Cars as well as of All.
     private var filtered: [WallpaperItem] {
-        store.exploreItems.filter { item in
+        let found = store.exploreItems.filter { item in
             if category != "All", item.category != category { return false }
             // An interactive wallpaper has no resolution or frame rate: it is
             // drawn at the screen's own. A filter on either leaves it out.
             if narrowed, item.isInteractive { return false }
+            // Nor has a still picture a frame rate: the filters are about
+            // live wallpapers.
+            if narrowed, item.isStatic { return false }
             if resolution != "All", item.resolutionLabel != resolution { return false }
             if fps != "All", "\(standardFrameRate(item.fps))" != fps { return false }
             if !store.searchText.isEmpty,
@@ -58,6 +61,9 @@ struct ExploreView: View {
             }
             return true
         }
+        // The Static section keeps its own order: the pinned first (AJ's
+        // picture), then newest first (owner, 2026-11-27).
+        return category == HostedStatics.category ? store.staticOrder(found) : found
     }
 
     private var narrowed: Bool { resolution != "All" || fps != "All" }
@@ -200,6 +206,7 @@ struct ExploreView: View {
         let count = filtered.count
         if category == "All" { return LN("%@ wallpapers", count) }
         if category == InteractiveWallpapers.category { return LN("%@ interactive wallpapers", count) }
+        if category == HostedStatics.category { return LN("%@ static wallpapers", count) }
         return LN("%@ wallpapers in %@", count, categoryTitle(category))
     }
 

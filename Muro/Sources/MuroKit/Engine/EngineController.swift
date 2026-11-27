@@ -56,6 +56,14 @@ public final class EngineController {
     /// Runs only while a page is on a screen.
     private let pointer = PointerWatcher()
 
+    /// A screen showing a static wallpaper has one of these instead of a
+    /// video or a page (owner, 2026-11-27), apart from the moment one fades
+    /// in over the other.
+    private var stills: [String: StillWindowController] = [:]
+    /// What each still was built from: the screen's frame, the wallpaper and
+    /// its picture.
+    private var stillKeys: [String: String] = [:]
+
     public init() {}
 
     public func start() {
@@ -114,6 +122,7 @@ public final class EngineController {
         for controller in controllers.values { controller.stop() }
         controllers.removeAll()
         stopAllPages()
+        stopAllStills()
         updateResting()
         frames.removeAll()
         videos.removeAll()
@@ -159,16 +168,31 @@ public final class EngineController {
         manifest.wallpapers += AppleAerials.libraryEntries(libraryRoot: root)
         // Muro's own interactive wallpapers, which come inside the app.
         manifest.wallpapers += InteractiveWallpapers.builtInEntries()
+        // Static wallpapers downloaded here, which are never in library.json
+        // either. Read from their own folder.
+        manifest.wallpapers += HostedStatics.libraryEntries(root: root)
         let config = EngineConfig.load(root: root)
 
         var desired: [String: (screen: NSScreen, url: URL, frame: String,
                                video: String, pauseAfter: Int?, id: String, hasSound: Bool)] = [:]
         var desiredPages: [String: (screen: NSScreen, index: URL, key: String)] = [:]
+        var desiredStills: [String: (screen: NSScreen, picture: URL, key: String)] = [:]
         for screen in NSScreen.screens {
             guard let uuid = displayUUID(for: screen) else { continue }
             guard let assignment = config.assignment(forDisplayUUID: uuid),
                   let entry = manifest.wallpapers.first(where: { $0.id == assignment.wallpaperID })
             else { continue }
+            // A static wallpaper is a picture, shown by a controller of its
+            // own. This screen then wants no video and no page.
+            if entry.isStatic {
+                let picture = resolveLibraryFile(entry.file, root: root)
+                if FileManager.default.fileExists(atPath: picture.path) {
+                    desiredStills[uuid] = (screen, picture, "\(NSStringFromRect(screen.frame))|\(entry.id)|\(entry.file)")
+                } else {
+                    EngineLog.log("skipping \(entry.title) — missing picture \(picture.lastPathComponent)")
+                }
+                continue
+            }
             // An interactive wallpaper is a page, shown by a controller of its
             // own. This screen then wants no video.
             if entry.isInteractive {
@@ -207,6 +231,14 @@ public final class EngineController {
         // page has faded in over it, so it is taken out of the way here
         // rather than torn down below.
         for uuid in desiredPages.keys {
+            guard let controller = controllers[uuid] else { continue }
+            controllers[uuid] = nil
+            frames[uuid] = nil
+            videos[uuid] = nil
+            leaving[uuid, default: []].append { controller.stop() }
+        }
+        // The same for a screen going from a video to a static wallpaper.
+        for uuid in desiredStills.keys {
             guard let controller = controllers[uuid] else { continue }
             controllers[uuid] = nil
             frames[uuid] = nil
@@ -252,7 +284,15 @@ public final class EngineController {
             videos[uuid] = want.video
         }
 
-        reconcilePages(desiredPages, videoTookOver: Set(desired.keys))
+        // Stills before pages: a page fading in over a still takes it away
+        // once it is shown, and a screen with a still fading in keeps what
+        // it is covering until then.
+        reconcileStills(
+            desiredStills, videoTookOver: Set(desired.keys), pageTookOver: Set(desiredPages.keys)
+        )
+        reconcilePages(
+            desiredPages, videoTookOver: Set(desired.keys), stillTookOver: Set(desiredStills.keys)
+        )
 
         // A screen that went away is no longer resting.
         updateResting()
@@ -350,15 +390,19 @@ public final class EngineController {
     /// taken away once it is covered, so nothing blinks.
     private func reconcilePages(
         _ desired: [String: (screen: NSScreen, index: URL, key: String)],
-        videoTookOver: Set<String>
+        videoTookOver: Set<String>,
+        stillTookOver: Set<String> = []
     ) {
         // Pages no longer wanted. Where a video has just started on the same
         // screen, the page stays under it for a moment while its first frame
-        // arrives.
+        // arrives. Where a static wallpaper is fading in, it stays until that
+        // has covered it.
         for (uuid, page) in pages where desired[uuid] == nil {
             pages[uuid] = nil
             pageKeys[uuid] = nil
-            if videoTookOver.contains(uuid) {
+            if stillTookOver.contains(uuid) {
+                leaving[uuid, default: []].append { page.stop() }
+            } else if videoTookOver.contains(uuid) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) { page.stop() }
             } else {
                 page.stop()
@@ -376,8 +420,11 @@ public final class EngineController {
             EngineLog.log("applied \(want.index.deletingLastPathComponent().lastPathComponent) → \(want.screen.localizedName)")
         }
         // A screen whose page went before it ever faded in still has
-        // something waiting to be taken away.
-        for uuid in Array(leaving.keys) where pages[uuid] == nil { finishLeaving(uuid) }
+        // something waiting to be taken away. A screen with a still on it
+        // waits for that still instead.
+        for uuid in Array(leaving.keys) where pages[uuid] == nil && stills[uuid] == nil {
+            finishLeaving(uuid)
+        }
 
         if pages.isEmpty {
             pointer.stop()
@@ -390,6 +437,46 @@ public final class EngineController {
             }
             pointer.start()
         }
+    }
+
+    // MARK: - Static wallpapers
+
+    /// Brings every screen's still in line with what is wanted, the way
+    /// `reconcilePages` does for pages: a new still fades in over what the
+    /// screen showed, which goes once it is covered.
+    private func reconcileStills(
+        _ desired: [String: (screen: NSScreen, picture: URL, key: String)],
+        videoTookOver: Set<String>,
+        pageTookOver: Set<String>
+    ) {
+        for (uuid, still) in stills where desired[uuid] == nil {
+            stills[uuid] = nil
+            stillKeys[uuid] = nil
+            if pageTookOver.contains(uuid) {
+                leaving[uuid, default: []].append { still.stop() }
+            } else if videoTookOver.contains(uuid) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { still.stop() }
+            } else {
+                still.stop()
+            }
+        }
+        for (uuid, want) in desired where stillKeys[uuid] != want.key {
+            if let old = stills[uuid] {
+                leaving[uuid, default: []].append { old.stop() }
+            }
+            let still = StillWindowController(screen: want.screen, picture: want.picture)
+            still.onShown = { [weak self] in self?.finishLeaving(uuid) }
+            stills[uuid] = still
+            stillKeys[uuid] = want.key
+            still.start()
+            EngineLog.log("applied \(want.picture.lastPathComponent) → \(want.screen.localizedName)")
+        }
+    }
+
+    private func stopAllStills() {
+        for still in stills.values { still.stop() }
+        stills.removeAll()
+        stillKeys.removeAll()
     }
 
     private func finishLeaving(_ uuid: String) {

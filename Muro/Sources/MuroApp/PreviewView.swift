@@ -167,7 +167,10 @@ struct PreviewView: View {
     }
 
     @ViewBuilder private func remotePreview(_ item: WallpaperItem) -> some View {
-        if AppleAerials.isMacOSOnly(item.id) {
+        if item.isStatic {
+            // The card picture at once, the full picture once downloaded.
+            StaticPicture(item: item)
+        } else if AppleAerials.isMacOSOnly(item.id) {
             // The full-screen picture Muro keeps for each of these, which is
             // sharp; Apple's own are 214 to 356 pixels across.
             ApplePreviewPicture(item: item)
@@ -272,7 +275,7 @@ struct PreviewView: View {
                 fpsToggle(item)
             }
 
-            if item.isDownloaded, !isAerial, !item.isInteractive { pauseAfterPill(item) }
+            if item.isDownloaded, !isAerial, !item.isInteractive, !item.isStatic { pauseAfterPill(item) }
 
             HeartButton(item: item, size: 40)
 
@@ -317,6 +320,12 @@ struct PreviewView: View {
     private func metaLine(_ item: WallpaperItem) -> String {
         // macOS animates these when they appear and when the Mac is
         // unlocked, then holds them still, as it does in System Settings.
+        if item.isStatic {
+            let size = store.isStaticDownloaded(item)
+                ? formatSize(item.sizeBytes)
+                : L("%@ download", formatSize(item.sizeBytes))
+            return L("Still picture · %@×%@ · %@", item.width, item.height, size)
+        }
         if item.id.hasPrefix(AppleAerials.drawnPrefix) { return L("Drawn by macOS · moves when you unlock") }
         if item.id.hasPrefix(AppleScreenSavers.idPrefix) { return L("Screen saver · drawn live by macOS") }
         if item.id.hasPrefix(AppleAerials.picturePrefix) {
@@ -558,6 +567,17 @@ struct PreviewView: View {
             HStack(spacing: 10) {
                 glassButton(L("Download"), systemName: "arrow.down") {
                     store.downloadApplePictureNow(item)
+                }
+                capsuleButton(L("Set Wallpaper"), systemName: nil) {
+                    showDisplayPopover.toggle()
+                }
+            }
+        } else if item.isStatic, !store.isStaticDownloaded(item) {
+            // A static wallpaper the same way: Download fetches the picture,
+            // Set Wallpaper fetches it by itself when it has to.
+            HStack(spacing: 10) {
+                glassButton(L("Download"), systemName: "arrow.down") {
+                    store.downloadStaticNow(item)
                 }
                 capsuleButton(L("Set Wallpaper"), systemName: nil) {
                     showDisplayPopover.toggle()

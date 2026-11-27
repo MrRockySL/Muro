@@ -135,6 +135,10 @@ func ghPath() -> String {
 if CommandLine.arguments.dropFirst().first == "interactive" {
     publishInteractive(Array(CommandLine.arguments.dropFirst(2)))
 }
+// Static wallpapers too (StaticPublish.swift).
+if CommandLine.arguments.dropFirst().first == "statics" {
+    publishStatics(Array(CommandLine.arguments.dropFirst(2)))
+}
 
 let opts = parseOptions()
 if opts.reorderOnly && opts.replace {

@@ -169,6 +169,14 @@ final class DesktopStillService {
             anyWallpaper = true
             let still = stillURL(for: entry.id)
             guard FileManager.default.fileExists(atPath: still.path) else {
+                // A static wallpaper is its own still.
+                if entry.isStatic {
+                    let picture = resolveLibraryFile(entry.file, root: root)
+                    if FileManager.default.fileExists(atPath: picture.path) {
+                        missing.append((entry.id, picture))
+                    }
+                    continue
+                }
                 // An interactive wallpaper has no video to take a frame from.
                 // The picture it came with stands in for it.
                 if entry.isInteractive {
@@ -281,6 +289,12 @@ final class DesktopStillService {
             try FileManager.default.createDirectory(
                 at: directory, withIntermediateDirectories: true
             )
+            // A static wallpaper hands over its picture: made into a JPEG of
+            // the same size a frame of a video would be.
+            if HostedStatics.isStatic(id) {
+                try StaticStill.writeJPEG(from: video, to: destination, maxPixels: 3840)
+                return
+            }
             // An interactive wallpaper hands over a picture, not a video.
             if ["jpg", "jpeg"].contains(video.pathExtension.lowercased()) {
                 try FileManager.default.copyItem(at: video, to: destination)

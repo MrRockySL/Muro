@@ -541,7 +541,7 @@
 "Other@@category" = "기타";
 "Yours@@category" = "나의 항목";
 "Screen Savers@@category" = "화면 보호기";
-"Interactive Wallpapers@@category" = "인터랙티브 배경화면";
+"Interactive Wallpapers@@category" = "인터랙티브";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "아라베스크 양식";
@@ -582,3 +582,8 @@
 "Community" = "커뮤니티";
 "Website ↗" = "웹사이트 ↗";
 "On" = "켬";
+
+/* Static wallpapers (still pictures), 2026-11-27 */
+"Static Wallpapers@@category" = "정적";
+"STATIC" = "정적";
+"%@ static wallpapers#other" = "정적 배경화면 %@개";

@@ -156,7 +156,9 @@ struct MenuBarView: View {
                     .foregroundStyle(.white)
                 HStack(spacing: 5) {
                     Circle()
-                        .fill(store.isPaused || store.desktopResting ? Color.muroSecondaryOnMedia : Color.muroGreen)
+                        // A still picture never plays.
+                        .fill(item.isStatic || store.isPaused || store.desktopResting
+                              ? Color.muroSecondaryOnMedia : Color.muroGreen)
                         .frame(width: 5, height: 5)
                     Text(statusLine(item, on: named ? display : nil))
                         .font(.system(size: 8.5, weight: .semibold))
@@ -221,6 +223,11 @@ struct MenuBarView: View {
     /// `page` is the display a page is for; nil with one display, where the
     /// line is what it always was.
     private func statusLine(_ item: WallpaperItem, on page: DisplayInfo?) -> String {
+        // A static wallpaper neither plays nor has a frame rate or sound.
+        if item.isStatic {
+            guard page == nil else { return L("STATIC") }
+            return "\(L("STATIC")) · \(LN("%@ DISPLAYS", store.appliedDisplays(for: item.id).count))"
+        }
         let state = store.isPaused || store.desktopResting ? L("PAUSED") : L("PLAYING")
         // While something is scheduling the wallpaper, its name matters more
         // than the frame rate does.

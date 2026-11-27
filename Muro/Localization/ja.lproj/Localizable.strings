@@ -541,7 +541,7 @@
 "Other@@category" = "その他";
 "Yours@@category" = "自分のもの";
 "Screen Savers@@category" = "スクリーンセーバ";
-"Interactive Wallpapers@@category" = "インタラクティブ壁紙";
+"Interactive Wallpapers@@category" = "インタラクティブ";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "Arabesque";
@@ -582,3 +582,8 @@
 "Community" = "コミュニティ";
 "Website ↗" = "Web サイト ↗";
 "On" = "オン";
+
+/* Static wallpapers (still pictures), 2026-11-27 */
+"Static Wallpapers@@category" = "静止画";
+"STATIC" = "静止画";
+"%@ static wallpapers#other" = "%@ 枚の静止画壁紙";

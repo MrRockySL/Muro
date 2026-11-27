@@ -263,6 +263,7 @@ extension AppStore {
     /// A still picture of Apple's is ready once its side has been
     /// downloaded, though it is never a video Muro plays.
     func isOnThisMac(_ item: WallpaperItem) -> Bool {
+        if item.isStatic { return isStaticDownloaded(item) }
         if item.id.hasPrefix(AppleAerials.picturePrefix) { return appleDownloadFile(id: item.id) != nil }
         return item.isDownloaded
     }
@@ -295,7 +296,9 @@ extension AppStore {
     var scheduleItems: [WallpaperItem] {
         // Not interactive wallpapers: a playlist can play on the lock screen
         // and the screen saver, where those cannot go.
-        localItems.filter { !$0.isInteractive } + downloadedAppleItems
+        // Nor static wallpapers, for now: a lock screen playlist step plays
+        // a video, and a static has only its picture there.
+        localItems.filter { !$0.isInteractive && !$0.isStatic } + downloadedAppleItems
     }
 
     /// Fetches one aerial from Apple's CDN, beside Muro's own wallpapers.

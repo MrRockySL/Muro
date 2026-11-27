@@ -563,7 +563,7 @@
 "Other@@category" = "Другое";
 "Yours@@category" = "Ваши";
 "Screen Savers@@category" = "Заставки";
-"Interactive Wallpapers@@category" = "Интерактивные обои";
+"Interactive Wallpapers@@category" = "Интерактивные";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "Арабеска";
@@ -604,3 +604,8 @@
 "Community" = "Сообщество";
 "Website ↗" = "Сайт ↗";
 "On" = "Вкл.";
+
+/* Static wallpapers (still pictures), 2026-11-27 */
+"Static Wallpapers@@category" = "Статичные";
+"STATIC" = "СТАТИЧНЫЕ";
+"%@ static wallpapers#other" = "Статичных обоев: %@";

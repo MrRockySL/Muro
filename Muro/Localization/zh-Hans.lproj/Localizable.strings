@@ -541,7 +541,7 @@
 "Other@@category" = "其他";
 "Yours@@category" = "你的";
 "Screen Savers@@category" = "屏幕保护程序";
-"Interactive Wallpapers@@category" = "互动墙纸";
+"Interactive Wallpapers@@category" = "互动";
 
 /* Apple's screen savers (Apple's own names) */
 "Arabesque@@saver" = "阿拉伯式花纹";
@@ -582,3 +582,8 @@
 "Community" = "社区";
 "Website ↗" = "网站 ↗";
 "On" = "开启";
+
+/* Static wallpapers (still pictures), 2026-11-27 */
+"Static Wallpapers@@category" = "静态";
+"STATIC" = "静态";
+"%@ static wallpapers#other" = "%@ 个静态墙纸";
