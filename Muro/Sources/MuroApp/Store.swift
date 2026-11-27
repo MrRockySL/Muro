@@ -2011,7 +2011,15 @@ final class AppStore: ObservableObject {
             entry = refreshed
         }
         ensureAerialThumbnail(entry)
-        let videoURL = resolveVideoURL(entry: entry, mode: resolvedMode, root: root)
+        // A static wallpaper plays its picture as a still video here, the one
+        // made for it when it is set by hand (`staticStillVideo`).
+        let videoURL: URL
+        if entry.isStatic {
+            guard let still = await staticStillVideo(for: entry) else { return }
+            videoURL = still
+        } else {
+            videoURL = resolveVideoURL(entry: entry, mode: resolvedMode, root: root)
+        }
         let thumbnailURL = resolveLibraryFile(entry.thumbnail, root: root)
         guard FileManager.default.fileExists(atPath: videoURL.path),
               FileManager.default.fileExists(atPath: thumbnailURL.path)

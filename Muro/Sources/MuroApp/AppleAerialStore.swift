@@ -295,10 +295,10 @@ extension AppStore {
     /// finds an aerial by its id, so nothing downstream had to change.
     var scheduleItems: [WallpaperItem] {
         // Not interactive wallpapers: a playlist can play on the lock screen
-        // and the screen saver, where those cannot go.
-        // Nor static wallpapers, for now: a lock screen playlist step plays
-        // a video, and a static has only its picture there.
-        localItems.filter { !$0.isInteractive && !$0.isStatic } + downloadedAppleItems
+        // and the screen saver, where those cannot go. Static wallpapers can
+        // (owner, 2026-11-27): there a step plays the still video made from
+        // the picture, as when one is set by hand (`performScheduledStep`).
+        localItems.filter { !$0.isInteractive } + downloadedAppleItems
     }
 
     /// Fetches one aerial from Apple's CDN, beside Muro's own wallpapers.
