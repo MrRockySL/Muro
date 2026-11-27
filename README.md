@@ -432,7 +432,7 @@ going and keep Muro free for everyone.
 <table>
 <tr>
 <td align="center" valign="top" width="160"><a href="https://github.com/deimosfr"><img src="assets/sponsors/deimosfr.png" width="72" alt="Pierre Mavro"><br><b>Pierre Mavro</b></a><br><sub>Muro's first sponsor.</sub></td>
-<td align="center" valign="top" width="160"><a href="https://github.com/aj-salafee"><img src="assets/sponsors/aj-salafee.png" width="72" alt="aj-salafee"><br><b>aj-salafee</b></a><br><sub>Muro's top sponsor.</sub></td>
+<td align="center" valign="top" width="160"><a href="https://github.com/aj-salafee"><img src="assets/sponsors/aj-salafee.png" width="72" alt="aj-salafee"><br><b>aj-salafee</b></a><br><sub>Muro's legendary sponsor.</sub></td>
 <td align="center" valign="top" width="160"><a href="https://github.com/alexblunck"><img src="assets/sponsors/alexblunck.png" width="72" alt="Alexander Blunck"><br><b>Alexander Blunck</b></a><br><sub>Muro's top sponsor.</sub></td>
 </tr>
 </table>
