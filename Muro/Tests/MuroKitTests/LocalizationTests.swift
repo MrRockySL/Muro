@@ -117,12 +117,13 @@ final class LocalizationTests: XCTestCase {
                 XCTAssertNotNil(english[key], "English is missing \(key)")
             }
         }
-        // And nothing in the table that the code no longer asks for. Categories
-        // and Apple's screen saver names are looked up by their stored names.
+        // And nothing in the table that the code no longer asks for. Categories,
+        // Apple's screen saver names and the colours of live wallpapers with
+        // colours are looked up by their stored names.
         let usedKeys = Set(used.map(\.key))
         for key in english.keys {
             let base = Self.base(key)
-            if base.hasSuffix("@@category") || base.hasSuffix("@@saver") { continue }
+            if base.hasSuffix("@@category") || base.hasSuffix("@@saver") || base.hasSuffix("@@color") { continue }
             XCTAssertTrue(usedKeys.contains(base), "English has a line nothing uses: \(key)")
         }
     }

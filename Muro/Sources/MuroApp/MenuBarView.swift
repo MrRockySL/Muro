@@ -154,6 +154,12 @@ struct MenuBarView: View {
                 Text(item.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
+                // Which colour is on, for a live wallpaper with colours
+                // (design, 2026-11-27).
+                if let colour = store.colorMember(for: item.id) {
+                    ColorNameLine(member: colour, size: 10.5)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
                 HStack(spacing: 5) {
                     Circle()
                         // A still picture never plays.

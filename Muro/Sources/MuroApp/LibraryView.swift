@@ -473,7 +473,8 @@ struct LibraryView: View {
                     item: item,
                     persistentTitle: true,
                     showsDelete: !selecting,
-                    selection: selecting ? $selected : nil
+                    selection: selecting ? $selected : nil,
+                    showsColorName: true
                 )
             }
         }

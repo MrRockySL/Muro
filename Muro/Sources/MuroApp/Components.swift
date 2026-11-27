@@ -1260,6 +1260,10 @@ struct WallpaperCard: View {
     /// Select mode: the card stops opening the preview and starts toggling a
     /// checkmark instead. `nil` means the grid is not in select mode at all.
     var selection: Binding<Set<String>>?
+    /// Library only: which colour a live wallpaper with colours is, under its
+    /// name, since several of its colours can be here at once (design,
+    /// 2026-11-27).
+    var showsColorName = false
 
     @State private var hovering = false
 
@@ -1390,6 +1394,10 @@ struct WallpaperCard: View {
                 Text(item.title)
                     .font(.system(size: 14.5, weight: .semibold))
                     .foregroundStyle(.white)
+                if showsColorName, let colour = store.colorMember(for: item.id) {
+                    ColorNameLine(member: colour, size: 11)
+                        .foregroundStyle(.white.opacity(0.8))
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 18)
@@ -1414,6 +1422,10 @@ struct WallpaperCard: View {
         } else if item.isStatic {
             // Always said on a static, new or not (owner, 2026-11-27).
             StaticBadge().padding(12)
+        } else if store.colorFamily(of: item.id) != nil {
+            // Always said on a live wallpaper with colours, with its own
+            // colours (owner, 2026-11-27).
+            ColorsBadge(colors: store.colorMembers(of: item.id).map(\.color)).padding(12)
         } else if store.isNew(item) {
             NewBadge().padding(12)
         } else if item.isInteractive {

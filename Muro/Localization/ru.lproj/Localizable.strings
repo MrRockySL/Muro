@@ -609,3 +609,19 @@
 "Static Wallpapers@@category" = "Статичные";
 "STATIC" = "СТАТИЧНЫЕ";
 "%@ static wallpapers#other" = "Статичных обоев: %@";
+
+/* Colour options for live wallpapers, 2026-11-27 */
+"Colors@@category" = "Цвета";
+"COLORS" = "ЦВЕТА";
+"%@ live wallpapers with colors#other" = "Живых обоев с цветами: %@";
+"Original" = "Исходный";
+"Color" = "Цвет";
+"%@ now" = "Сейчас: %@";
+"Blue@@color" = "Синий";
+"Red@@color" = "Красный";
+"Purple@@color" = "Фиолетовый";
+"Silver@@color" = "Серебряный";
+"Orange@@color" = "Оранжевый";
+"Pink@@color" = "Розовый";
+"Gold@@color" = "Золотой";
+"Green@@color" = "Зелёный";

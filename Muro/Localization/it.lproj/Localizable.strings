@@ -607,3 +607,20 @@
 "STATIC" = "STATICO";
 "%@ static wallpapers#one" = "%@ sfondo statico";
 "%@ static wallpapers#other" = "%@ sfondi statici";
+
+/* Colour options for live wallpapers, 2026-11-27 */
+"Colors@@category" = "Colori";
+"COLORS" = "COLORI";
+"%@ live wallpapers with colors#one" = "%@ sfondo animato con colori";
+"%@ live wallpapers with colors#other" = "%@ sfondi animati con colori";
+"Original" = "Originale";
+"Color" = "Colore";
+"%@ now" = "Ora: %@";
+"Blue@@color" = "Blu";
+"Red@@color" = "Rosso";
+"Purple@@color" = "Viola";
+"Silver@@color" = "Argento";
+"Orange@@color" = "Arancione";
+"Pink@@color" = "Rosa";
+"Gold@@color" = "Oro";
+"Green@@color" = "Verde";

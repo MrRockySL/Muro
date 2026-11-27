@@ -587,3 +587,19 @@
 "Static Wallpapers@@category" = "静态";
 "STATIC" = "静态";
 "%@ static wallpapers#other" = "%@ 个静态墙纸";
+
+/* Colour options for live wallpapers, 2026-11-27 */
+"Colors@@category" = "颜色";
+"COLORS" = "颜色";
+"%@ live wallpapers with colors#other" = "%@ 个多颜色动态墙纸";
+"Original" = "原色";
+"Color" = "颜色";
+"%@ now" = "当前：%@";
+"Blue@@color" = "蓝色";
+"Red@@color" = "红色";
+"Purple@@color" = "紫色";
+"Silver@@color" = "银色";
+"Orange@@color" = "橙色";
+"Pink@@color" = "粉色";
+"Gold@@color" = "金色";
+"Green@@color" = "绿色";

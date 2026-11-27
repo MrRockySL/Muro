@@ -202,6 +202,13 @@ struct HomeView: View {
                 .font(.system(size: 44, weight: .bold))
                 .foregroundStyle(.white)
                 .padding(.top, 10)
+            // Which colour is playing, for a live wallpaper with colours
+            // (design, 2026-11-27).
+            if let colour = store.colorMember(for: item.id) {
+                ColorNameLine(member: colour, size: 15)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.top, 6)
+            }
             HStack(spacing: 12) {
                 Text(item.metaLine)
                     .font(.system(size: 12.5, weight: .medium))

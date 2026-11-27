@@ -46,6 +46,10 @@ struct WallpaperItem: Identifiable, Equatable {
     /// shows a live wallpaper, listed under Static in Explore
     /// (`HostedStatics`).
     var isStatic: Bool { HostedStatics.isStatic(id) }
+    /// One of a live wallpaper's other colours (`HostedColors`): a live
+    /// wallpaper of its own, reached from its original's page, never listed
+    /// in Explore by itself.
+    var isColorVariant: Bool { HostedColors.isColor(id) }
     var resolutionLabel: String {
         width >= 3200 ? "4K" : (width >= 2200 ? "1440p" : "1080p")
     }
@@ -517,6 +521,7 @@ final class AppStore: ObservableObject {
         Task { await refreshCatalog() }
         Task { await refreshHostedInteractive() }
         Task { await refreshHostedStatics() }
+        Task { await refreshHostedColors() }
         Task { await checkForUpdatesIfDue() }
         // Reads Apple's wallpaper plists and may run pluginkit and restart
         // WallpaperAgent, so it must never sit on the launch path.
@@ -547,6 +552,7 @@ final class AppStore: ObservableObject {
                 await self?.refreshCatalog()
                 await self?.refreshHostedInteractive()
                 await self?.refreshHostedStatics()
+                await self?.refreshHostedColors()
                 await self?.checkForUpdatesIfDue()
             }
         }
@@ -584,6 +590,8 @@ final class AppStore: ObservableObject {
     private var cachedNewestFirstItems: [WallpaperItem]?
     private var cachedCategories: [String]?
 
+    private var cachedColorFamilies: [String: HostedColors.Family]?
+
     private func invalidateItemCache() {
         cachedItems = nil
         cachedItemsByID = nil
@@ -591,6 +599,21 @@ final class AppStore: ObservableObject {
         cachedLikedItems = nil
         cachedNewestFirstItems = nil
         cachedCategories = nil
+        cachedColorFamilies = nil
+    }
+
+    /// The live wallpapers with colours (`HostedColors`) whose original is in
+    /// the catalog, by the original's id.
+    var colorFamilies: [String: HostedColors.Family] {
+        if let cachedColorFamilies { return cachedColorFamilies }
+        let inCatalog = Set(catalog.map(\.id))
+        var out: [String: HostedColors.Family] = [:]
+        for family in hostedColors.wallpapers
+        where out[family.id] == nil && inCatalog.contains(family.id) && HostedColors.isUsable(family) {
+            out[family.id] = family
+        }
+        cachedColorFamilies = out
+        return out
     }
 
     /// A static wallpaper was downloaded or deleted, so its card changes
@@ -607,8 +630,14 @@ final class AppStore: ObservableObject {
         // published catalog.json would therefore crash every installed copy of
         // Muro at launch, with no way for the user to recover. Keep the first
         // entry and carry on instead.
+        // The other colours of a few live wallpapers, from their own list.
+        // Each is a live wallpaper of its own, so one downloaded here finds
+        // its entry below like any download.
+        let colorEntries = hostedColorsListURL.map {
+            HostedColors.catalogEntries(list: hostedColors, catalog: catalog, base: $0.deletingLastPathComponent())
+        } ?? []
         let remoteByID = Dictionary(
-            catalog.map { ($0.id, $0) },
+            (catalog + colorEntries).map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }
         )
         var seen = Set<String>()
@@ -659,6 +688,11 @@ final class AppStore: ObservableObject {
         for entry in downloadedStatics.values.sorted(by: { $0.title < $1.title })
         where seen.insert(entry.id).inserted {
             out.append(WallpaperItem(local: entry, remote: nil, liked: liked.contains(entry.id)))
+        }
+        // The colours not downloaded yet. Only their original's page leads to
+        // them; Explore lists the originals.
+        for remote in colorEntries where seen.insert(remote.id).inserted {
+            out.append(WallpaperItem(local: nil, remote: remote, liked: liked.contains(remote.id)))
         }
         for remote in catalog where !seen.contains(remote.id) {
             out.append(WallpaperItem(
@@ -711,7 +745,9 @@ final class AppStore: ObservableObject {
     /// is the catalog, and an import there added a "My Videos" pill and
     /// counted itself into the total (full check, 2026-10-01).
     var exploreItems: [WallpaperItem] {
-        newestFirstItems.filter { !$0.isPersonalImport }
+        // A live wallpaper's other colours are reached from its page, each
+        // original standing for all of its colours (owner, 2026-11-27).
+        newestFirstItems.filter { !$0.isPersonalImport && !$0.isColorVariant }
     }
 
     /// The most recent drop: every wallpaper sharing the newest publish date
@@ -723,7 +759,7 @@ final class AppStore: ObservableObject {
     /// after the NEW badges on it have faded.
     var latestDropItems: [WallpaperItem] {
         guard let newest = catalog.compactMap(\.publishedAt).max() else { return [] }
-        return newestFirstItems.filter { $0.remote?.publishedAt == newest }
+        return newestFirstItems.filter { $0.remote?.publishedAt == newest && !$0.isColorVariant }
     }
 
     /// How many wallpapers Muro's Pick draws. Three to a page, four pages.
@@ -764,7 +800,7 @@ final class AppStore: ObservableObject {
         let drop = Set(latestDropItems.map(\.id))
         // The person's own videos are not Muro's to pick; they stay in the
         // Library like everywhere else outside it.
-        let pool = items.filter { !drop.contains($0.id) && !$0.isPersonalImport }
+        let pool = items.filter { !drop.contains($0.id) && !$0.isPersonalImport && !$0.isColorVariant }
         let today = Calendar.current.startOfDay(for: Date())
         let drawnIDs = defaults.stringArray(forKey: "pickIDs") ?? []
         let sawCatalog = !catalog.isEmpty
@@ -925,6 +961,9 @@ final class AppStore: ObservableObject {
         }
         if let saved = HostedStatics.loadLocalList(root: root), saved != hostedStatics {
             hostedStatics = saved
+        }
+        if let saved = HostedColors.loadLocalList(root: root), saved != hostedColors {
+            hostedColors = saved
         }
         loadInteractiveLibrary()
         playlists = PlaylistStore.load(root: root)
@@ -1161,6 +1200,12 @@ final class AppStore: ObservableObject {
     /// The static wallpapers on the server (`HostedStatics`), as last read.
     /// Kept beside library.json, so Explore lists them offline too.
     var hostedStatics = HostedStatics.List() {
+        didSet { invalidateItemCache() }
+    }
+
+    /// The live wallpapers with colours (`HostedColors`), as last read.
+    /// Kept beside library.json, so the colours show offline too.
+    var hostedColors = HostedColors.List() {
         didSet { invalidateItemCache() }
     }
 
@@ -1609,6 +1654,15 @@ final class AppStore: ObservableObject {
         // like any live wallpaper (`applyStaticAfterDownload`).
         if item.isStatic, item.local == nil {
             applyStaticAfterDownload(
+                item, mode: mode, target: target, surface: surface, fromSchedule: fromSchedule
+            )
+            return
+        }
+        // A colour of a live wallpaper not downloaded yet, picked in the Set
+        // Wallpaper panel's dots: fetched first, then set the same way
+        // (`applyColorAfterDownload`).
+        if item.local == nil, item.remote != nil, colorFamily(of: item.id) != nil {
+            applyColorAfterDownload(
                 item, mode: mode, target: target, surface: surface, fromSchedule: fromSchedule
             )
             return

@@ -587,3 +587,19 @@
 "Static Wallpapers@@category" = "静止画";
 "STATIC" = "静止画";
 "%@ static wallpapers#other" = "%@ 枚の静止画壁紙";
+
+/* Colour options for live wallpapers, 2026-11-27 */
+"Colors@@category" = "カラー";
+"COLORS" = "カラー";
+"%@ live wallpapers with colors#other" = "%@ 枚のカラー付きライブ壁紙";
+"Original" = "オリジナル";
+"Color" = "カラー";
+"%@ now" = "現在: %@";
+"Blue@@color" = "ブルー";
+"Red@@color" = "レッド";
+"Purple@@color" = "パープル";
+"Silver@@color" = "シルバー";
+"Orange@@color" = "オレンジ";
+"Pink@@color" = "ピンク";
+"Gold@@color" = "ゴールド";
+"Green@@color" = "グリーン";

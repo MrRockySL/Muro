@@ -44,7 +44,13 @@ struct ExploreView: View {
     /// replacing it, so a fresh batch is at the top of Cars as well as of All.
     private var filtered: [WallpaperItem] {
         let found = store.exploreItems.filter { item in
-            if category != "All", item.category != category { return false }
+            if category == HostedColors.section {
+                // Not a category: the live wallpapers that have colours,
+                // whatever their own category is (owner, 2026-11-27).
+                if store.colorFamily(of: item.id) == nil { return false }
+            } else if category != "All", item.category != category {
+                return false
+            }
             // An interactive wallpaper has no resolution or frame rate: it is
             // drawn at the screen's own. A filter on either leaves it out.
             if narrowed, item.isInteractive { return false }
@@ -63,7 +69,10 @@ struct ExploreView: View {
         }
         // The Static section keeps its own order: the pinned first (AJ's
         // picture), then newest first (owner, 2026-11-27).
-        return category == HostedStatics.category ? store.staticOrder(found) : found
+        if category == HostedStatics.category { return store.staticOrder(found) }
+        // The Colors section keeps the list's order too.
+        if category == HostedColors.section { return store.colorOrder(found) }
+        return found
     }
 
     private var narrowed: Bool { resolution != "All" || fps != "All" }
@@ -120,14 +129,21 @@ struct ExploreView: View {
         // A category the catalog no longer has would leave the page filtered
         // to nothing, with no lit segment to say why.
         .onChange(of: store.categories) { _, list in
-            if category != "All", !list.contains(category) { category = "All" }
+            if category != "All", category != HostedColors.section, !list.contains(category) { category = "All" }
+        }
+        .onChange(of: store.hasColorOptions) { _, has in
+            if !has, category == HostedColors.section { category = "All" }
         }
     }
 
     // MARK: - Categories
 
+    /// The categories, then Colors last, after Static, while any live
+    /// wallpaper has colours (owner, 2026-11-27).
     private var categoryOptions: [PillOption] {
-        [PillOption("All", L("All", ctx: "filter"))] + store.categories.map { PillOption($0, categoryTitle($0)) }
+        [PillOption("All", L("All", ctx: "filter"))]
+            + store.categories.map { PillOption($0, categoryTitle($0)) }
+            + (store.hasColorOptions ? [PillOption(HostedColors.section, categoryTitle(HostedColors.section))] : [])
     }
 
     private var categorySegments: some View {
@@ -207,6 +223,7 @@ struct ExploreView: View {
         if category == "All" { return LN("%@ wallpapers", count) }
         if category == InteractiveWallpapers.category { return LN("%@ interactive wallpapers", count) }
         if category == HostedStatics.category { return LN("%@ static wallpapers", count) }
+        if category == HostedColors.section { return LN("%@ live wallpapers with colors", count) }
         return LN("%@ wallpapers in %@", count, categoryTitle(category))
     }
 

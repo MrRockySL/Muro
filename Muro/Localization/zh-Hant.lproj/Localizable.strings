@@ -587,3 +587,19 @@
 "Static Wallpapers@@category" = "靜態";
 "STATIC" = "靜態";
 "%@ static wallpapers#other" = "%@ 張靜態背景圖片";
+
+/* Colour options for live wallpapers, 2026-11-27 */
+"Colors@@category" = "顏色";
+"COLORS" = "顏色";
+"%@ live wallpapers with colors#other" = "%@ 張多顏色動態背景圖片";
+"Original" = "原色";
+"Color" = "顏色";
+"%@ now" = "目前：%@";
+"Blue@@color" = "藍色";
+"Red@@color" = "紅色";
+"Purple@@color" = "紫色";
+"Silver@@color" = "銀色";
+"Orange@@color" = "橙色";
+"Pink@@color" = "粉紅色";
+"Gold@@color" = "金色";
+"Green@@color" = "綠色";

@@ -587,3 +587,19 @@
 "Static Wallpapers@@category" = "정적";
 "STATIC" = "정적";
 "%@ static wallpapers#other" = "정적 배경화면 %@개";
+
+/* Colour options for live wallpapers, 2026-11-27 */
+"Colors@@category" = "색상";
+"COLORS" = "색상";
+"%@ live wallpapers with colors#other" = "색상이 있는 라이브 배경화면 %@개";
+"Original" = "원본";
+"Color" = "색상";
+"%@ now" = "현재 %@";
+"Blue@@color" = "파랑";
+"Red@@color" = "빨강";
+"Purple@@color" = "보라";
+"Silver@@color" = "실버";
+"Orange@@color" = "주황";
+"Pink@@color" = "분홍";
+"Gold@@color" = "골드";
+"Green@@color" = "초록";

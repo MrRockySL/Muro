@@ -71,15 +71,32 @@ struct PreviewView: View {
                     startPoint: .center, endPoint: .bottom
                 )
                 .allowsHitTesting(false)
-                pillBar(item)
-                    .padding(.bottom, 26)
+                VStack(spacing: 12) {
+                    // A live wallpaper with colours: its dots, above the bar
+                    // (design, 2026-11-27). While Set Wallpaper is open they
+                    // are in its panel instead.
+                    if store.colorFamily(of: item.id) != nil {
+                        ColorDotsBar(item: item)
+                            .opacity(showDisplayPopover ? 0 : 1)
+                            .allowsHitTesting(!showDisplayPopover)
+                            .animation(.easeOut(duration: 0.18), value: showDisplayPopover)
+                    }
+                    pillBar(item)
+                }
+                .padding(.bottom, 26)
             }
             .overlay(alignment: .topTrailing) { creditBadge(item) }
             .ignoresSafeArea()
             // Black behind a video, as in any player, on Light too.
             .background(Color.black)
-            .onAppear { prepareAerial() }
-            .onChange(of: itemID) { _, _ in prepareAerial() }
+            .onAppear {
+                prepareAerial()
+                store.prefetchColorPreviews(for: itemID)
+            }
+            .onChange(of: itemID) { _, _ in
+                prepareAerial()
+                store.prefetchColorPreviews(for: itemID)
+            }
         }
     }
 
@@ -128,8 +145,12 @@ struct PreviewView: View {
                     interactiveMedia(item, size: proxy.size)
                 } else if let url = store.videoURL(for: item, mode: store.previewMode) ??
                              store.videoURL(for: item, mode: "smooth") {
-                    // Downloaded → the real master, full quality.
+                    // Downloaded → the real master, full quality. One player
+                    // per file, so a colour dot crossfades from one colour to
+                    // the next instead of cutting to black between them.
                     LoopingPlayerView(url: url)
+                        .id(url)
+                        .transition(.opacity)
                 } else if item.id == BundledWallpaper.id,
                           let url = BundledWallpaper.videoURL {
                     // The bundled 4K is already on disk — never show it soft.
@@ -192,6 +213,7 @@ struct PreviewView: View {
             }
             if case .ready(let url) = loader.state {
                 LoopingPlayerView(url: url)
+                    .id(url)
                     .transition(.opacity)
             } else if loader.state == .loading {
                 ProgressView()
@@ -474,6 +496,21 @@ struct PreviewView: View {
     @ViewBuilder private func setButton(_ item: WallpaperItem) -> some View {
         if AppleAerials.isMacOSOnly(item.id) {
             macOSSetButton(item)
+        } else if showDisplayPopover, store.colorFamily(of: item.id) != nil, !item.isDownloaded {
+            // The panel is open and a colour dot moved the page to a colour
+            // not downloaded yet. The button is held at its width while the
+            // panel is open, and Download with Preview, or a download's
+            // progress, do not fit it: squeezed in, their words broke onto a
+            // line per letter and the whole bar grew tall (owner, 2026-11-27).
+            // It keeps Set Wallpaper's box instead; the card that was clicked
+            // shows the download in full.
+            if let progress = store.downloads[item.id] {
+                downloadingFace(progress)
+            } else {
+                capsuleButton(L("Set Wallpaper"), systemName: nil) {
+                    showDisplayPopover.toggle()
+                }
+            }
         } else if let progress = store.downloads[item.id] {
             HStack(spacing: 10) {
                 ProgressView(value: progress)
@@ -507,6 +544,9 @@ struct PreviewView: View {
             Text(L("Preparing 30 fps…"))
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
+                // Smaller, never cut short, when the open panel holds the
+                // button at Set Wallpaper's width.
+                .minimumScaleFactor(0.6)
                 .foregroundStyle(barInk.opacity(0.75))
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -603,6 +643,35 @@ struct PreviewView: View {
                 ProgressView().controlSize(.small).tint(barInk)
                 Text(L("Setting…"))
                     .font(.system(size: 13, weight: .semibold))
+            }
+        }
+        .fixedSize()
+        .foregroundStyle(barInk.opacity(0.82))
+        .padding(.horizontal, 22)
+        .padding(.vertical, 12)
+        .background(Capsule().fill(barInk.opacity(0.12)))
+    }
+
+    /// A colour downloading while the panel is open: a ring and how far it
+    /// is, in Set Wallpaper's own box, so the held button never changes size
+    /// (see `setButton`).
+    private func downloadingFace(_ progress: Double) -> some View {
+        ZStack {
+            Text(L("Set Wallpaper"))
+                .font(.system(size: 13, weight: .semibold))
+                .hidden()
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle().stroke(barInk.opacity(0.25), lineWidth: 2)
+                    Circle()
+                        .trim(from: 0, to: min(max(progress, 0), 1))
+                        .stroke(barInk, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
+                .frame(width: 13, height: 13)
+                Text("\(Int(progress * 100))%")
+                    .font(.system(size: 13, weight: .semibold))
+                    .monospacedDigit()
             }
         }
         .fixedSize()
@@ -725,8 +794,44 @@ struct ChooseDisplayPopover: View {
     static let ease = Animation.spring(response: 0.34, dampingFraction: 0.86)
 
     @EnvironmentObject var store: AppStore
-    let item: WallpaperItem
+    /// The wallpaper the panel opened for.
+    private let opened: WallpaperItem
     @Namespace private var surfaceNS
+    /// The last card a live wallpaper with colours was set from. A colour not
+    /// downloaded yet is downloaded first, which takes a while, and then a
+    /// lock screen or screen saver takes a few seconds more; that card says
+    /// so where the click was (owner, 2026-11-27: "I don't know whether it's
+    /// applying or not").
+    @State private var working: Working?
+
+    private struct Working: Equatable {
+        let id: String
+        let target: ApplyTarget
+        let surface: ApplySurface
+    }
+
+    /// What a card is busy with, said in place of its second line.
+    private enum CardBusy {
+        case downloading(Double)
+        case setting
+    }
+
+    init(item: WallpaperItem) {
+        opened = item
+    }
+
+    /// The wallpaper the panel is for now, read fresh each time. The window
+    /// keeps the panel it was first given, so a colour dot (in the panel or on
+    /// the page) changing the page's wallpaper would otherwise leave the panel
+    /// on the colour it opened with (design, 2026-11-27).
+    private var item: WallpaperItem {
+        if let id = store.previewItem?.id, id != opened.id,
+           HostedColors.familyID(of: id) == HostedColors.familyID(of: opened.id),
+           let now = store.item(id: id) {
+            return now
+        }
+        return opened
+    }
     /// Shown when someone on macOS 14 or 15 picks Lockscreen or Both. The
     /// pills used to be simply disabled with a small "26+" badge, which says
     /// there is a rule without ever saying what it is.
@@ -737,6 +842,11 @@ struct ChooseDisplayPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            // A live wallpaper with colours: its dots, so the next place can
+            // get another colour without closing this (design, 2026-11-27).
+            if store.colorFamily(of: item.id) != nil {
+                ColorPanelRow(item: item)
+            }
             // No Spacers. A `Spacer` carries a default minimum length of its
             // own, and two of them plus the extra gaps added 22pt to a row
             // that had 13pt of room, which is what wrapped "Lockscreen" onto
@@ -768,6 +878,11 @@ struct ChooseDisplayPopover: View {
         // No background of its own: `anchoredCard` draws it on the same glass
         // as every dropdown, with the same corner radius.
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Done once the place is set, so a later lock screen change from
+        // anywhere else never shows on this card.
+        .onChange(of: store.applyingLockScreen) { _, applying in
+            if !applying, let working, store.downloads[working.id] == nil { self.working = nil }
+        }
     }
 
     /// What the lock screen actually needs, said plainly, in the app's own
@@ -956,7 +1071,10 @@ struct ChooseDisplayPopover: View {
                     symbol: "display.2",
                     name: L("All Screens"),
                     sublabel: L("Every display"),
-                    applied: applied
+                    applied: applied,
+                    otherColor: applied ? nil
+                        : store.appliedOtherColor(of: item, surface: .screensaver, target: .all),
+                    busy: busy(for: .all)
                 )
             }
             .buttonStyle(.plain)
@@ -981,7 +1099,9 @@ struct ChooseDisplayPopover: View {
         symbol: String,
         name: String,
         sublabel: String,
-        applied: Bool
+        applied: Bool,
+        otherColor: ColorMember? = nil,
+        busy: CardBusy? = nil
     ) -> some View {
         VStack(spacing: 6) {
             Image(systemName: symbol)
@@ -998,7 +1118,9 @@ struct ChooseDisplayPopover: View {
                     .minimumScaleFactor(0.85)
             }
             .padding(.horizontal, 8)
-            if applied {
+            if let busy {
+                busyLine(busy)
+            } else if applied {
                 Text(L("Remove"))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color(hex: 0xFF6B6B))
@@ -1006,6 +1128,21 @@ struct ChooseDisplayPopover: View {
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Color(hex: 0xFF6B6B).opacity(0.13)))
                     .overlay(Capsule().strokeBorder(Color(hex: 0xFF6B6B).opacity(0.4), lineWidth: 1))
+            } else if let otherColor {
+                // Another colour of this live wallpaper is here now, and a
+                // click puts this one in its place (design, 2026-11-27).
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(otherColor.color)
+                        .overlay(Circle().strokeBorder(Color.muroInk.opacity(0.25), lineWidth: 0.5))
+                        .frame(width: 6, height: 6)
+                    Text(L("%@ now", otherColor.name))
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.muroSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+                .padding(.horizontal, 8)
             } else {
                 Text(sublabel)
                     .font(.system(size: 10))
@@ -1026,15 +1163,62 @@ struct ChooseDisplayPopover: View {
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
+    /// A card's download, drawn rather than macOS's own bar (which turns grey
+    /// in Muro's never-active windows), or the place being set.
+    @ViewBuilder private func busyLine(_ busy: CardBusy) -> some View {
+        switch busy {
+        case .downloading(let progress):
+            HStack(spacing: 5) {
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.muroInk.opacity(0.15))
+                    Capsule()
+                        .fill(Color.muroAccent)
+                        .frame(width: 40 * min(max(progress, 0), 1))
+                }
+                .frame(width: 40, height: 4)
+                Text(L("%@% of %@", Int(progress * 100), formatSize(item.sizeBytes)))
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.muroSecondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .padding(.horizontal, 8)
+        case .setting:
+            HStack(spacing: 5) {
+                ProgressView().controlSize(.mini)
+                Text(L("Setting…"))
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.muroSecondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+
     /// Applies without dismissing — people with several displays apply to
     /// them one after another; clicking outside the popover closes it.
     private func apply(_ target: ApplyTarget) {
+        if store.colorFamily(of: item.id) != nil {
+            working = Working(id: item.id, target: target, surface: store.applySurface)
+        }
         store.setWallpaper(
             item,
             mode: store.previewMode,
             target: target,
             surface: store.applySurface
         )
+    }
+
+    /// Whether the card for `target` is the one a colour is being set from,
+    /// and what it is waiting for: its download, then a lock screen or screen
+    /// saver being set.
+    private func busy(for target: ApplyTarget) -> CardBusy? {
+        guard let working, working.id == item.id, working.surface == store.applySurface,
+              working.target == target || working.target == .all
+        else { return nil }
+        if let progress = store.downloads[item.id] { return .downloading(progress) }
+        if store.applyingLockScreen, working.surface != .desktop { return .setting }
+        return nil
     }
 
     private func surfacePill(_ surface: ApplySurface) -> some View {
@@ -1148,7 +1332,10 @@ struct ChooseDisplayPopover: View {
                 symbol: display.symbolName,
                 name: display.displayName,
                 sublabel: display.kindLabel,
-                applied: appliedHere
+                applied: appliedHere,
+                otherColor: appliedHere ? nil
+                    : store.appliedOtherColor(of: item, surface: store.applySurface, target: .display(display.id)),
+                busy: busy(for: .display(display.id))
             )
         }
         .buttonStyle(.plain)

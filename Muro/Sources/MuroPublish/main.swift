@@ -136,6 +136,10 @@ if CommandLine.arguments.dropFirst().first == "interactive" {
     publishInteractive(Array(CommandLine.arguments.dropFirst(2)))
 }
 // Static wallpapers too (StaticPublish.swift).
+// And the other colours of a few live wallpapers (ColorPublish.swift).
+if CommandLine.arguments.dropFirst().first == "colors" {
+    publishColors(Array(CommandLine.arguments.dropFirst(2)))
+}
 if CommandLine.arguments.dropFirst().first == "statics" {
     publishStatics(Array(CommandLine.arguments.dropFirst(2)))
 }
